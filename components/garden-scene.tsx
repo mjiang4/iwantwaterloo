@@ -58,7 +58,7 @@ function World(props:Props){
  {[[-3.2,3.8],[3.6,.8],[-.55,-1.1]].map(([x,z],i)=><group key={i} position={[x,.15,z]} rotation={[0,i*.9,0]}><Box at={[0,.22,0]} size={[.66,.06,.24]} color="#b88e61"/><Box at={[0,.41,-.1]} size={[.66,.26,.045]} color="#b88e61"/>{[-.23,.23].map(n=><Box key={n} at={[n,.08,0]} size={[.045,.27,.2]} color="#607459"/>)}</group>)}
  {Array.from({length:65},(_,i)=>{const a=seeded(i+200)*Math.PI*2,r=4.5+seeded(i+400)*1.7;return <mesh key={i} position={[Math.sin(a)*r,.09,Math.cos(a)*r*.81]} scale={[.04+seeded(i)*.07,.055,.04]}><icosahedronGeometry args={[1,0]}/><meshStandardMaterial color={['#eae6a1','#f4f0cf','#a9b96e'][i%3]}/></mesh>;})}
  {props.ideas.slice(0,24).map((idea,i)=><Plant key={idea.id} idea={idea} index={i} selected={idea.id===props.selected} onSelect={()=>props.onSelect(idea.id)} motion={props.motion}/>)}</group>
- <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.85,0]} receiveShadow><planeGeometry args={[200,200]}/><shadowMaterial transparent opacity={.1}/></mesh>
+ <mesh rotation={[-Math.PI/2,0,0]} position={[0,-1.285,0]} receiveShadow><planeGeometry args={[200,200]}/><shadowMaterial transparent opacity={.1}/></mesh>
  <OrbitControls ref={controls} makeDefault enablePan={false} enableZoom={false} enableRotate={!coarse} minPolarAngle={.6} maxPolarAngle={1.15} minAzimuthAngle={-.3} maxAzimuthAngle={1.6} enableDamping={props.motion} dampingFactor={.1} target={[0,0,0]}/></>;
 }
 export default function GardenScene(props:Props){
