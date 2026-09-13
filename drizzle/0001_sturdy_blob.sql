@@ -1,0 +1,1 @@
+ALTER TABLE `ideas` ADD `tags` text DEFAULT '[]' NOT NULL;

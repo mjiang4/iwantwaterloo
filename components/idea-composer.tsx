@@ -1,12 +1,13 @@
 'use client';
 import { useRef, useState, type FormEvent } from 'react';
-import { ArrowUp, Check, Plus, X } from 'lucide-react';
+import { ArrowUp, Check, Plus, X, TreeDeciduous, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
-import { CATEGORIES, CONNECTIONS, ideaTitle, type Idea } from '@/lib/garden';
+import { CONNECTIONS, ideaTitle, type Idea } from '@/lib/garden';
+import {TagPicker} from './tag-picker';
 import type { PlantInput } from './garden-app';
 
 export function Choice({ value, onChange, label, items, id }: { value: string; onChange: (v: string) => void; label: string; items: { value: string; label: string }[]; id?: string }) {
@@ -16,9 +17,9 @@ export function Choice({ value, onChange, label, items, id }: { value: string; o
   </Select>;
 }
 
-export function IdeaComposer({ onShare, onRead, onPrivacy }: { onShare: (input: PlantInput) => Promise<Idea>; onRead: (idea: Idea) => void; onPrivacy: () => void }) {
+export function IdeaComposer({ onShare, onPrivacy, onGarden }: { onShare: (input: PlantInput) => Promise<Idea>; onPrivacy: () => void; onGarden: (idea?: Idea) => void }) {
   const [text, setText] = useState('');
-  const [category, setCategory] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [place, setPlace] = useState('');
   const [connection, setConnection] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -36,17 +37,16 @@ export function IdeaComposer({ onShare, onRead, onPrivacy }: { onShare: (input: 
     event.preventDefault();
     if (submitting.current) return;
     if (text.trim().length < 5) { setError('Add a little more detail.'); textarea.current?.focus(); return; }
-    if (!category) { setError('Choose a topic.'); document.getElementById('compose-topic')?.focus(); return; }
     submitting.current = true;
     setSaving(true);
     setError('');
     try {
-      const idea = await onShare({ title: ideaTitle(text), description: text.trim(), category, place, connection, consent: true, website: honeypot.current?.value || '' });
+      const idea = await onShare({ title: ideaTitle(text), description: text.trim(), tags, place, connection, consent: true, website: honeypot.current?.value || '' });
       setShared(idea);
       setText('');
       setPlace('');
       setConnection('');
-      setCategory('');
+      setTags([]);
       setDetailsOpen(false);
     } catch (e) { setError(e instanceof Error ? e.message : 'Couldn’t share. Try again.'); }
     finally { submitting.current = false; setSaving(false); }
@@ -58,16 +58,16 @@ export function IdeaComposer({ onShare, onRead, onPrivacy }: { onShare: (input: 
     <h1 id="compose-heading">What would make<br /><span>Waterloo better?</span></h1>
     <div className={`compose-shell ${focused ? 'is-focused' : ''} ${shared ? 'is-shared' : ''}`}>
       {shared ? <div className="share-success" role="status">
-        <span className="success-symbol"><Check size={26} strokeWidth={2} /></span>
+        <span className="success-symbol"><TreeDeciduous size={28} strokeWidth={1.6} /></span>
         <h2>Idea shared.</h2>
-        <p>{shared.title}</p>
-        <div className="success-actions"><Button variant="ghost" onClick={() => onRead(shared)}>View idea</Button><Button onClick={another}>Add another</Button></div>
+        <p>Your idea added a tree.</p>
+        <div className="success-actions"><Button variant="ghost" onClick={() => onGarden(shared)}>See your tree</Button><Button onClick={another}>Add another</Button></div>
       </div> : <form ref={form} onSubmit={submit} onFocus={() => setFocused(true)} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false); }}>
         <label className="sr-only" htmlFor="new-idea">Your idea for Waterloo</label>
-        <Textarea ref={textarea} id="new-idea" className="idea-input" value={text} onChange={e => { setText(e.target.value); if (error && category) setError(''); }} minLength={5} maxLength={1400} required placeholder="Your idea…" rows={3} disabled={saving} onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); form.current?.requestSubmit(); } }} aria-describedby={error ? 'compose-error' : 'sharing-notice'} />
+        <Textarea ref={textarea} id="new-idea" className="idea-input" value={text} onChange={e => { setText(e.target.value); if (error) setError(''); }} minLength={5} maxLength={1400} required placeholder="Your idea…" rows={3} disabled={saving} onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); form.current?.requestSubmit(); } }} aria-describedby={error ? 'compose-error' : 'sharing-notice'} />
         <div className="compose-actions">
           <div className="compose-options">
-            <Choice id="compose-topic" label="Topic" value={category} onChange={v => { setCategory(v); setError(''); }} items={[{ value: '', label: 'Topic' }, ...CATEGORIES.map(c => ({ value: c.id, label: c.short }))]} />
+            <TagPicker value={tags} onChange={setTags} disabled={saving} />
             <Popover open={detailsOpen} onOpenChange={setDetailsOpen}>
               <PopoverTrigger className={`details-trigger ${hasDetails ? 'has-details' : ''}`} disabled={saving}><Plus size={15} />Details{hasDetails && <Check size={12} />}</PopoverTrigger>
               <PopoverContent className="details-popover" align="start" sideOffset={12}>
@@ -83,7 +83,7 @@ export function IdeaComposer({ onShare, onRead, onPrivacy }: { onShare: (input: 
         <div className="honeypot" aria-hidden="true"><label htmlFor="garden-website">Website</label><input ref={honeypot} id="garden-website" tabIndex={-1} autoComplete="off" /></div>
       </form>}
     </div>
-    {!shared && <div className="compose-footnote"><span id="sharing-notice">Visible to visitors. <button onClick={onPrivacy}>Privacy</button></span>{text.length > 1200 && <span>{text.length}/1400</span>}</div>}
+    {!shared && <div className="compose-footnote"><span id="sharing-notice">Visible to visitors. <button onClick={onPrivacy}>Privacy</button></span><button className="tree-context" onClick={() => onGarden()}><Sprout size={13}/>1 idea = 1 tree</button>{text.length > 1200 && <span>{text.length}/1400</span>}</div>}
     {error && <p className="form-error" id="compose-error" role="alert">{error}<button aria-label="Dismiss error" onClick={() => setError('')}><X size={14} /></button></p>}
   </section>;
 }

@@ -1,4 +1,4 @@
-import {CATEGORIES,CONNECTIONS,type Category} from './garden';
+import {CATEGORIES,CONNECTIONS,normalizeTag,validTag,categoryForTags,LEGACY_TAGS,connectionGroup,type Category} from './garden';
 export class InputError extends Error{constructor(message:string,public status=400){super(message);}}
 export function identity(request:Request){
  const raw=request.headers.get('cookie')?.split(';').map(s=>s.trim()).find(s=>s.startsWith('garden_visitor='))?.slice(15);
@@ -23,11 +23,18 @@ export function validateIdea(raw:unknown){
  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new InputError('Please complete the idea form.');
  const v=raw as Record<string,unknown>;
  function field(name:string,max:number,min=0){if(v[name]!==undefined&&typeof v[name]!=='string')throw new InputError(`Please check ${name}.`);const t=String(v[name]??'').trim();if(t.length<min||t.length>max)throw new InputError(`${name==='title'?'Title':name==='description'?'Idea':name} must be ${min}–${max} characters.`);return t;}
- const title=field('title',90,5),description=field('description',1400,5),category=field('category',30,1),place=field('place',90),connection=field('connection',60);
- if(!CATEGORIES.some(c=>c.id===category))throw new InputError('Choose a topic.');
- if(connection&&!CONNECTIONS.some(c=>c===connection))throw new InputError('Choose a connection to Waterloo.');
+ const title=field('title',90,5),description=field('description',1400,5),category=field('category',30),place=field('place',90),connection=field('connection',60);
+ if(category&&!CATEGORIES.some(c=>c.id===category))throw new InputError('Choose a valid tag.');
+ if(v.tags!==undefined&&(!Array.isArray(v.tags)||v.tags.length>3||v.tags.some(t=>typeof t!=='string')))throw new InputError('Use up to 3 tags.');
+ const tags=v.tags===undefined?(LEGACY_TAGS[category]||[]):[...new Set((v.tags as string[]).map(normalizeTag))];
+ if(tags.some(t=>!validTag(t)))throw new InputError('Tags need 2–24 letters or numbers.');
+ if(connection&&!CONNECTIONS.some(c=>c===connectionGroup(connection)))throw new InputError('Choose a connection to Waterloo.');
  if(v.consent!==true)throw new InputError('Confirm sharing with visitors.');
  if(v.website)throw new InputError('We could not plant this idea. Please try again.');
- return {title,description,category:category as Category,place,connection};
+ return {title,description,category:(category||categoryForTags(tags)) as Category,tags,place,connection:connectionGroup(connection)};
 }
 export function failure(request:Request,id:string,error:unknown){if(!(error instanceof InputError))console.error('Garden storage operation failed',error instanceof Error?error.message:'Unknown');return response(request,id,{error:error instanceof InputError?error.message:'Couldn’t save or load this. Try again.'},error instanceof InputError?error.status:503);}
+
+// Legacy records remain intact; old category names become searchable tags.
+export const tagsSQL = "CASE WHEN i.tags != '[]' THEN i.tags ELSE CASE i.category WHEN 'nature' THEN '[\"parks\"]' WHEN 'mobility' THEN '[\"cycling\"]' WHEN 'homes' THEN '[\"housing\"]' WHEN 'culture' THEN '[\"arts\"]' WHEN 'learning' THEN '[\"learning\"]' WHEN 'business' THEN '[\"small-business\"]' ELSE '[]' END END";
+export const connectionSQL = "CASE i.connection WHEN 'I live here' THEN 'From Waterloo' WHEN 'I study here' THEN 'Studying in Waterloo' WHEN 'I visit' THEN 'Interested from elsewhere' ELSE i.connection END";
