@@ -75,6 +75,16 @@ export type Idea = {
   example: boolean;
   tags?: string[];
   plot?: number;
+  displayName?: string;
+  commentCount?: number;
+};
+export type GardenComment = {
+  id: string;
+  ideaId: string;
+  parentId: string | null;
+  body: string;
+  displayName: string;
+  createdAt: number;
 };
 export function categoryFor(id: string) {
   return CATEGORIES.find((c) => c.id === id) || CATEGORIES[0];

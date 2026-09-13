@@ -96,7 +96,8 @@ export function validateIdea(raw: unknown) {
     description = field('description', 1400, 5),
     category = field('category', 30),
     place = field('place', 90),
-    connection = field('connection', 60);
+    connection = field('connection', 60),
+    displayName = field('displayName', 60);
   if (category && !CATEGORIES.some((c) => c.id === category))
     throw new InputError('Choose a valid tag.');
   if (
@@ -134,6 +135,7 @@ export function validateIdea(raw: unknown) {
     tags,
     place,
     connection: connectionGroup(connection),
+    displayName: displayName || null,
   };
 }
 export function failure(request: Request, id: string, error: unknown) {

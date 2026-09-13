@@ -1,8 +1,12 @@
 # I want / Waterloo — interaction plan
 
-Status: proposal only · September 13, 2026
+Status: implemented on the development branch · September 13, 2026
 
-No features in this document have been implemented. The live site remains unchanged. `main` holds the current production source plus the existing GitHub license; `dev` adds this plan. Future implementation stays on development branches until explicitly approved for release.
+The core plan is now implemented for development review: support-grown trees,
+planting feedback, optional names, shareable idea links, nested replies,
+reporting, and the updated wordmark. The live site remains unchanged until this
+work is explicitly approved for release. Real-time presence and seasonal effects
+remain intentionally deferred as described below.
 
 ## Direction
 
@@ -18,13 +22,13 @@ One idea remains one tree. Likes add small flowers around its base, then a littl
 
 Proposed milestones, to tune in a prototype:
 
-| Likes | Appearance |
-| --- | --- |
-| 0 | Base tree |
-| 1–3 | 1–3 small blooms |
-| 4–9 | 5 blooms |
-| 10–24 | 8 blooms and one small leafy branch |
-| 25+ | 12 blooms and two small leafy branches |
+| Likes | Appearance                             |
+| ----- | -------------------------------------- |
+| 0     | Base tree                              |
+| 1–3   | 1–3 small blooms                       |
+| 4–9   | 5 blooms                               |
+| 10–24 | 8 blooms and one small leafy branch    |
+| 25+   | 12 blooms and two small leafy branches |
 
 These are capped visual stages, not one mesh per like forever. All trees retain a comparable height and footprint. The exact like count stays in the idea detail. Keep New and Random easy to reach so popularity does not monopolize attention.
 
@@ -74,13 +78,13 @@ Change the wordmark to “i want / waterloo”. Keep it a small home link, with 
 
 ## Other small improvements worth exploring
 
-| Idea | Benefit | Constraint |
-| --- | --- | --- |
-| Share an individual idea | Makes it easy to invite a response | Copy a stable link; no account required |
-| Gentle card-to-detail transition | Helps visitors retain their place | Short opacity/position change; no layout jump |
-| A small shuffle motion | Makes Random feel intentional | Animate the control, not the entire grid |
-| Return to your newly shared idea | Gives a clear sense of completion | Highlight once; never hijack scrolling |
-| Subtle tree variation | Gives each contribution a recognizable form | A few shared low-poly shapes, deterministically chosen |
+| Idea                             | Benefit                                     | Constraint                                             |
+| -------------------------------- | ------------------------------------------- | ------------------------------------------------------ |
+| Share an individual idea         | Makes it easy to invite a response          | Copy a stable link; no account required                |
+| Gentle card-to-detail transition | Helps visitors retain their place           | Short opacity/position change; no layout jump          |
+| A small shuffle motion           | Makes Random feel intentional               | Animate the control, not the entire grid               |
+| Return to your newly shared idea | Gives a clear sense of completion           | Highlight once; never hijack scrolling                 |
+| Subtle tree variation            | Gives each contribution a recognizable form | A few shared low-poly shapes, deterministically chosen |
 
 Prioritize planting feedback and individual links. Defer seasonal effects, particles and extra scenery: they add less value to suggesting ideas.
 

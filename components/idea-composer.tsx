@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState, useEffect, type FormEvent } from 'react';
+import { useRef, useState, useEffect, type SyntheticEvent } from 'react';
 import { ArrowUp, Check, Plus, X, TreeDeciduous, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -69,6 +69,7 @@ export function IdeaComposer({
   const [tags, setTags] = useState<string[]>([]);
   const [place, setPlace] = useState('');
   const [connection, setConnection] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const [error, setError] = useState('');
@@ -100,6 +101,11 @@ export function IdeaComposer({
         setConnection(
           CONNECTIONS.includes(draft.connection) ? draft.connection : '',
         );
+        setDisplayName(
+          typeof draft.displayName === 'string'
+            ? draft.displayName.slice(0, 60)
+            : '',
+        );
         if (
           typeof draft.submission?.key === 'string' &&
           typeof draft.submission?.payload === 'string'
@@ -112,7 +118,10 @@ export function IdeaComposer({
   useEffect(() => {
     if (!draftReady) return;
     try {
-      if (shared || (!text && !tags.length && !place && !connection))
+      if (
+        shared ||
+        (!text && !tags.length && !place && !connection && !displayName)
+      )
         sessionStorage.removeItem('waterloo-idea-draft');
       else
         sessionStorage.setItem(
@@ -122,14 +131,15 @@ export function IdeaComposer({
             tags,
             place,
             connection,
+            displayName,
             submission: submission.current,
           }),
         );
     } catch {}
-  }, [draftReady, text, tags, place, connection, shared]);
-  const hasDetails = Boolean(place || connection);
+  }, [draftReady, text, tags, place, connection, displayName, shared]);
+  const hasDetails = Boolean(place || connection || displayName);
 
-  async function submit(event: FormEvent) {
+  async function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current) return;
     if (text.trim().length < 5) {
@@ -147,6 +157,7 @@ export function IdeaComposer({
         tags,
         place,
         connection,
+        displayName,
         consent: true,
         website: honeypot.current?.value || '',
       };
@@ -161,6 +172,7 @@ export function IdeaComposer({
             tags,
             place,
             connection,
+            displayName,
             submission: submission.current,
           }),
         );
@@ -174,6 +186,7 @@ export function IdeaComposer({
       setText('');
       setPlace('');
       setConnection('');
+      setDisplayName('');
       setTags([]);
       setDetailsOpen(false);
     } catch (e) {
@@ -272,6 +285,14 @@ export function IdeaComposer({
                     <PopoverTitle className="popover-heading">
                       Optional details
                     </PopoverTitle>
+                    <label htmlFor="idea-name">Your name · optional</label>
+                    <Input
+                      id="idea-name"
+                      maxLength={60}
+                      placeholder="Shown publicly"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                    />
                     <label htmlFor="idea-place">Place</label>
                     <Input
                       id="idea-place"

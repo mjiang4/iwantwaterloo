@@ -34,6 +34,11 @@ export async function GET(request: Request) {
       garden = url.searchParams.get('garden') === '1';
     const where: string[] = ['1=1'],
       args: (string | number)[] = [];
+    const exactId = url.searchParams.get('id');
+    if (exactId) {
+      where.push('i.id = ?');
+      args.push(exactId.slice(0, 64));
+    }
     if (category !== 'all') {
       where.push('i.category = ?');
       args.push(category);
@@ -76,7 +81,7 @@ export async function GET(request: Request) {
     const [rows, count] = await db.batch<Record<string, unknown>>([
       db
         .prepare(
-          `SELECT i.id,i.title,i.description,i.category,i.tags,i.rowid + 5 AS plot,i.place,${connectionSQL} AS connection,i.created_at AS createdAt,(SELECT count(*) FROM supports s WHERE s.idea_id=i.id) AS waters,EXISTS(SELECT 1 FROM supports s WHERE s.idea_id=i.id AND s.visitor_id=?) AS watered FROM ideas i WHERE ${clause}${pageClause} ORDER BY ${garden ? 'i.rowid' : order} ${garden ? 'LIMIT 24' : 'LIMIT 50 OFFSET ?'}`,
+          `SELECT i.id,i.title,i.description,i.category,i.tags,i.rowid + 5 AS plot,i.place,${connectionSQL} AS connection,i.display_name AS displayName,i.created_at AS createdAt,(SELECT count(*) FROM supports s WHERE s.idea_id=i.id) AS waters,(SELECT count(*) FROM comments c WHERE c.idea_id=i.id AND c.moderation_state='visible') AS commentCount,EXISTS(SELECT 1 FROM supports s WHERE s.idea_id=i.id AND s.visitor_id=?) AS watered FROM ideas i WHERE ${clause}${pageClause} ORDER BY ${garden ? 'i.rowid' : order} ${garden ? 'LIMIT 24' : 'LIMIT 50 OFFSET ?'}`,
         )
         .bind(id, ...args, ...pageArgs),
       db
@@ -121,7 +126,7 @@ export async function POST(request: Request) {
       if (!submissionKey) return null;
       const row = await db
         .prepare(
-          'SELECT i.id,i.title,i.description,i.category,i.tags,i.place,i.connection,i.rowid+5 AS plot,i.created_at AS createdAt,(SELECT count(*) FROM supports WHERE idea_id=i.id) AS waters,EXISTS(SELECT 1 FROM supports WHERE idea_id=i.id AND visitor_id=?) AS watered FROM ideas i WHERE submission_key=?',
+          "SELECT i.id,i.title,i.description,i.category,i.tags,i.place,i.connection,i.display_name AS displayName,i.rowid+5 AS plot,i.created_at AS createdAt,(SELECT count(*) FROM supports WHERE idea_id=i.id) AS waters,(SELECT count(*) FROM comments WHERE idea_id=i.id AND moderation_state='visible') AS commentCount,EXISTS(SELECT 1 FROM supports WHERE idea_id=i.id AND visitor_id=?) AS watered FROM ideas i WHERE submission_key=?",
         )
         .bind(id, submissionKey)
         .first<Record<string, unknown>>();
@@ -132,6 +137,7 @@ export async function POST(request: Request) {
         row.category !== fields.category ||
         row.place !== fields.place ||
         row.connection !== fields.connection ||
+        row.displayName !== fields.displayName ||
         row.tags !== JSON.stringify(fields.tags)
       )
         throw new InputError(
@@ -150,7 +156,7 @@ export async function POST(request: Request) {
     await limitWrites(request, id, 'ideas');
     const result = await db
       .prepare(
-        'INSERT INTO ideas (id,title,description,category,tags,place,connection,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO ideas (id,title,description,category,tags,place,connection,display_name,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         ideaId,
@@ -160,6 +166,7 @@ export async function POST(request: Request) {
         JSON.stringify(fields.tags),
         fields.place,
         fields.connection,
+        fields.displayName,
         now,
         id,
         submissionKey,
@@ -187,6 +194,7 @@ export async function POST(request: Request) {
           createdAt: now,
           waters: 0,
           watered: false,
+          commentCount: 0,
           example: false,
         },
       },

@@ -17,6 +17,8 @@ import {
 import {
   Heart,
   Info,
+  Link as LinkIcon,
+  MessageCircle,
   Search,
   SlidersHorizontal,
   Sprout,
@@ -60,6 +62,7 @@ import { Choice, IdeaComposer } from './idea-composer';
 import { useGardenTools } from './garden-tools';
 import { GardenExplorer } from './garden-explorer';
 import { useTags } from './tag-picker';
+import { IdeaDiscussion } from './idea-discussion';
 export type PlantInput = {
   title: string;
   description: string;
@@ -70,6 +73,7 @@ export type PlantInput = {
   consent: boolean;
   website?: string;
   submissionKey?: string;
+  displayName?: string;
 };
 type Page = {
   ideas: Idea[];
@@ -179,7 +183,15 @@ function IdeaCard({
         <span className={idea.example ? 'example-badge' : 'idea-place'}>
           {idea.example ? 'Example' : idea.place || 'Waterloo'}
         </span>
-        <SupportButton idea={idea} onSupport={onSupport} pending={pending} />
+        <div className="idea-card-signals">
+          {Boolean(idea.commentCount) && (
+            <span aria-label={`${idea.commentCount} replies`}>
+              <MessageCircle size={14} />
+              {idea.commentCount}
+            </span>
+          )}
+          <SupportButton idea={idea} onSupport={onSupport} pending={pending} />
+        </div>
       </div>
     </article>
   );
@@ -204,6 +216,7 @@ function Garden() {
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [supportError, setSupportError] = useState('');
   const locks = useRef(new Set<string>());
+  const directLinkChecked = useRef(false);
   const small = useMedia('(max-width:760px)');
   const reduced = useMedia('(prefers-reduced-motion:reduce)');
   useEffect(() => {
@@ -237,6 +250,21 @@ function Garden() {
   const selectIdea = useCallback((idea: Idea) => {
     setSelected(idea);
     setSupportError('');
+    const url = new URL(window.location.href);
+    url.searchParams.set('idea', idea.id);
+    history.replaceState(null, '', url);
+  }, []);
+  useEffect(() => {
+    if (directLinkChecked.current) return;
+    const id = new URL(window.location.href).searchParams.get('idea');
+    if (!id) {
+      directLinkChecked.current = true;
+      return;
+    }
+    directLinkChecked.current = true;
+    void api<Page>(`/api/ideas?id=${encodeURIComponent(id)}`).then((page) => {
+      if (page.ideas[0]) setSelected(page.ideas[0]);
+    });
   }, []);
   const share = useCallback(
     async (input: PlantInput) => {
@@ -360,11 +388,11 @@ function Garden() {
           Suggest an idea
         </a>
         <header className="site-header">
-          <a className="brand" href="/" aria-label="Waterloo Ideas home">
+          <a className="brand" href="/" aria-label="I want Waterloo">
             <Sprout size={23} strokeWidth={1.8} />
             <span>
-              waterloo<span className="brand-divider">/</span>
-              <span className="brand-muted">ideas</span>
+              i want<span className="brand-divider">/</span>
+              <span className="brand-muted">waterloo</span>
             </span>
           </a>
           <div className="header-actions">
@@ -606,7 +634,12 @@ function Garden() {
         <Sheet
           open={!!selected}
           onOpenChange={(open) => {
-            if (!open) setSelected(null);
+            if (!open) {
+              setSelected(null);
+              const url = new URL(window.location.href);
+              url.searchParams.delete('idea');
+              history.replaceState(null, '', url);
+            }
           }}
         >
           <SheetContent
@@ -642,6 +675,18 @@ function Garden() {
                   {selected.place || 'Waterloo'}
                   {selected.connection ? ` · ${selected.connection}` : ''}
                 </SheetDescription>
+                {selected.displayName && (
+                  <Popover>
+                    <PopoverTrigger className="idea-byline">
+                      Shared by {selected.displayName}
+                    </PopoverTrigger>
+                    <PopoverContent className="author-card" align="start">
+                      <PopoverTitle>{selected.displayName}</PopoverTitle>
+                      <p>Contributed this idea to the Waterloo garden.</p>
+                      <small>Names are self-entered and not verified.</small>
+                    </PopoverContent>
+                  </Popover>
+                )}
                 {selected.description !== selected.title && (
                   <p className="detail-body">{selected.description}</p>
                 )}
@@ -652,12 +697,50 @@ function Garden() {
                     pending={pending.has(selected.id)}
                     large
                   />
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
+                      const url = `${location.origin}/?idea=${selected.id}`;
+                      if (navigator.share)
+                        await navigator.share({ title: selected.title, url });
+                      else await navigator.clipboard.writeText(url);
+                    }}
+                  >
+                    <LinkIcon size={16} /> Share
+                  </Button>
                 </div>
                 {supportError && (
                   <p className="form-error" role="alert">
                     {supportError}
                   </p>
                 )}
+                <IdeaDiscussion idea={selected} />
+                <button
+                  type="button"
+                  className="report-idea"
+                  onClick={async () => {
+                    try {
+                      await api('/api/reports', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          ideaId: selected.id,
+                          reason: 'Please review this idea.',
+                        }),
+                      });
+                      setSupportError(
+                        'Thanks. This idea was flagged for review.',
+                      );
+                    } catch (error) {
+                      setSupportError(
+                        error instanceof Error
+                          ? error.message
+                          : 'Couldn’t send the report.',
+                      );
+                    }
+                  }}
+                >
+                  Report this idea
+                </button>
               </div>
             )}
           </SheetContent>
@@ -669,10 +752,11 @@ function Garden() {
               Share suggestions for Waterloo. Everyone is welcome.
             </DialogDescription>
             <p>
-              Ideas, tags and optional details are public. Avoid sharing private
-              contact details. No account is needed. A browser cookie remembers
-              support; drafts stay in this tab. Temporary hashed network
-              identifiers help limit spam.
+              Ideas, replies, names, tags and optional details are public. Names
+              are self-entered and not verified. Avoid sharing private contact
+              details. No account is needed. A browser cookie remembers support;
+              drafts stay in this tab. Temporary hashed network identifiers help
+              limit spam.
             </p>
             <p>
               Support counts are not a representative poll. This is an
