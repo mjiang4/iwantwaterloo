@@ -15,6 +15,13 @@
       "when": 1789315437979,
       "tag": "0001_sturdy_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789316595814,
+      "tag": "0002_light_warbird",
+      "breakpoints": true
     }
   ]
 }
