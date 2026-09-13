@@ -196,6 +196,7 @@ function Garden() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [connection, setConnection] = useState('all');
   const [sort, setSort] = useState('newest');
+  const [shuffle, setShuffle] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Idea | null>(null);
@@ -210,11 +211,11 @@ function Garden() {
     return () => clearTimeout(timer);
   }, [query]);
   const list = useInfiniteQuery({
-    queryKey: ['ideas', tag, debouncedQuery, connection, sort],
+    queryKey: ['ideas', tag, debouncedQuery, connection, sort, shuffle],
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       api<Page>(
-        `/api/ideas?${new URLSearchParams({ tag, q: debouncedQuery, connection, sort, page: String(pageParam) })}`,
+        `/api/ideas?${new URLSearchParams({ tag, q: debouncedQuery, connection, sort, seed: String(shuffle), page: String(pageParam) })}`,
       ),
     getNextPageParam: (page) => page.nextPage,
     staleTime: 15000,
@@ -225,7 +226,7 @@ function Garden() {
     return filterIdeas(real, 'all', debouncedQuery, connection, sort, tag);
   }, [list.data, tag, debouncedQuery, connection, sort]);
   const total = list.data?.pages[0].total || 0;
-  const filtered = tag !== 'all' || connection !== 'all' || sort !== 'newest';
+  const filtered = tag !== 'all' || connection !== 'all';
   const clearFilters = useCallback(() => {
     setTag('all');
     setTagSearch('');
@@ -330,12 +331,10 @@ function Garden() {
     setView('ideas');
     requestAnimationFrame(() => {
       document.getElementById('new-idea')?.focus();
-      document
-        .getElementById('compose-heading')
-        ?.scrollIntoView({
-          behavior: reduced ? 'instant' : 'smooth',
-          block: 'center',
-        });
+      document.getElementById('compose-heading')?.scrollIntoView({
+        behavior: reduced ? 'instant' : 'smooth',
+        block: 'center',
+      });
     });
   }
   function showGarden(idea?: Idea) {
@@ -343,12 +342,10 @@ function Garden() {
     setGardenFocus(idea || null);
     setView('garden');
     requestAnimationFrame(() =>
-      document
-        .getElementById('garden-view')
-        ?.scrollIntoView({
-          behavior: reduced ? 'instant' : 'smooth',
-          block: 'start',
-        }),
+      document.getElementById('garden-view')?.scrollIntoView({
+        behavior: reduced ? 'instant' : 'smooth',
+        block: 'start',
+      }),
     );
   }
 
@@ -454,16 +451,6 @@ function Garden() {
                           ...CONNECTIONS.map((c) => ({ value: c, label: c })),
                         ]}
                       />
-                      <label>Sort</label>
-                      <Choice
-                        label="Sort ideas"
-                        value={sort}
-                        onChange={setSort}
-                        items={[
-                          { value: 'newest', label: 'Newest' },
-                          { value: 'watered', label: 'Most supported' },
-                        ]}
-                      />
                       <div className="filter-actions">
                         <Button variant="ghost" onClick={clearFilters}>
                           Reset
@@ -477,6 +464,31 @@ function Garden() {
                 </div>
               }
             </div>
+            {view === 'ideas' && (
+              <div className="idea-sort" role="group" aria-label="Sort ideas">
+                {[
+                  ['newest', 'New'],
+                  ['watered', 'Most liked'],
+                  ['random', 'Random'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={sort === value}
+                    onClick={() => {
+                      setSort(value);
+                      if (value === 'random')
+                        setShuffle(
+                          (current) =>
+                            (current + 1 + Math.floor(Math.random() * 61)) % 64,
+                        );
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             {searchOpen && (
               <div className="search-wrap">
                 <Search size={17} />

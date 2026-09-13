@@ -101,12 +101,13 @@ export function filterIdeas(
             .includes(t),
         ),
     )
-    .sort(
-      (a, b) =>
-        Number(a.example) - Number(b.example) ||
-        (sort === 'watered' ? b.waters - a.waters : 0) ||
-        b.createdAt - a.createdAt ||
-        a.id.localeCompare(b.id),
+    .sort((a, b) =>
+      sort === 'random'
+        ? 0
+        : Number(a.example) - Number(b.example) ||
+          (sort === 'watered' ? b.waters - a.waters : 0) ||
+          b.createdAt - a.createdAt ||
+          a.id.localeCompare(b.id),
     );
 }
 

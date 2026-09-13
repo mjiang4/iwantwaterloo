@@ -25,7 +25,11 @@ export async function GET(request: Request) {
       category = url.searchParams.get('category') || 'all',
       query = (url.searchParams.get('q') || '').slice(0, 200),
       connection = url.searchParams.get('connection') || 'all',
-      sort = url.searchParams.get('sort') === 'watered' ? 'watered' : 'newest',
+      sort = url.searchParams.get('sort') || 'newest',
+      seed =
+        Math.abs(
+          parseInt((url.searchParams.get('seed') || '0').slice(0, 10), 10) || 0,
+        ) % 64,
       tag = url.searchParams.get('tag') || 'all',
       garden = url.searchParams.get('garden') === '1';
     const where: string[] = ['1=1'],
@@ -58,7 +62,11 @@ export async function GET(request: Request) {
       order =
         sort === 'watered'
           ? 'waters DESC, i.created_at DESC, i.id'
-          : 'i.created_at DESC, i.id';
+          : sort === 'random'
+            ? // UUIDs supply random bits. Rotating them gives a stable shuffled order
+              // across pages and refreshes, without ORDER BY random() duplicating rows.
+              `substr(replace(i.id,'-',''),${(seed % 32) + 1}) || substr(replace(i.id,'-',''),1,${seed % 32}) ${seed < 32 ? 'ASC' : 'DESC'}, i.id`
+            : 'i.created_at DESC, i.id';
     const pageClause = garden
       ? ' AND i.rowid + 5 >= ? AND i.rowid + 5 < ?'
       : '';
