@@ -22,3 +22,14 @@ export function filterIdeas(ideas:Idea[],category:string,query:string,connection
  const terms=query.toLowerCase().trim().split(/\s+/).filter(Boolean);
  return ideas.filter(i=>(category==='all'||i.category===category)&&(connection==='all'||i.connection===connection)&&terms.every(t=>`${i.title} ${i.description} ${i.place}`.toLowerCase().includes(t))).sort((a,b)=>Number(a.example)-Number(b.example)||(sort==='watered'?b.waters-a.waters:0)||b.createdAt-a.createdAt||a.id.localeCompare(b.id));
 }
+
+// Keep the full suggestion; derive a compact card title without a second field.
+export function ideaTitle(text: string): string {
+  const clean = text.trim().replace(/\s+/g, ' ');
+  const first = clean.match(/^(.+?[.!?])(?:\s|$)/)?.[1];
+  if (first && first.length >= 5 && first.length <= 90) return first;
+  if (clean.length <= 90) return clean;
+  const fragment = clean.slice(0, 89);
+  const boundary = fragment.lastIndexOf(' ');
+  return (boundary > 45 ? fragment.slice(0, boundary) : fragment).trimEnd() + '…';
+}

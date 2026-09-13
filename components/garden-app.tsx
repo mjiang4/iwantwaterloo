@@ -1,85 +1,147 @@
 'use client';
-import {Component,lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState,type FormEvent,type ReactNode} from 'react';
-import {QueryClient,QueryClientProvider,useInfiniteQuery,useQuery,useQueryClient} from '@tanstack/react-query';
-import {ArrowRight,ArrowUpRight,BookOpen,Check,ChevronRight,Download,Droplets,Flower2,Info,Leaf,List,LoaderCircle,MapPin,Minus,Plus,RotateCcw,Search,Shuffle,Sprout,Users,X} from 'lucide-react';
-import {Button} from '@/components/ui/button';
-import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
-import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
-import {Sheet,SheetContent,SheetTitle,SheetDescription} from '@/components/ui/sheet';
-import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
-import {Input} from '@/components/ui/input';
-import {Textarea} from '@/components/ui/textarea';
-import {Checkbox} from '@/components/ui/checkbox';
-import {Switch} from '@/components/ui/switch';
-import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from '@/components/ui/table';
-import {CATEGORIES,CONNECTIONS,EXAMPLES,categoryFor,filterIdeas,type Idea} from '@/lib/garden';
-import {useGardenTools} from './garden-tools';
-const GardenScene=lazy(()=>import('./garden-scene'));
-export type PlantInput={title:string;description:string;category:string;place:string;connection:string;consent:boolean;website?:string};
-type Page={ideas:Idea[];examples:Idea[];total:number;nextPage:number|null};
-type Stats={ideas:number;browsers:number;waters:number;categories:{category:string;count:number}[];connections:{connection:string;count:number}[]};
-export async function api<T>(path:string,init?:RequestInit):Promise<T>{const res=await fetch(path,{...init,headers:{'Content-Type':'application/json',...init?.headers}});const data=await res.json() as T & {error?:string};if(!res.ok)throw new Error(data.error||'Something went wrong. Please try again.');return data;}
-function useMedia(query:string){const [matches,setMatches]=useState(false);useEffect(()=>{const m=matchMedia(query);setMatches(m.matches);const change=()=>setMatches(m.matches);m.addEventListener('change',change);return()=>m.removeEventListener('change',change);},[query]);return matches;}
-class SceneBoundary extends Component<{children:ReactNode;onFailure:()=>void},{failed:boolean}>{state={failed:false};static getDerivedStateFromError(){return {failed:true};}componentDidCatch(){this.props.onFailure();}render(){return this.state.failed?<div className="scene-fallback"><Leaf size={30}/><p>The garden is resting. Every idea is still in the list.</p></div>:this.props.children;}}
-function Choice({value,onChange,label,items}:{value:string;onChange:(v:string)=>void;label:string;items:{value:string;label:string}[]}){return <Select value={value} onValueChange={v=>{if(v!==null)onChange(v);}} items={items}><SelectTrigger className="choice" aria-label={label}><SelectValue/></SelectTrigger><SelectContent className="choice-menu">{items.map(i=><SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectContent></Select>;}
-function IdeaCard({idea,index,selected,onSelect,expanded=false}:{idea:Idea;index:number;selected:boolean;onSelect:()=>void;expanded?:boolean}){const c=categoryFor(idea.category);return <button className={`idea-card ${selected?'is-selected':''}`} onClick={onSelect}><span className="idea-top"><span className="idea-category" style={{color:c.color}}><span className="category-dot" style={{background:c.color}}/>{c.label}</span><span className="idea-number">{String(index+1).padStart(2,'0')}</span></span><h3>{idea.title}</h3>{expanded&&<p className="idea-excerpt">{idea.description}</p>}<span className="idea-meta"><span><MapPin size={13}/>{idea.place||'Waterloo'}</span>{idea.waters>0?<span><Droplets size={13}/>{idea.waters}</span>:<ArrowUpRight size={18}/>}</span><span className="idea-origin">{idea.example?'Illustrative idea':idea.connection||'Community idea'}</span></button>;}
-function EmptyIdeas({onPlant,onClear}:{onPlant:()=>void;onClear:()=>void}){return <div className="empty-ideas"><Sprout size={32}/><h3>Room for something new.</h3><p>No ideas match these filters yet.</p><div><Button variant="outline" onClick={onClear}>Clear filters</Button><Button onClick={onPlant}>Plant an idea</Button></div></div>;}
-function PlantForm({open,onOpenChange,onPlant}:{open:boolean;onOpenChange:(open:boolean)=>void;onPlant:(v:PlantInput)=>Promise<Idea>}){
- const [title,setTitle]=useState(''),[description,setDescription]=useState(''),[category,setCategory]=useState('nature'),[place,setPlace]=useState(''),[connection,setConnection]=useState(''),[consent,setConsent]=useState(false),[error,setError]=useState(''),[saving,setSaving]=useState(false),honeypot=useRef<HTMLInputElement>(null);
- async function submit(e:FormEvent){e.preventDefault();setError('');setSaving(true);try{await onPlant({title,description,category,place,connection,consent,website:honeypot.current?.value||''});setTitle('');setDescription('');setPlace('');setConnection('');setConsent(false);onOpenChange(false);}catch(e){setError(e instanceof Error?e.message:'Your idea could not be saved. Try again.');}finally{setSaving(false);}}
- return <Dialog open={open} onOpenChange={o=>{if(!saving)onOpenChange(o);}}><DialogContent className="plant-dialog"><div className="dialog-icon"><Sprout size={27}/></div><DialogTitle className="dialog-title">Every possibility starts somewhere.</DialogTitle><DialogDescription className="dialog-subtitle">A small wish. A big ambition. What would make Waterloo better?</DialogDescription><form onSubmit={submit} className="plant-form">
- <label htmlFor="idea-title">Give your idea a name <span>{title.length}/90</span></label><Input id="idea-title" value={title} onChange={e=>setTitle(e.target.value)} minLength={5} maxLength={90} required placeholder="Imagine if Waterloo had…" autoComplete="off"/>
- <label htmlFor="idea-description">Tell us a little more <span>{description.length}/1400</span></label><Textarea id="idea-description" value={description} onChange={e=>setDescription(e.target.value)} minLength={20} maxLength={1400} required placeholder="What could change? Who would it help? What might a first step look like?" rows={4}/>
- <label id="theme-label">Where should it grow?</label><Choice label="Idea theme" value={category} onChange={setCategory} items={CATEGORIES.map(c=>({value:c.id,label:c.label}))}/>
- <div className="form-two"><div><label htmlFor="idea-place">A place in mind? <span>Optional</span></label><Input id="idea-place" value={place} onChange={e=>setPlace(e.target.value)} maxLength={90} placeholder="A park, street, or across the city"/></div><div><label>Your connection <span>Optional</span></label><Choice label="Your connection to Waterloo" value={connection} onChange={setConnection} items={[{value:'',label:'Choose a connection'},...CONNECTIONS.map(c=>({value:c,label:c}))]}/></div></div>
- <div className="honeypot" aria-hidden="true"><label htmlFor="garden-website">Website</label><input ref={honeypot} id="garden-website" tabIndex={-1} autoComplete="off"/></div>
- <div className="consent-row"><Checkbox id="idea-consent" checked={consent} onCheckedChange={setConsent} required/><label htmlFor="idea-consent">I’m happy for this idea and my optional connection to be visible to garden visitors.</label></div>
- <p className="privacy-note">No name or email needed. Please leave out private information. This private preview stores your submission and an anonymous browser identifier. You don’t need to live in Waterloo to contribute.</p>
- {error&&<p className="form-error" role="alert">{error}</p>}<Button className="plant-button submit-idea" type="submit" disabled={saving||!consent}>{saving?<LoaderCircle className="spin" size={17}/>:<Sprout size={17}/>} {saving?'Planting your idea…':'Plant my idea'} {!saving&&<ArrowRight size={17}/>}</Button>
- </form></DialogContent></Dialog>;
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider, useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { BarChart3, Download, Heart, Info, Minus, Pause, Play, Plus, RotateCcw, Search, Shuffle, SlidersHorizontal, Sprout, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { CATEGORIES, CONNECTIONS, EXAMPLES, categoryFor, filterIdeas, type Idea } from '@/lib/garden';
+import { Choice, IdeaComposer } from './idea-composer';
+import { useGardenTools } from './garden-tools';
+const GardenScene = lazy(() => import('./garden-scene'));
+export type PlantInput = { title: string; description: string; category: string; place: string; connection: string; consent: boolean; website?: string };
+type Page = { ideas: Idea[]; examples: Idea[]; total: number; nextPage: number | null };
+type Stats = { ideas: number; browsers: number; waters: number; categories: { category: string; count: number }[]; connections: { connection: string; count: number }[] };
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+  const data = await res.json() as T & { error?: string };
+  if (!res.ok) throw new Error(data.error || 'Something went wrong. Try again.');
+  return data;
 }
-function GardenNotes({onCategory}:{onCategory:(c:string)=>void}){
- const stats=useQuery({queryKey:['stats'],queryFn:()=>api<Stats>('/api/stats'),staleTime:15000});const s=stats.data;
- return <div className="notes-view"><div className="notes-intro"><div><p className="eyebrow">THE BIGGER PICTURE</p><h2>Small ideas. <em>Shared possibilities.</em></h2><p>A place to listen, notice connections, and see what people are imagining.</p></div><a className="export-button" href="/api/export"><Download size={16}/> Export submissions</a></div>
- {stats.isError?<div className="error-banner" role="alert">Garden notes could not load. <button onClick={()=>stats.refetch()}>Try again</button></div>:<><div className="stat-grid">{[{label:'Ideas planted',value:s?.ideas,icon:<Sprout/>},{label:'Contributing browsers',value:s?.browsers,icon:<Users/>},{label:'Waters given',value:s?.waters,icon:<Droplets/>}].map(item=><div className="stat-card" key={item.label}><span>{item.icon}{item.label}</span><strong>{item.value??'—'}</strong><p>{item.label==='Contributing browsers'?'Anonymous browser identities, not verified people.':item.label==='Waters given'?'Support for community submissions.':'Real submissions. Examples are excluded.'}</p></div>)}</div>
- <div className="notes-columns"><section className="notes-card"><div className="section-title"><Flower2 size={21}/><h3>Growing themes</h3></div><Table><TableHeader><TableRow><TableHead>Theme</TableHead><TableHead className="count-cell">Ideas</TableHead></TableRow></TableHeader><TableBody>{CATEGORIES.map(c=><TableRow key={c.id}><TableCell><button className="theme-row" onClick={()=>onCategory(c.id)}><span className="category-dot" style={{background:c.color}}/>{c.label}<ChevronRight size={15}/></button></TableCell><TableCell className="count-cell">{s?.categories.find(x=>x.category===c.id)?.count||0}</TableCell></TableRow>)}</TableBody></Table></section>
- <section className="notes-card"><div className="section-title"><Users size={21}/><h3>Connected to Waterloo</h3></div><p className="note-copy">Connections people choose to share with their ideas.</p>{s?.connections.length?<ul className="connections-list">{s.connections.map(c=><li key={c.connection}><span>{c.connection}</span><strong>{c.count}</strong></li>)}</ul>:<div className="quiet-empty"><Leaf size={28}/><p>There’s room for every perspective.</p><span>Connections will appear as people share ideas.</span></div>}</section></div></>}
- <p className="notes-caveat"><Info size={17}/> This is an open suggestion box, not a representative survey. One person can use more than one browser or submit more than one idea. Optional connections are self-described; example ideas and their support are excluded from these totals and exports.</p></div>;
+function useMedia(query: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => { const m = matchMedia(query); setMatches(m.matches); const change = () => setMatches(m.matches); m.addEventListener('change', change); return () => m.removeEventListener('change', change); }, [query]);
+  return matches;
 }
-function Garden(){
- const client=useQueryClient(),[view,setView]=useState('garden'),[category,setCategory]=useState('all'),[query,setQuery]=useState(''),[debouncedQuery,setDebouncedQuery]=useState(''),[connection,setConnection]=useState('all'),[sort,setSort]=useState('newest'),[showExamples,setShowExamples]=useState(true),[selected,setSelected]=useState<Idea|null>(null),[plantOpen,setPlantOpen]=useState(false),[aboutOpen,setAboutOpen]=useState(false),[motion,setMotion]=useState(false),[zoom,setZoom]=useState(1),[reset,setReset]=useState(0),[sceneFailed,setSceneFailed]=useState(false),[supportBusy,setSupportBusy]=useState(false),[supportError,setSupportError]=useState(''),[justPlanted,setJustPlanted]=useState('');
- const small=useMedia('(max-width:760px)'),reduced=useMedia('(prefers-reduced-motion:reduce)');
- useEffect(()=>{let enabled=true;try{enabled=localStorage.getItem('garden-motion')!=='off';}catch{}setMotion(!matchMedia('(prefers-reduced-motion:reduce)').matches&&enabled);},[]);
- useEffect(()=>{if(reduced)setMotion(false);},[reduced]);
- useEffect(()=>{const timer=setTimeout(()=>setDebouncedQuery(query),250);return()=>clearTimeout(timer);},[query]);
- const list=useInfiniteQuery({queryKey:['ideas',category,debouncedQuery,connection,sort],initialPageParam:0,queryFn:({pageParam})=>api<Page>(`/api/ideas?${new URLSearchParams({category,q:debouncedQuery,connection,sort,page:String(pageParam)})}`),getNextPageParam:page=>page.nextPage,staleTime:15000});
- const ideas=useMemo(()=>{const real=list.data?.pages.flatMap(p=>p.ideas)||[];const samples=list.data?.pages[0].examples||(!list.data?filterIdeas(EXAMPLES,category,debouncedQuery,connection,sort):[]);return filterIdeas([...real,...(showExamples?samples:[])],category,debouncedQuery,connection,sort);},[list.data,showExamples,category,debouncedQuery,connection,sort]);
- const total=(list.data?.pages[0].total||0)+(showExamples?(list.data?.pages[0].examples.length??filterIdeas(EXAMPLES,category,debouncedQuery,connection).length):0);
- const clearFilters=useCallback(()=>{setCategory('all');setQuery('');setConnection('all');setSort('newest');setShowExamples(true);},[]);
- const onFailure=useCallback(()=>setSceneFailed(true),[]);
- const selectIdea=useCallback((idea:Idea)=>{setSelected(idea);setSupportError('');setJustPlanted('');},[]);
- const plant=useCallback(async(input:PlantInput)=>{const data=await api<{idea:Idea}>('/api/ideas',{method:'POST',body:JSON.stringify(input)});clearFilters();setView('garden');setPlantOpen(false);setSelected(data.idea);setJustPlanted(data.idea.id);setSupportError('');await Promise.all([client.invalidateQueries({queryKey:['ideas']}),client.invalidateQueries({queryKey:['stats']})]);return data.idea;},[client,clearFilters]);
- async function water(){if(!selected||supportBusy)return;setSupportBusy(true);setSupportError('');try{const data=await api<{id:string;waters:number;watered:boolean}>('/api/support',{method:'PUT',body:JSON.stringify({ideaId:selected.id,watered:!selected.watered})});setSelected(i=>i?.id===data.id?{...i,...data}:i);await Promise.all([client.invalidateQueries({queryKey:['ideas']}),client.invalidateQueries({queryKey:['stats']})]);}catch(e){setSupportError(e instanceof Error?e.message:'The water did not reach this idea. Try again.');}finally{setSupportBusy(false);}}
- useGardenTools({plant,explore:(q,c)=>{setQuery(q);setDebouncedQuery(q);setCategory(c);setView('ideas');}});
- const controls=<div className="filters"><div className="search-wrap"><Search size={17}/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Find an idea, place, or possibility…" aria-label="Search ideas"/>{query&&<button onClick={()=>setQuery('')} aria-label="Clear search"><X size={16}/></button>}</div><Choice label="Filter by connection" value={connection} onChange={setConnection} items={[{value:'all',label:'Every connection'},...CONNECTIONS.map(c=>({value:c,label:c}))]}/><Choice label="Sort ideas" value={sort} onChange={setSort} items={[{value:'newest',label:'Newest first'},{value:'watered',label:'Most watered'}]}/><label className="example-toggle"><Checkbox checked={showExamples} onCheckedChange={setShowExamples}/>Include examples</label></div>;
- const cards=(expanded=false)=>ideas.map((idea,i)=><IdeaCard key={idea.id} idea={idea} index={i} selected={selected?.id===idea.id} onSelect={()=>selectIdea(idea)} expanded={expanded}/>);
- const loadMore=list.hasNextPage&&<Button variant="outline" className="load-more" onClick={()=>list.fetchNextPage()} disabled={list.isFetchingNextPage}>{list.isFetchingNextPage?'Loading more…':'Load more ideas'}<Plus size={16}/></Button>;
- return <Tabs value={view} onValueChange={v=>setView(String(v))} className="garden-app"><a className="skip-link" href="#idea-reading">Skip to reading ideas</a><header className="site-header"><a className="brand" href="/" aria-label="Waterloo Garden home"><span className="brand-mark"><Sprout size={23}/></span><span>waterloo<span className="brand-light">garden</span></span></a><nav aria-label="Main navigation"><TabsList className="main-nav"><TabsTrigger value="garden"><Sprout size={16}/>The garden</TabsTrigger><TabsTrigger value="ideas"><List size={16}/>All ideas</TabsTrigger><TabsTrigger value="insights"><BookOpen size={16}/>Garden notes</TabsTrigger></TabsList></nav><Button className="plant-button" onClick={()=>setPlantOpen(true)}><Plus size={17}/> Plant an idea</Button></header>
- <main><div className="intro"><div><p className="eyebrow"><span className="status-dot"/> A LITTLE IMAGINATION. A LOT OF POSSIBILITY.</p><h1>{view==='garden'?<>What could <em>grow here?</em></>:view==='ideas'?<>A city of <em>possibilities.</em></>:<>Listen to <em>what’s growing.</em></>}</h1><p>{view==='garden'?'A living garden of ideas for Waterloo. Yours belongs here, too.':view==='ideas'?'Big ambitions and small everyday changes. There’s room for both.':'Different perspectives. Shared ground. A little more understanding.'}</p></div><button className="how-link" onClick={()=>setAboutOpen(true)}>Every idea starts with a seed <ArrowUpRight size={17}/></button></div>
- {view!=='insights'&&<div className="category-bar" aria-label="Filter ideas by theme"><button className={`category-chip ${category==='all'?'active':''}`} aria-pressed={category==='all'} onClick={()=>setCategory('all')}><Flower2 size={16}/> Everything</button>{CATEGORIES.map(c=><button key={c.id} className={`category-chip ${category===c.id?'active':''}`} aria-pressed={category===c.id} onClick={()=>setCategory(c.id)}><span className="category-dot" style={{background:c.color}}/>{c.short}</button>)}</div>}
- {list.isError&&view!=='insights'&&<div className="error-banner" role="alert">Community ideas could not load. Only illustrative ideas may be shown. <button onClick={()=>list.refetch()}>Try again</button></div>}
- <TabsContent value="garden" className="view-panel"><section className="garden-layout"><div className="garden-stage"><div className="stage-top"><span><MapPin size={14}/> WATERLOO, ONTARIO</span><span className="stage-pill"><span className="status-dot"/> Room for your idea</span></div><div className="scene" aria-label="Interactive miniature garden; the same ideas are available in the reading list"><SceneBoundary onFailure={onFailure}><Suspense fallback={<div className="scene-fallback"><Sprout size={30}/><p>The garden is taking root…</p><button className="text-button" onClick={()=>setView('ideas')}>Read ideas while you wait <ArrowRight size={14}/></button></div>}>{!sceneFailed?<GardenScene ideas={ideas} selected={selected?.id||null} onSelect={id=>{const idea=ideas.find(i=>i.id===id);if(idea)selectIdea(idea);}} motion={motion} zoom={zoom} reset={reset} onFailure={onFailure}/>:<div className="scene-fallback"><Leaf size={30}/><p>The garden is resting. Every idea is still available.</p><Button onClick={()=>setView('ideas')}>Read all ideas</Button></div>}</Suspense></SceneBoundary></div>
- <div className="camera-controls"><button className="round-button" aria-label="Zoom in" disabled={zoom>=1.4} onClick={()=>setZoom(z=>Math.min(1.4,z+.15))}><Plus size={17}/></button><button className="round-button" aria-label="Zoom out" disabled={zoom<=.7} onClick={()=>setZoom(z=>Math.max(.7,z-.15))}><Minus size={17}/></button><button className="round-button" aria-label="Reset garden view" onClick={()=>{setZoom(1);setReset(n=>n+1);}}><RotateCcw size={16}/></button></div>
- <div className="stage-bottom"><span><span className="drag-dot"/>{small?'Tap a flower to read an idea':'Drag to explore · Tap a flower to read'}</span><button className="surprise-button" disabled={!ideas.length} onClick={()=>selectIdea(ideas[Math.floor(Math.random()*ideas.length)])}><Shuffle size={16}/><span>Surprise me</span></button></div><div className="scene-caption">A little Waterloo. A world of possibility.</div></div>
- <aside className="idea-rail" id="idea-reading" tabIndex={-1}><div className="rail-heading"><div><p className="eyebrow">POSSIBILITIES, TAKING ROOT</p><h2>In the garden <span aria-live="polite">{total}</span></h2></div><Leaf size={22}/></div><p className="examples-note">{ideas.some(i=>!i.example)?'Community suggestions, alongside labelled examples.':'Illustrative ideas to get your imagination going.'}</p><div className="rail-list">{ideas.length?cards():<EmptyIdeas onPlant={()=>setPlantOpen(true)} onClear={clearFilters}/>}</div><button className="rail-footer" onClick={()=>setView('ideas')}>Explore all ideas <ArrowRight size={16}/></button></aside></section>
- <div className="garden-subfooter"><button className="text-button" onClick={()=>setAboutOpen(true)}><Info size={14}/> A poetic miniature, not a geographic map</button><label className="motion-control"><Switch checked={motion} onCheckedChange={v=>{setMotion(v);try{localStorage.setItem('garden-motion',v?'on':'off');}catch{}}}/>Garden motion</label>{total>24&&<span className="plant-cap">24 flowers shown · All {total} ideas in the list</span>}</div>
- </TabsContent>
- <TabsContent value="ideas" className="view-panel"><div id="idea-reading" tabIndex={-1}>{controls}<div className="list-heading"><p><strong>{total}</strong> {total===1?'possibility':'possibilities'} to explore</p><span>{list.isFetching&&!list.isFetchingNextPage?'Refreshing…':'A place for every perspective'}</span></div><div className="all-ideas-grid">{ideas.length?cards(true):<EmptyIdeas onPlant={()=>setPlantOpen(true)} onClear={clearFilters}/>}</div>{loadMore}</div></TabsContent>
- <TabsContent value="insights" className="view-panel"><GardenNotes onCategory={c=>{setCategory(c);setView('ideas');setQuery('');setConnection('all');}}/></TabsContent>
- <footer className="site-footer"><span><Sprout size={16}/> Built from little ideas. Open to everyone.</span><button onClick={()=>setAboutOpen(true)}>About this garden <ArrowUpRight size={13}/></button><span>Private preview <span className="footer-dot">·</span> Not a City of Waterloo service</span></footer></main>
- <Sheet open={!!selected} onOpenChange={o=>{if(!o)setSelected(null);}}><SheetContent side={small?'bottom':'right'} className="idea-sheet">{selected&&<><div className="sheet-flower" style={{background:categoryFor(selected.category).light,color:categoryFor(selected.category).color}}><Flower2 size={52} strokeWidth={1.1}/><span>{selected.example?'A SEED OF INSPIRATION':selected.waters>=5?'TAKING ROOT':'A NEW POSSIBILITY'}</span></div><div className="idea-detail"><span className="detail-category" style={{color:categoryFor(selected.category).color}}>{categoryFor(selected.category).label}</span><SheetTitle className="idea-title">{selected.title}</SheetTitle><SheetDescription className="detail-place"><MapPin size={15}/>{selected.place||'Waterloo'}{selected.example&&<span>Illustrative idea</span>}</SheetDescription>{justPlanted===selected.id&&<p className="planted-success" role="status"><Check size={17}/> Your idea is planted. Thanks for adding to Waterloo’s possibilities.</p>}<p className="detail-body">{selected.description}</p>{selected.connection&&<div className="connection-tag"><Users size={15}/>{selected.connection}</div>}<div className="idea-detail-footer"><Button className={`water-button ${selected.watered?'watered':''}`} onClick={water} disabled={supportBusy}>{supportBusy?<LoaderCircle className="spin" size={18}/>:selected.watered?<Check size={18}/>:<Droplets size={18}/>} {selected.watered?'Watered — thank you':'Water this idea'}<span>{selected.waters}</span></Button><p>{selected.watered?'Tap again to remove your support.':'A little encouragement helps an idea grow.'}</p>{supportError&&<p className="form-error" role="alert">{supportError}</p>}</div><p className="detail-fine">{selected.example?'This is an illustrative suggestion, not a public submission. Support for examples is kept out of community totals.':'Shared '+new Date(selected.createdAt).toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})+'. Support is limited to one per browser identity and does not verify a unique person.'}</p></div></>}</SheetContent></Sheet>
- <PlantForm open={plantOpen} onOpenChange={setPlantOpen} onPlant={plant}/>
- <Dialog open={aboutOpen} onOpenChange={setAboutOpen}><DialogContent className="about-dialog"><div className="dialog-icon"><Sprout size={27}/></div><DialogTitle className="dialog-title">A garden for what comes next.</DialogTitle><DialogDescription className="dialog-subtitle">A civic listening concept for Waterloo, Ontario. Everyone is welcome to imagine with us.</DialogDescription><div className="about-steps">{[{icon:<Flower2/>,title:'Wander a little',text:'Each numbered flower holds an idea. Tap it to read, or browse the same ideas in the list.'},{icon:<Droplets/>,title:'Give an idea a little water',text:'Watering is a simple show of support. Each browser identity gets one reversible water per idea.'},{icon:<Sprout/>,title:'Plant a possibility',text:'Share something you would love to see. Residents, students, visitors, business builders and investors all have a place here.'}].map(s=><div key={s.title}>{s.icon}<section><h3>{s.title}</h3><p>{s.text}</p></section></div>)}</div><div className="about-notice"><strong>About this private preview</strong><p>Examples are labelled and excluded from submission totals. Ideas and an anonymous browser identifier are saved; no name or email is collected. Optional connections are displayed with ideas. The illustration draws on Waterloo Park, Silver Lake and local academic courtyards; it is not a map.</p><p>This is not a City of Waterloo service or a representative poll. A public launch needs a named operator, a privacy and retention policy, and a moderation process.</p></div><Button className="plant-button" onClick={()=>{setAboutOpen(false);setPlantOpen(true);}}><Plus size={16}/> Plant an idea</Button></DialogContent></Dialog>
- </Tabs>;
+function IconButton({ label, onClick, children, pressed, disabled }: { label: string; onClick: () => void; children: ReactNode; pressed?: boolean; disabled?: boolean }) {
+  return <Tooltip><TooltipTrigger render={<button type="button" className="icon-button" aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onClick} />}>{children}</TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
 }
-export default function GardenApp(){const [client]=useState(()=>new QueryClient({defaultOptions:{queries:{retry:1,refetchOnWindowFocus:true}}}));return <QueryClientProvider client={client}><Garden/></QueryClientProvider>;}
+class SceneBoundary extends Component<{ children: ReactNode; onFailure: () => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() { this.props.onFailure(); }
+  render() { return this.state.failed ? <div className="scene-fallback">3D unavailable. Use the idea list.</div> : this.props.children; }
+}
+function SupportButton({ idea, onSupport, pending, large = false }: { idea: Idea; onSupport: (idea: Idea) => void; pending: boolean; large?: boolean }) {
+  return <button className={`support-button ${large ? 'support-large' : ''}`} data-supported={idea.watered} aria-pressed={idea.watered} aria-label={`${idea.watered ? 'Remove support for' : 'Support'} ${idea.title}. ${idea.waters} supports`} aria-disabled={pending} onClick={() => { if (!pending) onSupport(idea); }}><Heart size={large ? 18 : 15} fill={idea.watered ? 'currentColor' : 'none'} />{large && <span>{idea.watered ? 'Supported' : 'Support'}</span>}<span>{idea.waters}</span></button>;
+}
+function IdeaCard({ idea, onRead, onSupport, pending }: { idea: Idea; onRead: (idea: Idea) => void; onSupport: (idea: Idea) => void; pending: boolean }) {
+  const c = categoryFor(idea.category);
+  return <article className="idea-card">
+    <button className="idea-open" onClick={() => onRead(idea)}><span className="idea-topic">{c.short}</span><h3>{idea.title}</h3></button>
+    <div className="idea-card-bottom"><span className={idea.example ? 'example-badge' : 'idea-place'}>{idea.example ? 'Example' : idea.place || 'Waterloo'}</span><SupportButton idea={idea} onSupport={onSupport} pending={pending} /></div>
+  </article>;
+}
+function Overview({ onCategory }: { onCategory: (category: string) => void }) {
+  const stats = useQuery({ queryKey: ['stats'], queryFn: () => api<Stats>('/api/stats'), staleTime: 15000 });
+  const s = stats.data;
+  return <section className="overview"><div className="overview-heading"><h1>Overview</h1><a className="quiet-button" href="/api/export"><Download size={16} />Export</a></div>
+    {stats.isError ? <p className="form-error">Couldn’t load. <button onClick={() => stats.refetch()}>Retry</button></p> : <>
+      <div className="stat-grid">{[{ label: 'Ideas', value: s?.ideas }, { label: 'Browsers', value: s?.browsers }, { label: 'Supports', value: s?.waters }].map(item => <div key={item.label}><strong>{item.value ?? '—'}</strong><span>{item.label}</span></div>)}</div>
+      <div className="overview-columns"><section><h2>Topics</h2>{CATEGORIES.map(c => <button className="overview-row" key={c.id} onClick={() => onCategory(c.id)}><span>{c.short}</span><span>{s?.categories.find(x => x.category === c.id)?.count ?? 0}</span></button>)}</section><section><h2>Connections</h2>{s?.connections.length ? s.connections.map(c => <div className="overview-row" key={c.connection}><span>{c.connection}</span><span>{c.count}</span></div>) : <p className="empty-copy">None yet.</p>}</section></div>
+    </>}
+    <p className="overview-note">Examples excluded. Browser counts are not unique people. Connections are self-described.</p>
+  </section>;
+}
+function Garden() {
+  const client = useQueryClient();
+  const [view, setView] = useState('ideas');
+  const [category, setCategory] = useState('all');
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [connection, setConnection] = useState('all');
+  const [sort, setSort] = useState('newest');
+  const [showExamples, setShowExamples] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selected, setSelected] = useState<Idea | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [motion, setMotion] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [reset, setReset] = useState(0);
+  const [sceneFailed, setSceneFailed] = useState(false);
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const [supportError, setSupportError] = useState('');
+  const locks = useRef(new Set<string>());
+  const small = useMedia('(max-width:760px)');
+  const reduced = useMedia('(prefers-reduced-motion:reduce)');
+  useEffect(() => { let enabled = true; try { enabled = localStorage.getItem('garden-motion') !== 'off'; } catch {} setMotion(!matchMedia('(prefers-reduced-motion:reduce)').matches && enabled); }, []);
+  useEffect(() => { if (reduced) setMotion(false); }, [reduced]);
+  useEffect(() => { const timer = setTimeout(() => setDebouncedQuery(query), 200); return () => clearTimeout(timer); }, [query]);
+  const list = useInfiniteQuery({ queryKey: ['ideas', category, debouncedQuery, connection, sort], initialPageParam: 0, queryFn: ({ pageParam }) => api<Page>(`/api/ideas?${new URLSearchParams({ category, q: debouncedQuery, connection, sort, page: String(pageParam) })}`), getNextPageParam: page => page.nextPage, staleTime: 15000 });
+  const ideas = useMemo(() => {
+    const real = list.data?.pages.flatMap(p => p.ideas) || [];
+    const examples = list.data?.pages[0].examples || (!list.data ? filterIdeas(EXAMPLES, category, debouncedQuery, connection, sort) : []);
+    return filterIdeas([...real, ...(showExamples ? examples : [])], category, debouncedQuery, connection, sort);
+  }, [list.data, showExamples, category, debouncedQuery, connection, sort]);
+  const total = (list.data?.pages[0].total || 0) + (showExamples ? (list.data?.pages[0].examples.length ?? filterIdeas(EXAMPLES, category, debouncedQuery, connection).length) : 0);
+  const filtered = category !== 'all' || connection !== 'all' || sort !== 'newest' || !showExamples;
+  const clearFilters = useCallback(() => { setCategory('all'); setQuery(''); setConnection('all'); setSort('newest'); setShowExamples(true); }, []);
+  const onFailure = useCallback(() => setSceneFailed(true), []);
+  const selectIdea = useCallback((idea: Idea) => { setSelected(idea); setSupportError(''); }, []);
+  const share = useCallback(async (input: PlantInput) => {
+    const { idea } = await api<{ idea: Idea }>('/api/ideas', { method: 'POST', body: JSON.stringify(input) });
+    clearFilters();
+    setView('ideas');
+    await Promise.all([client.invalidateQueries({ queryKey: ['ideas'] }), client.invalidateQueries({ queryKey: ['stats'] })]);
+    return idea;
+  }, [client, clearFilters]);
+  const patchIdea = useCallback((id: string, fields: Pick<Idea, 'waters' | 'watered'>) => {
+    client.setQueriesData<InfiniteData<Page>>({ queryKey: ['ideas'] }, data => data ? { ...data, pages: data.pages.map(page => ({ ...page, ideas: page.ideas.map(i => i.id === id ? { ...i, ...fields } : i), examples: page.examples.map(i => i.id === id ? { ...i, ...fields } : i) })) } : data);
+    setSelected(i => i?.id === id ? { ...i, ...fields } : i);
+  }, [client]);
+  const support = useCallback(async (idea: Idea) => {
+    if (locks.current.has(idea.id)) return;
+    locks.current.add(idea.id); setPending(new Set(locks.current)); setSupportError('');
+    const previous = { waters: idea.waters, watered: idea.watered };
+    patchIdea(idea.id, { waters: Math.max(0, idea.waters + (idea.watered ? -1 : 1)), watered: !idea.watered });
+    try {
+      const data = await api<{ id: string; waters: number; watered: boolean }>('/api/support', { method: 'PUT', body: JSON.stringify({ ideaId: idea.id, watered: !idea.watered }) });
+      patchIdea(data.id, data); void client.invalidateQueries({ queryKey: ['stats'] });
+    } catch (e) { patchIdea(idea.id, previous); setSupportError(e instanceof Error ? e.message : 'Couldn’t save support. Try again.'); }
+    finally { locks.current.delete(idea.id); setPending(new Set(locks.current)); }
+  }, [client, patchIdea]);
+  useGardenTools({ plant: async input => { const idea = await share(input); setSelected(idea); return idea; }, explore: (q, c) => { setQuery(q); setDebouncedQuery(q); setCategory(c); setSearchOpen(Boolean(q)); setView('ideas'); } });
+  function focusComposer() { setView('ideas'); requestAnimationFrame(() => { document.getElementById('new-idea')?.focus(); document.getElementById('compose-heading')?.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'center' }); }); }
+  function toggleMotion() { setMotion(v => { try { localStorage.setItem('garden-motion', v ? 'off' : 'on'); } catch {} return !v; }); }
+  return <TooltipProvider delay={250}><Tabs value={view} onValueChange={v => setView(String(v))} className="garden-app">
+    <a className="skip-link" href="#new-idea">Suggest an idea</a>
+    <header className="site-header"><a className="brand" href="/" aria-label="Waterloo Ideas home"><Sprout size={23} strokeWidth={1.8} /><span>waterloo<span className="brand-divider">/</span><span className="brand-muted">ideas</span></span></a><div className="header-actions"><span className="preview-label">Private preview</span><IconButton label="Overview" onClick={() => setView(view === 'insights' ? 'ideas' : 'insights')} pressed={view === 'insights'}><BarChart3 size={18} /></IconButton><IconButton label="About and privacy" onClick={() => setAboutOpen(true)}><Info size={18} /></IconButton></div></header>
+    <main>
+      <div hidden={view === 'insights'}><IdeaComposer onShare={share} onRead={selectIdea} onPrivacy={() => setAboutOpen(true)} /></div>
+      <div className="explore-section">
+        <div className="explore-toolbar"><TabsList className="view-tabs"><TabsTrigger value="ideas">Ideas <span>{total}</span></TabsTrigger><TabsTrigger value="garden">Garden</TabsTrigger>{view === 'insights' && <TabsTrigger value="insights">Overview</TabsTrigger>}</TabsList>
+          {view !== 'insights' && <div className="explore-tools"><IconButton label="Search ideas" onClick={() => setSearchOpen(v => !v)} pressed={searchOpen}><Search size={18} /></IconButton><Popover open={filterOpen} onOpenChange={setFilterOpen}><PopoverTrigger className={`icon-button ${filtered ? 'has-filter' : ''}`} aria-label="Filter ideas"><SlidersHorizontal size={18} /></PopoverTrigger><PopoverContent className="filter-popover" align="end"><PopoverTitle className="popover-heading">Filter ideas</PopoverTitle><label>Topic</label><Choice label="Filter topic" value={category} onChange={setCategory} items={[{ value: 'all', label: 'All topics' }, ...CATEGORIES.map(c => ({ value: c.id, label: c.short }))]} /><label>Connection</label><Choice label="Filter connection" value={connection} onChange={setConnection} items={[{ value: 'all', label: 'Everyone' }, ...CONNECTIONS.map(c => ({ value: c, label: c }))]} /><label>Sort</label><Choice label="Sort ideas" value={sort} onChange={setSort} items={[{ value: 'newest', label: 'Newest' }, { value: 'watered', label: 'Most supported' }]} /><label className="checkbox-row"><Checkbox checked={showExamples} onCheckedChange={setShowExamples} />Show examples</label><div className="filter-actions"><Button variant="ghost" onClick={clearFilters}>Reset</Button><Button onClick={() => setFilterOpen(false)}>Done</Button></div></PopoverContent></Popover></div>}
+        </div>
+        {searchOpen && view !== 'insights' && <div className="search-wrap"><Search size={17} /><Input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search ideas" aria-label="Search ideas" /><IconButton label="Clear search" onClick={() => { setQuery(''); setSearchOpen(false); }}><X size={16} /></IconButton></div>}
+        {filtered && view !== 'insights' && <div className="active-filter"><span>{category === 'all' ? 'Filtered' : categoryFor(category).short}</span><button aria-label="Clear filters" onClick={clearFilters}><X size={13} /></button></div>}
+        {list.isError && view !== 'insights' && <p className="form-error" role="alert">Couldn’t load community ideas. <button onClick={() => list.refetch()}>Retry</button></p>}
+        {supportError && !selected && <p className="form-error" role="alert">{supportError}</p>}
+        <TabsContent value="ideas" className="view-panel"><section className="ideas-grid" aria-label="Ideas for Waterloo">{ideas.map(idea => <IdeaCard key={idea.id} idea={idea} onRead={selectIdea} onSupport={support} pending={pending.has(idea.id)} />)}{!ideas.length && <div className="empty-state"><p>No ideas yet.</p><Button variant="ghost" onClick={filtered || query ? clearFilters : focusComposer}>{filtered || query ? 'Clear filters' : 'Add the first'}</Button></div>}</section>{list.hasNextPage && <Button variant="ghost" className="load-more" onClick={() => list.fetchNextPage()} disabled={list.isFetchingNextPage}>{list.isFetchingNextPage ? 'Loading…' : 'More ideas'}</Button>}</TabsContent>
+        <TabsContent value="garden" className="view-panel"><div className="garden-stage"><div className="scene"><SceneBoundary onFailure={onFailure}><Suspense fallback={<div className="scene-fallback">Loading garden…</div>}>{sceneFailed ? <div className="scene-fallback"><Button variant="ghost" onClick={() => setView('ideas')}>View ideas</Button></div> : <GardenScene ideas={ideas} selected={selected?.id || null} onSelect={id => { const idea = ideas.find(i => i.id === id); if (idea) selectIdea(idea); }} motion={motion} zoom={zoom} reset={reset} onFailure={onFailure} />}</Suspense></SceneBoundary></div><div className="garden-controls"><IconButton label="Zoom in" onClick={() => setZoom(z => Math.min(1.4, z + .15))} disabled={zoom >= 1.4}><Plus size={16} /></IconButton><IconButton label="Zoom out" onClick={() => setZoom(z => Math.max(.7, z - .15))} disabled={zoom <= .7}><Minus size={16} /></IconButton><IconButton label="Reset view" onClick={() => { setZoom(1); setReset(n => n + 1); }}><RotateCcw size={16} /></IconButton><IconButton label={motion ? 'Pause motion' : 'Play motion'} onClick={toggleMotion}>{motion ? <Pause size={16} /> : <Play size={16} />}</IconButton><IconButton label="Random idea" disabled={!ideas.length} onClick={() => selectIdea(ideas[Math.floor(Math.random() * ideas.length)])}><Shuffle size={16} /></IconButton></div></div>{total > 24 && <button className="garden-limit" onClick={() => setView('ideas')}>View all {total} ideas</button>}</TabsContent>
+        <TabsContent value="insights" className="view-panel"><Overview onCategory={c => { clearFilters(); setCategory(c); setView('ideas'); }} /></TabsContent>
+      </div>
+    </main>
+    <Sheet open={!!selected} onOpenChange={open => { if (!open) setSelected(null); }}><SheetContent side={small ? 'bottom' : 'right'} className="idea-sheet">{selected && <div className="idea-detail"><span className="detail-topic">{categoryFor(selected.category).short}{selected.example && <span className="example-badge">Example</span>}</span><SheetTitle className="detail-title">{selected.title}</SheetTitle><SheetDescription className="detail-meta">{selected.place || 'Waterloo'}{selected.connection ? ` · ${selected.connection}` : ''}</SheetDescription>{selected.description !== selected.title && <p className="detail-body">{selected.description}</p>}<div className="detail-actions"><SupportButton idea={selected} onSupport={support} pending={pending.has(selected.id)} large /></div>{supportError && <p className="form-error" role="alert">{supportError}</p>}</div>}</SheetContent></Sheet>
+    <Dialog open={aboutOpen} onOpenChange={setAboutOpen}><DialogContent className="about-dialog"><DialogTitle>Waterloo Ideas</DialogTitle><DialogDescription>Share suggestions for Waterloo. Everyone is welcome.</DialogDescription><p>Ideas and optional details are visible to visitors. Avoid personal information. An anonymous browser identifier remembers support; no name or email is required.</p><p>Examples are labelled. Counts are not a representative poll. This private preview is not a City of Waterloo service.</p><Button onClick={() => setAboutOpen(false)}>Got it</Button></DialogContent></Dialog>
+  </Tabs></TooltipProvider>;
+}
+export default function GardenApp() {
+  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true } } }));
+  return <QueryClientProvider client={client}><Garden /></QueryClientProvider>;
+}

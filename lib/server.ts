@@ -23,11 +23,11 @@ export function validateIdea(raw:unknown){
  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new InputError('Please complete the idea form.');
  const v=raw as Record<string,unknown>;
  function field(name:string,max:number,min=0){if(v[name]!==undefined&&typeof v[name]!=='string')throw new InputError(`Please check ${name}.`);const t=String(v[name]??'').trim();if(t.length<min||t.length>max)throw new InputError(`${name==='title'?'Title':name==='description'?'Idea':name} must be ${min}–${max} characters.`);return t;}
- const title=field('title',90,5),description=field('description',1400,20),category=field('category',30,1),place=field('place',90),connection=field('connection',60);
- if(!CATEGORIES.some(c=>c.id===category))throw new InputError('Choose a garden theme.');
+ const title=field('title',90,5),description=field('description',1400,5),category=field('category',30,1),place=field('place',90),connection=field('connection',60);
+ if(!CATEGORIES.some(c=>c.id===category))throw new InputError('Choose a topic.');
  if(connection&&!CONNECTIONS.some(c=>c===connection))throw new InputError('Choose a connection to Waterloo.');
- if(v.consent!==true)throw new InputError('Please confirm that your idea can be visible to garden visitors.');
+ if(v.consent!==true)throw new InputError('Confirm sharing with visitors.');
  if(v.website)throw new InputError('We could not plant this idea. Please try again.');
  return {title,description,category:category as Category,place,connection};
 }
-export function failure(request:Request,id:string,error:unknown){if(!(error instanceof InputError))console.error('Garden storage operation failed',error instanceof Error?error.message:'Unknown');return response(request,id,{error:error instanceof InputError?error.message:'The garden could not save or load this right now. Please try again.'},error instanceof InputError?error.status:503);}
+export function failure(request:Request,id:string,error:unknown){if(!(error instanceof InputError))console.error('Garden storage operation failed',error instanceof Error?error.message:'Unknown');return response(request,id,{error:error instanceof InputError?error.message:'Couldn’t save or load this. Try again.'},error instanceof InputError?error.status:503);}
