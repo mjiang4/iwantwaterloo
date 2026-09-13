@@ -465,7 +465,7 @@ function Garden() {
               }
             </div>
             {view === 'ideas' && (
-              <div className="idea-sort" role="group" aria-label="Sort ideas">
+              <fieldset className="idea-sort" aria-label="Sort ideas">
                 {[
                   ['newest', 'New'],
                   ['watered', 'Most liked'],
@@ -487,7 +487,7 @@ function Garden() {
                     {label}
                   </button>
                 ))}
-              </div>
+              </fieldset>
             )}
             {searchOpen && (
               <div className="search-wrap">

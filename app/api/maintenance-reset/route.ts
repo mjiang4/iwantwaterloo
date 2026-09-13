@@ -2,7 +2,8 @@ import { env } from 'cloudflare:workers';
 import { database } from '@/db/raw';
 // Temporary owner-authorized reset. Removed immediately after use.
 export async function POST(request: Request) {
-  const secret = env.MAINTENANCE_RESET_SECRET;
+  const secret = (env as typeof env & { MAINTENANCE_RESET_SECRET?: string })
+    .MAINTENANCE_RESET_SECRET;
   if (!secret || request.headers.get('Authorization') !== `Bearer ${secret}`)
     return new Response(null, { status: 404 });
   const db = database();
