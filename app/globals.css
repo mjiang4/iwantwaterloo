@@ -176,6 +176,6 @@ button,input,textarea {font:inherit}button,a,input,textarea {-webkit-tap-highlig
 
 .compose-post-action{justify-content:flex-end}
 
-.signature-field input[data-slot=input]::placeholder{font-size:.8125rem;color:#6e7d65;opacity:1}
-.idea-input[data-slot=textarea]::placeholder{font-size:.875rem}
+.signature-field input[data-slot=input]::placeholder{font-size:.75rem;color:#6e7d65;opacity:1}
+.idea-input[data-slot=textarea]::placeholder{font-size:.8125rem}
 .signature-field>label{font-size:.75rem;margin-bottom:6px}

@@ -208,7 +208,7 @@ export function IdeaComposer({
             <label className="sr-only" htmlFor="new-idea">
               Your idea for Waterloo
             </label>
-            <p id="idea-guidance" className="compose-guidance">
+            <p id="idea-guidance" className="sr-only">
               Share a change and why it matters.
             </p>
             <Textarea
@@ -223,7 +223,7 @@ export function IdeaComposer({
               minLength={5}
               maxLength={1400}
               required
-              placeholder="Your idea…"
+              placeholder="Share a change and why it matters."
               rows={3}
               disabled={saving || !draftReady}
               onKeyDown={(e) => {
