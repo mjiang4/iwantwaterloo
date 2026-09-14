@@ -240,7 +240,7 @@ export function IdeaComposer({
             />
             <div className="signature-field">
               <label htmlFor="idea-signature">
-                Signature <span className="sr-only">(optional)</span>
+                About you <span className="sr-only">(optional)</span>
               </label>
               <Input
                 id="idea-signature"
