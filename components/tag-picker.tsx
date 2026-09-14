@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useId } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { requestJSON } from '@/lib/client';
 import { normalizeTag, validTag } from '@/lib/garden';
@@ -150,63 +149,5 @@ export function TagSearch({
         </p>
       )}
     </div>
-  );
-}
-
-export function TagPicker({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: string[];
-  onChange: (tags: string[]) => void;
-  disabled: boolean;
-}) {
-  const suggestions = [
-    { tag: 'housing', label: 'Housing' },
-    { tag: 'public-spaces', label: 'Public spaces' },
-    { tag: 'transit', label: 'Transit' },
-    { tag: 'parks', label: 'Parks' },
-    { tag: 'arts', label: 'Arts' },
-  ];
-  // Preserve any custom tags already in a draft, without adding another creation flow.
-  const choices = [
-    ...suggestions,
-    ...value
-      .filter((tag) => !suggestions.some((item) => item.tag === tag))
-      .map((tag) => ({ tag, label: tag.replaceAll('-', ' ') })),
-  ];
-  return (
-    <fieldset className="suggested-topics" disabled={disabled}>
-      <legend>
-        Topics <span>optional</span>
-      </legend>
-      <div className="topic-chips">
-        {choices.map(({ tag, label }) => {
-          const selected = value.includes(tag);
-          return (
-            <button
-              type="button"
-              key={tag}
-              aria-pressed={selected}
-              disabled={disabled || (!selected && value.length >= 3)}
-              onClick={() =>
-                onChange(
-                  selected
-                    ? value.filter((item) => item !== tag)
-                    : [...value, tag],
-                )
-              }
-            >
-              {selected && <Check size={13} aria-hidden="true" />}
-              {label}
-            </button>
-          );
-        })}
-      </div>
-      {value.length >= 3 && (
-        <output className="topic-limit">Up to 3 topics.</output>
-      )}
-    </fieldset>
   );
 }

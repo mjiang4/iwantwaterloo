@@ -11,8 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CONNECTIONS, ideaTitle, type Idea } from '@/lib/garden';
-import { TagPicker } from './tag-picker';
+import { ideaTitle, type Idea } from '@/lib/garden';
 import { readSignature, saveSignature } from '@/lib/signature';
 import type { PlantInput } from './garden-app';
 
@@ -61,9 +60,6 @@ export function IdeaComposer({
   onGarden: (idea?: Idea) => void;
 }) {
   const [text, setText] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [place, setPlace] = useState('');
-  const [connection, setConnection] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [remember, setRemember] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -86,19 +82,6 @@ export function IdeaComposer({
       );
       if (draft && typeof draft.text === 'string') {
         setText(draft.text.slice(0, 1400));
-        setTags(
-          Array.isArray(draft.tags)
-            ? draft.tags
-                .filter((t: unknown) => typeof t === 'string')
-                .slice(0, 3)
-            : [],
-        );
-        setPlace(
-          typeof draft.place === 'string' ? draft.place.slice(0, 90) : '',
-        );
-        setConnection(
-          CONNECTIONS.includes(draft.connection) ? draft.connection : '',
-        );
         setDisplayName(
           typeof draft.displayName === 'string'
             ? draft.displayName.slice(0, 60)
@@ -116,25 +99,19 @@ export function IdeaComposer({
   useEffect(() => {
     if (!draftReady) return;
     try {
-      if (
-        shared ||
-        (!text && !tags.length && !place && !connection && !displayName)
-      )
+      if (shared || (!text && !displayName))
         sessionStorage.removeItem('waterloo-idea-draft');
       else
         sessionStorage.setItem(
           'waterloo-idea-draft',
           JSON.stringify({
             text,
-            tags,
-            place,
-            connection,
             displayName,
             submission: submission.current,
           }),
         );
     } catch {}
-  }, [draftReady, text, tags, place, connection, displayName, shared]);
+  }, [draftReady, text, displayName, shared]);
   useEffect(() => {
     if (draftReady) saveSignature(remember ? displayName : '');
   }, [draftReady, remember, displayName]);
@@ -154,9 +131,9 @@ export function IdeaComposer({
       const input = {
         title: ideaTitle(text),
         description: text.trim(),
-        tags,
-        place,
-        connection,
+        tags: [],
+        place: '',
+        connection: '',
         displayName,
         consent: true,
         website: honeypot.current?.value || '',
@@ -169,9 +146,6 @@ export function IdeaComposer({
           'waterloo-idea-draft',
           JSON.stringify({
             text,
-            tags,
-            place,
-            connection,
             displayName,
             submission: submission.current,
           }),
@@ -184,10 +158,7 @@ export function IdeaComposer({
       submission.current = null;
       setShared(idea);
       setText('');
-      setPlace('');
-      setConnection('');
       if (!remember) setDisplayName('');
-      setTags([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn’t share. Try again.');
     } finally {
@@ -269,7 +240,7 @@ export function IdeaComposer({
             />
             <div className="signature-field">
               <label htmlFor="idea-signature">
-                Signature <span>optional · public</span>
+                Signature <span className="sr-only">(optional)</span>
               </label>
               <Input
                 id="idea-signature"
@@ -292,38 +263,6 @@ export function IdeaComposer({
                 </label>
               )}
             </div>
-            <details className="idea-context">
-              <summary>
-                Place & connection <span>optional</span>
-              </summary>
-              <div className="context-fields">
-                <label htmlFor="idea-place">Place</label>
-                <Input
-                  id="idea-place"
-                  maxLength={90}
-                  placeholder="Where in Waterloo?"
-                  value={place}
-                  onChange={(e) => setPlace(e.target.value)}
-                  disabled={saving || !draftReady}
-                />
-                <label htmlFor="idea-connection">Connection to Waterloo</label>
-                <Choice
-                  id="idea-connection"
-                  label="Connection to Waterloo"
-                  value={connection}
-                  onChange={setConnection}
-                  items={[
-                    { value: '', label: 'Prefer not to say' },
-                    ...CONNECTIONS.map((c) => ({ value: c, label: c })),
-                  ]}
-                />
-              </div>
-            </details>
-            <TagPicker
-              value={tags}
-              onChange={setTags}
-              disabled={saving || !draftReady}
-            />
             <div className="compose-actions compose-post-action">
               <Button
                 type="submit"

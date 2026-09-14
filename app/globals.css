@@ -145,16 +145,10 @@ button,input,textarea {font:inherit}button,a,input,textarea {-webkit-tap-highlig
 .compose-guidance{padding:16px 18px 0;color:#64755e;font-size:.875rem;line-height:1.5}
 .signature-field{margin:0 17px 8px;padding:14px 0 6px;border-top:1px solid #edf0e8}
 .signature-field>label{display:flex;gap:8px;align-items:center;font-size:.8125rem;color:#4e6247;margin-bottom:7px}
-.signature-field>label>span,.idea-context summary>span{font-size:.75rem;color:#7a8872;font-weight:400}
+.signature-field>label>span{font-size:.75rem;color:#7a8872;font-weight:400}
 .signature-field input[data-slot=input]{border:0;box-shadow:none;background:#f6f8f2;padding:10px 12px;height:44px;font-size:1rem;border-radius:9px;width:100%;min-width:0}
 .signature-field .remember-signature{display:flex;min-height:40px;margin:4px 0 0;font-size:.75rem;color:#6e7d65;cursor:pointer}
 .remember-signature input{width:16px;height:16px;accent-color:#315b43}
-.idea-context{margin:0 17px 8px;color:#64745c;font-size:.8125rem}
-.idea-context summary{cursor:pointer;min-height:44px;align-content:center;list-style-position:inside}
-.idea-context summary>span{margin-left:5px}
-.context-fields{display:grid;gap:9px;padding:7px 0 14px}
-.context-fields input{font-size:1rem;height:44px}
-.compose-shell:has(details[open]){overflow:visible}
 .yours-toggle{min-height:44px;min-width:44px;padding:0 8px;border-radius:10px;font-size:.8125rem;color:#6c7e62}
 .yours-toggle[aria-pressed=true]{background:#e7efdf;color:#365d2e}
 .yours-note{font-size:.8125rem;color:#6c7e62;margin:0 0 14px}
@@ -173,22 +167,15 @@ button,input,textarea {font:inherit}button,a,input,textarea {-webkit-tap-highlig
 .shared-tags{margin-top:20px;color:#6b7e60;font-size:.8125rem;overflow-wrap:anywhere}
 .shared-garden-link{display:block;color:#5a7450;margin-top:35px;font-size:.875rem;min-height:44px}
 .shared-actions .support-button{min-height:44px}
-@media(max-width:600px){.compose-guidance{padding:12px 13px 0;font-size:.8125rem}.signature-field,.idea-context{margin-left:12px;margin-right:12px}.compose-actions .share-button[data-slot=button]{height:44px;min-height:44px}.explore-toolbar{gap:8px}.view-tabs[data-slot=tabs-list]{gap:12px}.explore-tools{gap:0}.yours-toggle{padding:0 6px}.plant-receipt{padding:17px}.shared-idea-page{margin-top:25px}.shared-brand{margin-bottom:32px}}
+@media(max-width:600px){.compose-guidance{padding:12px 13px 0;font-size:.8125rem}.signature-field{margin-left:12px;margin-right:12px}.compose-actions .share-button[data-slot=button]{height:44px;min-height:44px}.explore-toolbar{gap:8px}.view-tabs[data-slot=tabs-list]{gap:12px}.explore-tools{gap:0}.yours-toggle{padding:0 6px}.plant-receipt{padding:17px}.shared-idea-page{margin-top:25px}.shared-brand{margin-bottom:32px}}
 
 .card-signature{font-size:.8125rem;line-height:1.5;color:#69805f;overflow-wrap:anywhere}
 .receipt-status{display:block}
 
 .reply-footer input,.reply-footer button{min-height:44px}
 
-.suggested-topics{margin:0 17px 10px;padding:0;border:0;min-width:0}
-.suggested-topics legend{font-size:.8125rem;color:#5e7255;margin-bottom:7px}
-.suggested-topics legend span{font-size:.75rem;color:#7a8872;margin-left:5px}
-.topic-chips{display:flex;flex-wrap:wrap;gap:5px}
-.topic-chips button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:44px;padding:7px 11px;border:1px solid #e5eadf;border-radius:999px;background:#f7f9f4;color:#617657;font-size:.8125rem;max-width:100%;overflow-wrap:anywhere}
-.topic-chips button:hover{background:#eef3e7}
-.topic-chips button[aria-pressed=true]{background:#e5eedb;color:#3c6030;border-color:#bbcea9}
-.topic-chips button:disabled{opacity:.42;cursor:default}
-.topic-chips button:focus-visible{outline:2px solid #55784b;outline-offset:2px}
-.topic-limit{display:block;font-size:.75rem;color:#7a8872;margin-top:7px}
 .compose-post-action{justify-content:flex-end}
-@media(max-width:600px){.suggested-topics{margin-left:12px;margin-right:12px}.topic-chips{gap:4px}.topic-chips button{padding:7px 10px}}
+
+.signature-field input[data-slot=input]::placeholder{font-size:.8125rem;color:#6e7d65;opacity:1}
+.idea-input[data-slot=textarea]::placeholder{font-size:.875rem}
+.signature-field>label{font-size:.75rem;margin-bottom:6px}
