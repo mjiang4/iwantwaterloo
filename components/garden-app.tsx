@@ -521,7 +521,6 @@ function Garden() {
           <div>
             <IdeaComposer
               onShare={share}
-              onPrivacy={() => setAboutOpen(true)}
               onGarden={showGarden}
             />
           </div>
@@ -784,6 +783,9 @@ function Garden() {
             </TabsContent>
           </div>
         </main>
+        <footer className="site-footer">
+          <button type="button" onClick={() => setAboutOpen(true)}>Privacy</button>
+        </footer>
         <Sheet
           open={sheetOpen}
           onOpenChangeComplete={(open) => {

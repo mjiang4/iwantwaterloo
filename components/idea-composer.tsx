@@ -52,11 +52,9 @@ export function Choice({
 
 export function IdeaComposer({
   onShare,
-  onPrivacy,
   onGarden,
 }: {
   onShare: (input: PlantInput) => Promise<Idea>;
-  onPrivacy: () => void;
   onGarden: (idea?: Idea) => void;
 }) {
   const [text, setText] = useState('');
@@ -236,7 +234,7 @@ export function IdeaComposer({
                   form.current?.requestSubmit();
                 }
               }}
-              aria-describedby={`idea-guidance sharing-notice${error ? ' compose-error' : ''}`}
+              aria-describedby={`idea-guidance${error ? ' compose-error' : ''}`}
             />
             <div className="signature-field">
               <label htmlFor="idea-signature">
@@ -288,10 +286,6 @@ export function IdeaComposer({
       </div>
       {!shared && (
         <div className="compose-footnote">
-          <span id="sharing-notice">
-            Public ideas. No sign-in.{' '}
-            <button onClick={onPrivacy}>Privacy</button>
-          </span>
           <button className="tree-context" onClick={() => onGarden()}>
             <Sprout size={13} />1 idea = 1 tree
           </button>
