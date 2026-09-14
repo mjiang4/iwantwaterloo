@@ -8,7 +8,7 @@ Approved September 14, 2026. Develop and test separately; do not publish these c
 - One optional public signature, entered as a single string: “Alex, 19, CS student” or “Jamie, 37, lifelong resident”. No age parsing, profile requirement, or demographic ranking.
 - The existing `display_name` column stores the signature (60 characters). Existing attribution remains compatible; no new schema or database is needed.
 - Explicit “Remember on this device” stores a local autofill preference. Published signatures are stored on each idea; clearing the preference never changes old ideas. Draft recovery remains session-local.
-- Place and connection expand inline. Tags retain the existing autocomplete. “Post idea” publishes; “Share idea” opens the device share sheet or copies an individual link.
+- Place and connection expand inline. Five optional topic chips replace the composer tag popup; existing custom draft tags remain removable, and the browsing filter retains tag search. “Post idea” publishes; “Share idea” opens the device share sheet or copies an individual link.
 - The tree reveal has an immediately available receipt with the actual idea, signature, Share and Done. Anonymous ideas have no signature or anonymous badge.
 - “Yours” filters both list and garden using the visitor cookie on the server. It means this browser, not verified identity or cross-device ownership. No editing/recovery permissions are added.
 - `/ideas/:id` provides server-rendered text, signature, idea-specific metadata, likes and discussion without loading the 3D garden. Old `/?idea=:id` links remain supported. Public links contain no ownership credential.

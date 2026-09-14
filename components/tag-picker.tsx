@@ -1,14 +1,8 @@
 'use client';
 import { useState, useEffect, useId } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Hash, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { requestJSON } from '@/lib/client';
 import { normalizeTag, validTag } from '@/lib/garden';
 
@@ -168,56 +162,51 @@ export function TagPicker({
   onChange: (tags: string[]) => void;
   disabled: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const suggestions = [
+    { tag: 'housing', label: 'Housing' },
+    { tag: 'public-spaces', label: 'Public spaces' },
+    { tag: 'transit', label: 'Transit' },
+    { tag: 'parks', label: 'Parks' },
+    { tag: 'arts', label: 'Arts' },
+  ];
+  // Preserve any custom tags already in a draft, without adding another creation flow.
+  const choices = [
+    ...suggestions,
+    ...value
+      .filter((tag) => !suggestions.some((item) => item.tag === tag))
+      .map((tag) => ({ tag, label: tag.replaceAll('-', ' ') })),
+  ];
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        className={`details-trigger tag-trigger ${value.length ? 'has-details' : ''}`}
-        disabled={disabled}
-      >
-        <Hash size={15} />
-        {value.length
-          ? `${value.length} tag${value.length === 1 ? '' : 's'}`
-          : 'Tags'}
-      </PopoverTrigger>
-      <PopoverContent className="tag-popover" align="start" sideOffset={12}>
-        <div className="tag-heading">
-          <PopoverTitle className="popover-heading">Add tags</PopoverTitle>
-          <span>{value.length}/3</span>
-        </div>
-        <TagSearch
-          allowCreate
-          selected={value}
-          disabled={disabled || value.length >= 3}
-          onChoose={(tag) => {
-            if (value.length < 3 && !value.includes(tag))
-              onChange([...value, tag]);
-          }}
-        />
-        {value.length > 0 && (
-          <div className="tag-options selected-tags">
-            {value.map((t) => (
-              <button
-                type="button"
-                key={t}
-                onClick={() => onChange(value.filter((tag) => tag !== t))}
-                aria-label={`Remove ${t}`}
-              >
-                #{t}
-                <X size={12} />
-              </button>
-            ))}
-          </div>
-        )}
-        <button
-          type="button"
-          className="tag-done"
-          onClick={() => setOpen(false)}
-        >
-          Done
-          <Check size={14} />
-        </button>
-      </PopoverContent>
-    </Popover>
+    <fieldset className="suggested-topics" disabled={disabled}>
+      <legend>
+        Topics <span>optional</span>
+      </legend>
+      <div className="topic-chips">
+        {choices.map(({ tag, label }) => {
+          const selected = value.includes(tag);
+          return (
+            <button
+              type="button"
+              key={tag}
+              aria-pressed={selected}
+              disabled={disabled || (!selected && value.length >= 3)}
+              onClick={() =>
+                onChange(
+                  selected
+                    ? value.filter((item) => item !== tag)
+                    : [...value, tag],
+                )
+              }
+            >
+              {selected && <Check size={13} aria-hidden="true" />}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {value.length >= 3 && (
+        <output className="topic-limit">Up to 3 topics.</output>
+      )}
+    </fieldset>
   );
 }

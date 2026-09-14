@@ -179,3 +179,16 @@ button,input,textarea {font:inherit}button,a,input,textarea {-webkit-tap-highlig
 .receipt-status{display:block}
 
 .reply-footer input,.reply-footer button{min-height:44px}
+
+.suggested-topics{margin:0 17px 10px;padding:0;border:0;min-width:0}
+.suggested-topics legend{font-size:.8125rem;color:#5e7255;margin-bottom:7px}
+.suggested-topics legend span{font-size:.75rem;color:#7a8872;margin-left:5px}
+.topic-chips{display:flex;flex-wrap:wrap;gap:5px}
+.topic-chips button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:44px;padding:7px 11px;border:1px solid #e5eadf;border-radius:999px;background:#f7f9f4;color:#617657;font-size:.8125rem;max-width:100%;overflow-wrap:anywhere}
+.topic-chips button:hover{background:#eef3e7}
+.topic-chips button[aria-pressed=true]{background:#e5eedb;color:#3c6030;border-color:#bbcea9}
+.topic-chips button:disabled{opacity:.42;cursor:default}
+.topic-chips button:focus-visible{outline:2px solid #55784b;outline-offset:2px}
+.topic-limit{display:block;font-size:.75rem;color:#7a8872;margin-top:7px}
+.compose-post-action{justify-content:flex-end}
+@media(max-width:600px){.suggested-topics{margin-left:12px;margin-right:12px}.topic-chips{gap:4px}.topic-chips button{padding:7px 10px}}

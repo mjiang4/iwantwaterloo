@@ -319,10 +319,12 @@ export function IdeaComposer({
                 />
               </div>
             </details>
-            <div className="compose-actions">
-              <div className="compose-options">
-                <TagPicker value={tags} onChange={setTags} disabled={saving || !draftReady} />
-              </div>
+            <TagPicker
+              value={tags}
+              onChange={setTags}
+              disabled={saving || !draftReady}
+            />
+            <div className="compose-actions compose-post-action">
               <Button
                 type="submit"
                 className="share-button"
