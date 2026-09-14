@@ -1,36 +1,39 @@
+> Current direction: seasons are removed in favor of permanent green foliage. Preview opens the actual site; the test dashboard is removed. Likes update the garden immediately, continue growing after 25 likes, and animate a short stretch. Earlier seasonal/dashboard items below are historical.
+
 # I want / Waterloo — interaction plan
 
-Status: implemented on the development branch · September 13, 2026
+Status: partially implemented on the development branch · September 13, 2026
+
+See [Remaining work](REMAINING-WORK.md) for the current code audit, outstanding release blockers, test-environment contract and updated priorities.
 
 The core plan is now implemented for development review: support-grown trees,
 planting feedback, optional names, shareable idea links, nested replies,
 reporting, and the updated wordmark. The live site remains unchanged until this
-work is explicitly approved for release. Real-time presence and seasonal effects
-remain intentionally deferred as described below.
+work is explicitly approved for release. Seasonal palettes, day/night and two small garden interactions are now implemented locally; real-time presence remains deferred. See [Garden implementation](GARDEN-IMPLEMENTATION.md) for the current behaviour and validation.
 
 ## Direction
 
 Make sharing an idea feel easy and rewarding. The garden makes participation visible, but writing, reading and responding must work just as well without opening it. Keep the quiet palette, generous space and light motion. Use short labels and reveal detail only when requested.
 
-React Three Fiber is the React renderer for Three.js. We describe a tree as React components; Three.js draws its geometry and materials through WebGL. Our current motion uses small spring calculations and timed movement, rather than a full physics engine. UI feedback uses CSS transitions and keyframes. Keep that approach unless measured limitations justify more machinery.
+React Three Fiber is the React renderer for Three.js. We describe a tree as React components; Three.js draws its geometry and materials through WebGL. Our current motion uses damped transitions and timed movement, rather than a full physics engine. UI feedback uses CSS transitions and keyframes. Keep that approach unless measured limitations justify more machinery.
 
 ## Proposed experience
 
 ### 1. Likes grow flowers
 
-One idea remains one tree. Likes add small flowers around its base, then a little more foliage. New ideas begin with a complete, attractive tree; zero likes must not look like failure.
+One idea remains one tree. Likes add small flowers around its base, then a little more foliage. New ideas begin as attractive saplings with sparse foliage. Likes smoothly increase height and fullness, capped at 1.5× initial height by 25 likes; zero likes must not look like failure.
 
 Proposed milestones, to tune in a prototype:
 
 | Likes | Appearance                             |
 | ----- | -------------------------------------- |
-| 0     | Base tree                              |
+| 0     | Small sapling                              |
 | 1–3   | 1–3 small blooms                       |
 | 4–9   | 5 blooms                               |
 | 10–24 | 8 blooms and one small leafy branch    |
 | 25+   | 12 blooms and two small leafy branches |
 
-These are capped visual stages, not one mesh per like forever. All trees retain a comparable height and footprint. The exact like count stays in the idea detail. Keep New and Random easy to reach so popularity does not monopolize attention.
+These are capped visual stages, not one mesh per like forever. All trees retain a comparable footprint and fixed 48px targets. Overlapping markers open a compact nearby-ideas picker; trunks and canopies also support direct taps. The exact like count stays in the idea detail. Keep New and Random easy to reach so popularity does not monopolize attention.
 
 On a successful like, animate only newly added growth, once, for roughly 350–500 ms. Existing growth stays still. Update the heart immediately; if saving fails, restore its state and show a short retry message. Undoing a like removes excess growth gently, without a celebratory animation. Reloads and background refreshes must not replay every tree's growth.
 
@@ -76,17 +79,17 @@ Data outline: comments reference an idea and optionally a parent comment, with b
 
 Change the wordmark to “i want / waterloo”. Keep it a small home link, with no extra subtitle. Test it at narrow phone widths and avoid repeating the same phrase immediately in the composer heading. Accessible name: “I want Waterloo”.
 
-## Other small improvements worth exploring
+## Small improvements implemented locally
 
 | Idea                             | Benefit                                     | Constraint                                             |
 | -------------------------------- | ------------------------------------------- | ------------------------------------------------------ |
 | Share an individual idea         | Makes it easy to invite a response          | Copy a stable link; no account required                |
-| Gentle card-to-detail transition | Helps visitors retain their place           | Short opacity/position change; no layout jump          |
-| A small shuffle motion           | Makes Random feel intentional               | Animate the control, not the entire grid               |
-| Return to your newly shared idea | Gives a clear sense of completion           | Highlight once; never hijack scrolling                 |
+| Gentle card-to-detail transition | Implemented: 180ms fade and 8px movement     | Preserve closing content and return keyboard focus   |
+| A small shuffle motion           | Implemented: 320ms icon feedback             | Retain cards during loading; do not animate the grid  |
+| Return to your newly shared idea | Implemented: idea and tree highlights        | Show once when visible; preserve 48px tree targets    |
 | Subtle tree variation            | Gives each contribution a recognizable form | A few shared low-poly shapes, deterministically chosen |
 
-Prioritize planting feedback and individual links. Defer seasonal effects, particles and extra scenery: they add less value to suggesting ideas.
+Planting feedback and individual links remain the priority. The approved seasonal/night effects use capped points and palette changes; add further scenery only after physical-device profiling.
 
 ## Mobile performance plan
 

@@ -39,3 +39,7 @@ next-env.d.ts
 
 # TypeScript compiler cache
 *.tsbuildinfo
+
+# Isolated production-preview runtime and operator credentials
+/.preview/
+.dev.vars*

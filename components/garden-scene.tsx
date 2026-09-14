@@ -1,247 +1,590 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
-import {Canvas,useFrame,useThree} from '@react-three/fiber';
-import {Html,OrbitControls,RoundedBox} from '@react-three/drei';
+/* oxlint-disable react/react-compiler -- R3F owns mutable scene objects and GPU buffers; frame updates intentionally bypass React state. */
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import {
+  OrbitControls,
+  RoundedBox,
+  PerformanceMonitor,
+} from '@react-three/drei';
 import * as THREE from 'three';
-import type {OrbitControls as OrbitControlsImpl} from 'three-stdlib';
-import {ideaTags,type Idea} from '@/lib/garden';
-type Props={ideas:Idea[];selected:string|null;onSelect:(id:string)=>void;motion:boolean;zoom:number;reset:number;onFailure:()=>void};
-const seeded=(n:number)=>{const v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v);};
-const spots:[number,number][]=[[-3.2,2.7],[0,3.65],[-2.1,-1.5],[3.45,2.4],[-4.5,.5],[3.65,-1.9],[-.4,-3.5],[-3.7,-2.4],[1.8,3.4],[4.5,.1],[-.65,2.1],[2.2,-3.7],[.15,-1.9],[-4,1.65],[2.9,1.9],[-1.3,4.3],[4.7,1.5],[-2.7,-3.4],[.7,-4.4],[2.5,-2.5],[3.3,3.5],[-4.8,-1.4],[-2.8,4],[1.1,2.1]];
-function Box({at,size,color,...rest}:{at:[number,number,number];size:[number,number,number];color:string;rotation?:[number,number,number]}){return <mesh position={at} castShadow receiveShadow {...rest}><boxGeometry args={size}/><meshStandardMaterial color={color} roughness={.8}/></mesh>;}
-function Bloom({
-  n,
-  index,
-  motion,
-}: {
-  n: number;
-  index: number;
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import type { Idea } from '@/lib/garden';
+import { Forest } from './garden-forest';
+import { GardenButterfly } from './garden-butterfly';
+import { inviteButterfly, type ButterflyVisit } from '@/lib/garden-discovery';
+import {
+  Atmosphere,
+  Meadow,
+  GardenLighting,
+  GardenGround,
+  Ripple,
+  type GardenEvent,
+} from './garden-ambience';
+import {
+  gardenPalette,
+  plotPosition,
+  type GardenMoment,
+} from '@/lib/garden-visuals';
+type Props = {
+  ideas: Idea[];
+  selected: string | null;
+  focusId: string | null;
+  moment: GardenMoment | null;
+  onMomentComplete: (serial: number) => void;
+  onSelect: (id: string) => void;
   motion: boolean;
+  night: boolean;
+  plantingId: string | null;
+  highlightId: string | null;
+  onHighlighted: () => void;
+  butterflyVisit: RefObject<ButterflyVisit>;
+  onPlanted: () => void;
+  onCluster: (ids: string[]) => void;
+  zoom: number;
+  reset: number;
+  onFailure: () => void;
+};
+function Box({
+  at,
+  size,
+  color,
+  glow = 0,
+  ...rest
+}: {
+  at: [number, number, number];
+  size: [number, number, number];
+  color: string;
+  glow?: number;
+  rotation?: [number, number, number];
+}) {
+  return (
+    <mesh position={at} castShadow receiveShadow {...rest}>
+      <boxGeometry args={size} />
+      <meshStandardMaterial
+        color={color}
+        emissive={color}
+        emissiveIntensity={glow}
+        roughness={0.8}
+      />
+    </mesh>
+  );
+}
+function Pavilion() {
+  return (
+    <group position={[-1.9, 0.1, -2.6]} rotation={[0, 0.15, 0]}>
+      <Box at={[0, 0.15, 0]} size={[2.3, 0.3, 1.3]} color="#e6dac3" />
+      <Box at={[0, 0.6, -0.22]} size={[2, 1, 0.9]} color="#e3d9b8" />
+      <Box at={[0, 0.72, 0.3]} size={[1.9, 0.72, 0.035]} color="#6b9691" />
+      {[-0.8, -0.4, 0, 0.4, 0.8].map((x) => (
+        <Box
+          key={x}
+          at={[x, 0.72, 0.34]}
+          size={[0.04, 0.9, 0.09]}
+          color="#e9e0c8"
+        />
+      ))}
+      <Box at={[0, 1.16, 0]} size={[2.35, 0.15, 1.4]} color="#e5dfc9" />
+      <Box at={[0, 1.27, 0]} size={[2.08, 0.08, 1.13]} color="#8d9f5b" />
+      <Box at={[0.82, 0.3, 0.84]} size={[0.55, 0.16, 0.62]} color="#d3c7ae" />
+      <Box at={[0.82, 0.16, 1.12]} size={[0.65, 0.1, 0.25]} color="#ded5bf" />
+    </group>
+  );
+}
+function WindowLights({ night }: { night: boolean }) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    if (!mesh.current) return;
+    const matrix = new THREE.Matrix4();
+    let n = 0;
+    for (let i = 0; i < 3; i++)
+      for (const x of [-0.16, 0.16])
+        for (const y of [0.5, 0.94])
+          mesh.current.setMatrixAt(
+            n++,
+            matrix.makeTranslation((i - 1) * 0.64 + x, y, 0.345),
+          );
+    mesh.current.instanceMatrix.needsUpdate = true;
+  }, []);
+  return (
+    <instancedMesh
+      name="windows"
+      ref={mesh}
+      args={[undefined, undefined, 12]}
+      frustumCulled={false}
+    >
+      <boxGeometry args={[0.12, 0.22, 0.015]} />
+      <meshStandardMaterial
+        color={night ? '#f5ce8a' : '#476a6a'}
+        emissive="#f5ce8a"
+        emissiveIntensity={night ? 0.8 : 0}
+      />
+    </instancedMesh>
+  );
+}
+function BridgePlanks() {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    if (!mesh.current) return;
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < 26; i++)
+      mesh.current.setMatrixAt(
+        i,
+        matrix.makeTranslation(-1.86 + i * 0.15, 0.075, 0),
+      );
+    mesh.current.instanceMatrix.needsUpdate = true;
+  }, []);
+  return (
+    <instancedMesh
+      name="bridge-planks"
+      ref={mesh}
+      args={[undefined, undefined, 26]}
+      frustumCulled={false}
+    >
+      <boxGeometry args={[0.019, 0.015, 0.43]} />
+      <meshStandardMaterial color="#aa916d" />
+    </instancedMesh>
+  );
+}
+function Townhouses({ night }: { night: boolean }) {
+  return (
+    <group position={[3.2, 0.1, -2.8]} rotation={[0, -0.25, 0]}>
+      {['#d4aa84', '#e7d8bd', '#bb795b'].map((c, i) => (
+        <group key={c} position={[(i - 1) * 0.64, 0, 0]}>
+          <Box at={[0, 0.63, 0]} size={[0.58, 1.26, 0.68]} color={c} />
+          <mesh
+            position={[0, 1.49, 0]}
+            rotation={[0, Math.PI / 4, 0]}
+            castShadow
+          >
+            <coneGeometry args={[0.46, 0.52, 4]} />
+            <meshStandardMaterial color="#586b63" />
+          </mesh>
+          <Box at={[0, 0.18, 0.35]} size={[0.16, 0.36, 0.02]} color="#516956" />
+        </group>
+      ))}
+      <WindowLights night={night} />
+    </group>
+  );
+}
+function Goose({
+  at,
+  rotate = 0,
+  event,
+  motion,
+  onTap,
+}: {
+  at: [number, number, number];
+  rotate?: number;
+  event?: GardenEvent | null;
+  motion?: boolean;
+  onTap?: () => void;
 }) {
   const ref = useRef<THREE.Group>(null),
-    born = useRef(motion ? 0 : 1);
+    t = useRef(1),
+    { invalidate } = useThree();
+  useEffect(() => {
+    t.current = event?.kind === 'goose' ? 0 : 1;
+    invalidate();
+  }, [event, invalidate]);
   useFrame((_, delta) => {
-    if (!ref.current || born.current >= 1) return;
-    born.current = Math.min(1, born.current + delta * 3);
-    const s = 1 - Math.pow(1 - born.current, 3);
-    ref.current.scale.setScalar(s);
+    if (!ref.current || !onTap) return;
+    if (!motion) {
+      t.current = 1;
+      ref.current.position.y = at[1];
+      ref.current.rotation.y = rotate + (event?.kind === 'goose' ? 0.25 : 0);
+      return;
+    }
+    t.current = Math.min(1, t.current + Math.min(delta, 0.05) / 0.6);
+    ref.current.position.y = at[1] + Math.sin(t.current * Math.PI) * 0.14;
+    ref.current.rotation.y = rotate + Math.sin(t.current * Math.PI * 2) * 0.2;
+    if (t.current < 1) invalidate();
   });
-  const a = seeded(n + index * 17) * Math.PI * 2,
-    r = 0.29 + seeded(n + index * 29) * 0.32;
   return (
     <group
       ref={ref}
-      position={[
-        Math.cos(a) * r,
-        0.07 + seeded(n + index) * 0.08,
-        Math.sin(a) * r,
-      ]}
+      onClick={
+        onTap
+          ? (e) => {
+              e.stopPropagation();
+              onTap();
+            }
+          : undefined
+      }
+      position={at}
+      rotation={[0, rotate, 0]}
+      scale={0.7}
     >
-      <mesh rotation={[-Math.PI / 2, 0, a]}>
-        <circleGeometry args={[0.075, 6]} />
-        <meshStandardMaterial
-          color={['#f2cf72', '#e8a2a8', '#ddd98e', '#b7cfe3'][index % 4]}
-        />
+      <mesh position={[0, 0.17, 0]} scale={[0.24, 0.15, 0.14]} castShadow>
+        <sphereGeometry args={[1, 12, 8]} />
+        <meshStandardMaterial color="#eeeee3" />
       </mesh>
-      <mesh position={[0, 0.012, 0]}>
-        <sphereGeometry args={[0.026, 6, 4]} />
-        <meshStandardMaterial color="#9a733a" />
+      <mesh position={[0.15, 0.34, 0]} rotation={[0, 0, -0.22]}>
+        <capsuleGeometry args={[0.047, 0.22, 4, 8]} />
+        <meshStandardMaterial color="#36453a" />
       </mesh>
+      <mesh position={[0.22, 0.47, 0]}>
+        <sphereGeometry args={[0.075, 10, 8]} />
+        <meshStandardMaterial color="#36453a" />
+      </mesh>
+      <Box at={[0.3, 0.46, 0]} size={[0.09, 0.035, 0.05]} color="#bc894b" />
     </group>
   );
 }
-function Tree({
-  x,
-  z,
-  n,
-  waters,
-  motion,
-}: {
-  x: number;
-  z: number;
-  n: number;
-  waters: number;
-  motion: boolean;
-}) {
-  const h = 0.85 + seeded(n) * 1.15,
-    color = ['#6f973d', '#8bae49', '#adc66a', '#507b39', '#92ae54'][n % 5];
-  const blooms =
-      waters < 1
-        ? 0
-        : waters < 4
-          ? waters
-          : waters < 10
-            ? 5
-            : waters < 25
-              ? 8
-              : 12,
-    branches = waters < 10 ? 0 : waters < 25 ? 1 : 2;
-  return (
-    <group position={[x, 0.08, z]} scale={0.7 + seeded(n + 100) * 0.3}>
-      <mesh position={[0, h * 0.39, 0]} castShadow>
-        <cylinderGeometry args={[0.055, 0.085, h * 0.78, 6]} />
-        <meshStandardMaterial color="#85754e" />
-      </mesh>
-      <mesh
-        position={[0, h * 0.8, 0]}
-        scale={[0.63, h * 0.66, 0.63]}
-        castShadow
-      >
-        <icosahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial color={color} flatShading roughness={1} />
-      </mesh>
-      <mesh
-        position={[-0.25, h * 0.65, 0.09]}
-        scale={[0.36, 0.45, 0.36]}
-        castShadow
-      >
-        <icosahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial color={color} flatShading roughness={1} />
-      </mesh>
-      {Array.from({ length: branches }, (_, i) => (
-        <group
-          key={`branch-${i}`}
-          position={[(i ? 1 : -1) * 0.22, h * (0.48 + i * 0.14), 0]}
-          rotation={[0, 0, i ? -0.65 : 0.65]}
-        >
-          <mesh position={[0, 0.16, 0]}>
-            <cylinderGeometry args={[0.025, 0.035, 0.34, 5]} />
-            <meshStandardMaterial color="#85754e" />
-          </mesh>
-          <mesh position={[0, 0.34, 0]} scale={[0.2, 0.26, 0.2]}>
-            <icosahedronGeometry args={[1, 0]} />
-            <meshStandardMaterial color={color} flatShading />
-          </mesh>
-        </group>
-      ))}
-      {Array.from({ length: blooms }, (_, i) => (
-        <Bloom key={`bloom-${i}`} n={n} index={i} motion={motion} />
-      ))}
-    </group>
-  );
-}
-function Pavilion(){return <group position={[-1.9,.1,-2.6]} rotation={[0,.15,0]}>
- <Box at={[0,.15,0]} size={[2.3,.3,1.3]} color="#e6dac3"/><Box at={[0,.6,-.22]} size={[2,1,.9]} color="#e3d9b8"/><Box at={[0,.72,.3]} size={[1.9,.72,.035]} color="#6b9691"/>
- {[-.8,-.4,0,.4,.8].map(x=><Box key={x} at={[x,.72,.34]} size={[.04,.9,.09]} color="#e9e0c8"/>)}
- <Box at={[0,1.16,0]} size={[2.35,.15,1.4]} color="#e5dfc9"/><Box at={[0,1.27,0]} size={[2.08,.08,1.13]} color="#8d9f5b"/><Box at={[.82,.3,.84]} size={[.55,.16,.62]} color="#d3c7ae"/><Box at={[.82,.16,1.12]} size={[.65,.1,.25]} color="#ded5bf"/></group>;}
-function Townhouses(){return <group position={[3.2,.1,-2.8]} rotation={[0,-.25,0]}>{['#d4aa84','#e7d8bd','#bb795b'].map((c,i)=><group key={c} position={[(i-1)*.64,0,0]}>
- <Box at={[0,.63,0]} size={[.58,1.26,.68]} color={c}/><mesh position={[0,1.49,0]} rotation={[0,Math.PI/4,0]} castShadow><coneGeometry args={[.46,.52,4]}/><meshStandardMaterial color="#586b63"/></mesh>
- {[-.16,.16].map(x=>[.5,.94].map(y=><Box key={`${x}-${y}`} at={[x,y,.345]} size={[.12,.22,.015]} color="#476a6a"/>))}<Box at={[0,.18,.35]} size={[.16,.36,.02]} color="#516956"/></group>)}</group>;}
-function Goose({at,rotate=0}:{at:[number,number,number];rotate?:number}){return <group position={at} rotation={[0,rotate,0]} scale={.7}>
- <mesh position={[0,.17,0]} scale={[.24,.15,.14]} castShadow><sphereGeometry args={[1,12,8]}/><meshStandardMaterial color="#eeeee3"/></mesh><mesh position={[.15,.34,0]} rotation={[0,0,-.22]}><capsuleGeometry args={[.047,.22,4,8]}/><meshStandardMaterial color="#36453a"/></mesh><mesh position={[.22,.47,0]}><sphereGeometry args={[.075,10,8]}/><meshStandardMaterial color="#36453a"/></mesh><Box at={[.3,.46,0]} size={[.09,.035,.05]} color="#bc894b"/></group>;}
-function Tram({motion}:{motion:boolean}){
- const ref=useRef<THREE.Group>(null);useFrame(({clock})=>{if(ref.current&&motion)ref.current.position.x=Math.sin(clock.elapsedTime*.12)*2.8;});
- return <group position={[0,.12,-4.1]}><Box at={[0,0,0]} size={[7.2,.06,.56]} color="#d7cfb7"/>{[-.18,.18].map(z=><Box key={z} at={[0,.035,z]} size={[7.2,.025,.025]} color="#7e8982"/>)}<group ref={ref} position={[-1,.04,0]}>
- <RoundedBox args={[1.25,.36,.4]} radius={.1} smoothness={3} position={[0,.25,0]} castShadow><meshStandardMaterial color="#f3f4e9"/></RoundedBox><Box at={[0,.29,.205]} size={[.87,.13,.01]} color="#3d6c78"/><Box at={[0,.11,.208]} size={[1.1,.065,.015]} color="#70a7d7"/>{[-.35,.35].map(x=><mesh key={x} position={[x,.055,.11]} rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[.07,.07,.3,10]}/><meshStandardMaterial color="#475a51"/></mesh>)}</group></group>;
-}
-function Plant({
-  idea,
-  index,
-  selected,
-  onSelect,
-  motion,
-}: {
-  idea: Idea;
-  index: number;
-  selected: boolean;
-  onSelect: () => void;
-  motion: boolean;
-}) {
+function Tram({ motion }: { motion: boolean }) {
   const ref = useRef<THREE.Group>(null),
-    [hover, setHover] = useState(false),
-    scale = useRef(0.03),
-    velocity = useRef(0),
-    [x, z] = spots[(idea.plot ?? index) % spots.length],
-    [initialWaters] = useState(idea.waters);
-  const animateGrowth = idea.waters > initialWaters;
-  const target = selected || hover ? 1.12 : 1;
-  useFrame(({ clock }, delta) => {
-    if (!ref.current) return;
-    const dt = Math.min(delta, 0.03);
-    if (motion) {
-      velocity.current +=
-        ((target - scale.current) * 130 - velocity.current * 18) * dt;
-      scale.current += velocity.current * dt;
-    } else scale.current = target;
-    ref.current.scale.setScalar(scale.current);
-    ref.current.rotation.z = motion
-      ? Math.sin(clock.elapsedTime * 1.4 + index) * 0.035
-      : 0;
+    time = useRef(-3);
+  useFrame((_, delta) => {
+    if (ref.current && motion) {
+      time.current += Math.min(delta, 0.05);
+      ref.current.position.x = Math.sin(time.current * 0.12) * 2.8;
+    }
   });
   return (
-    <group position={[x, 0.12, z]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-        <circleGeometry args={[0.44, 24]} />
-        <meshStandardMaterial color={selected ? '#edce71' : '#a1b76a'} />
-      </mesh>
-      <group
-        ref={ref}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHover(true);
-        }}
-        onPointerOut={() => setHover(false)}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
-      >
-        <Tree
-          x={0}
-          z={0}
-          n={(idea.plot ?? index) + 7}
-          waters={idea.waters}
-          motion={motion && animateGrowth}
+    <group position={[0, 0.12, -4.1]}>
+      <Box at={[0, 0, 0]} size={[7.2, 0.06, 0.56]} color="#d7cfb7" />
+      {[-0.18, 0.18].map((z) => (
+        <Box
+          key={z}
+          at={[0, 0.035, z]}
+          size={[7.2, 0.025, 0.025]}
+          color="#7e8982"
         />
-        <Html position={[0, 2.15, 0]} center zIndexRange={[20, 0]}>
-          <button
-            className={`plant-marker ${selected ? 'selected' : ''} ${idea.example ? 'example-tree' : ''}`}
-            aria-label={`${idea.example ? 'Example' : 'Read idea'}: ${idea.title}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-            }}
-            onFocus={() => setHover(true)}
-            onBlur={() => setHover(false)}
+      ))}
+      <group ref={ref} position={[-1, 0.04, 0]}>
+        <RoundedBox
+          args={[1.25, 0.36, 0.4]}
+          radius={0.1}
+          smoothness={3}
+          position={[0, 0.25, 0]}
+          castShadow
+        >
+          <meshStandardMaterial color="#f3f4e9" />
+        </RoundedBox>
+        <Box at={[0, 0.29, 0.205]} size={[0.87, 0.13, 0.01]} color="#3d6c78" />
+        <Box at={[0, 0.11, 0.208]} size={[1.1, 0.065, 0.015]} color="#70a7d7" />
+        {[-0.35, 0.35].map((x) => (
+          <mesh
+            key={x}
+            position={[x, 0.055, 0.11]}
+            rotation={[Math.PI / 2, 0, 0]}
           >
-            {idea.example ? 'E' : String((idea.plot ?? index) - 5)}
-            <span className="plant-tooltip">
-              {idea.title}
-              <small>
-                {ideaTags(idea)
-                  .map((t) => `#${t}`)
-                  .join(' ')}
-              </small>
-            </span>
-          </button>
-        </Html>
+            <cylinderGeometry args={[0.07, 0.07, 0.3, 10]} />
+            <meshStandardMaterial color="#475a51" />
+          </mesh>
+        ))}
       </group>
     </group>
   );
 }
-function World(props:Props){
- const {size,camera,gl,invalidate}=useThree(),controls=useRef<OrbitControlsImpl>(null);
- const [coarse,setCoarse]=useState(true);
- useEffect(()=>{const media=matchMedia('(pointer:coarse)');const update=()=>setCoarse(media.matches);update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
- useEffect(()=>{gl.domElement.style.touchAction=coarse?'pan-y':'none';},[coarse,gl]);
- useEffect(()=>{if(controls.current){controls.current.reset();invalidate();}},[props.reset,invalidate]);
- useEffect(()=>{const c=camera as THREE.OrthographicCamera;c.zoom=Math.min(size.width/15.5,size.height/11.6)*props.zoom;c.updateProjectionMatrix();invalidate();},[size,camera,props.zoom,props.reset,invalidate]);
- useEffect(()=>{const fn=(e:Event)=>{e.preventDefault();props.onFailure();};const canvas=gl.domElement;canvas.addEventListener('webglcontextlost',fn);return()=>canvas.removeEventListener('webglcontextlost',fn);},[gl,props.onFailure]);
+function World(
+  props: Props & { low: boolean; present: boolean; active: boolean },
+) {
+  const { onFailure } = props;
+  const [event, setEvent] = useState<GardenEvent | null>(null);
+  const play = (kind: GardenEvent['kind']) => {
+    if (kind === 'pond')
+      inviteButterfly(
+        props.butterflyVisit.current,
+        props.motion && !props.night && !props.low,
+      );
+    setEvent((previous) => ({ kind, serial: (previous?.serial || 0) + 1 }));
+  };
+  const { size, camera, gl, invalidate } = useThree(),
+    controls = useRef<OrbitControlsImpl>(null);
+  const [coarse, setCoarse] = useState(true);
+  useEffect(() => {
+    const media = matchMedia('(pointer:coarse)');
+    const update = () => setCoarse(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    gl.domElement.style.touchAction = coarse ? 'pan-y' : 'none';
+  }, [coarse, gl]);
+  useEffect(() => {
+    if (controls.current) {
+      controls.current.reset();
+      invalidate();
+    }
+  }, [props.reset, invalidate]);
+  const focus = props.ideas.find((idea) => idea.id === props.focusId);
+  const hasFocus = !!focus,
+    focusPlot = focus?.plot;
+  const target = useMemo(() => {
+    if (!hasFocus) return new THREE.Vector3();
+    const [x, z] = plotPosition(focusPlot ?? 0);
+    return new THREE.Vector3(x, 0.55, z);
+  }, [hasFocus, focusPlot]);
+  const shift = useMemo(() => new THREE.Vector3(), []);
+  const momentReady = useRef(false);
+  useEffect(() => {
+    momentReady.current = false;
+    invalidate();
+  }, [props.moment?.serial, target, props.present, invalidate]);
+  useFrame((_, delta) => {
+    if (!controls.current) return;
+    const c = camera as THREE.OrthographicCamera;
+    const endZoom =
+      Math.min(size.width / 15.5, size.height / 11.6) *
+      (focus ? 2.4 : 1) *
+      props.zoom;
+    const moving =
+      controls.current.target.distanceTo(target) > 0.012 ||
+      Math.abs(c.zoom - endZoom) > 0.05;
+    if (moving) {
+      const amount = props.motion
+        ? 1 - Math.exp(-Math.min(delta, 0.05) * 10)
+        : 1;
+      shift.copy(target).sub(controls.current.target).multiplyScalar(amount);
+      controls.current.target.add(shift);
+      camera.position.add(shift);
+      c.zoom += (endZoom - c.zoom) * amount;
+      c.updateProjectionMatrix();
+      controls.current.update();
+      invalidate();
+    }
+    const ready = !!focus && props.present && (!moving || !props.motion);
+    if (ready && !momentReady.current) invalidate();
+    momentReady.current = ready;
+  });
+  useEffect(() => {
+    const fn = (e: Event) => {
+      e.preventDefault();
+      onFailure();
+    };
+    const canvas = gl.domElement;
+    canvas.addEventListener('webglcontextlost', fn);
+    return () => canvas.removeEventListener('webglcontextlost', fn);
+  }, [gl, onFailure]);
 
- return <><ambientLight intensity={1.1}/><hemisphereLight args={['#fff9e7','#8d9876',1.65]}/><directionalLight position={[-5,10,4]} intensity={2.5} castShadow shadow-mapSize={[1024,1024]} shadow-camera-left={-9} shadow-camera-right={9} shadow-camera-top={9} shadow-camera-bottom={-9} shadow-bias={-.001} shadow-normalBias={.035}/>
- <group position={[0,-.45,0]}><mesh position={[0,-.45,0]} receiveShadow scale={[1,1,.84]}><cylinderGeometry args={[6.65,6.45,.74,80]}/><meshStandardMaterial color="#e7dfc9" roughness={1}/></mesh><mesh position={[0,-.055,0]} receiveShadow scale={[1,1,.84]}><cylinderGeometry args={[6.65,6.65,.07,80]}/><meshStandardMaterial color="#c4d294" roughness={1}/></mesh>
- <mesh rotation={[-Math.PI/2,0,0]} position={[0,.008,0]} scale={[1,.83,1]} receiveShadow><ringGeometry args={[4.57,5.05,80]}/><meshStandardMaterial color="#e8dfc3"/></mesh><Box at={[-1.8,.035,0]} size={[.62,.045,6.4]} color="#e8dfc3"/><Box at={[0,.04,2.5]} size={[7.3,.045,.52]} color="#e8dfc3"/>
- <mesh position={[1.3,.015,.1]} scale={[2.23,1,1.62]} receiveShadow><cylinderGeometry args={[1.1,1.1,.05,72]}/><meshStandardMaterial color="#eee4cb"/></mesh><mesh position={[1.3,.05,.1]} scale={[2.16,1,1.53]}><cylinderGeometry args={[1.08,1.08,.035,72]}/><meshStandardMaterial color="#8bc7cc" roughness={.24} metalness={.13}/></mesh>{[.65,.9].map((r,i)=><mesh key={r} position={[1.9,.075,.2]} rotation={[-Math.PI/2,0,0]} scale={[1,.58,1]}><ringGeometry args={[r,r+.013,60]}/><meshBasicMaterial color="#d9eeea" transparent opacity={.65-i*.12}/></mesh>)}
- <group position={[.45,.16,1.14]} rotation={[0,-.22,0]}><Box at={[0,0,0]} size={[3.85,.13,.45]} color="#d5bb90"/>{Array.from({length:26},(_,i)=><Box key={i} at={[-1.86+i*.15,.075,0]} size={[.019,.015,.43]} color="#aa916d"/>)}{[-1.6,-.8,0,.8,1.6].map(x=><Box key={x} at={[x,-.15,0]} size={[.08,.33,.34]} color="#9e8969"/>)}</group>
- <Pavilion/><Townhouses/><Tram motion={props.motion}/>
- <Goose at={[2.1,.06,.2]} rotate={-.6}/><Goose at={[1.75,.06,.56]} rotate={-.5}/><Goose at={[-.8,.11,1.7]} rotate={1.1}/>
- {[[-3.2,3.8],[3.6,.8],[-.55,-1.1]].map(([x,z],i)=><group key={i} position={[x,.15,z]} rotation={[0,i*.9,0]}><Box at={[0,.22,0]} size={[.66,.06,.24]} color="#b88e61"/><Box at={[0,.41,-.1]} size={[.66,.26,.045]} color="#b88e61"/>{[-.23,.23].map(n=><Box key={n} at={[n,.08,0]} size={[.045,.27,.2]} color="#607459"/>)}</group>)}
- {Array.from({length:65},(_,i)=>{const a=seeded(i+200)*Math.PI*2,r=4.5+seeded(i+400)*1.7;return <mesh key={i} position={[Math.sin(a)*r,.09,Math.cos(a)*r*.81]} scale={[.04+seeded(i)*.07,.055,.04]}><icosahedronGeometry args={[1,0]}/><meshStandardMaterial color={['#eae6a1','#f4f0cf','#a9b96e'][i%3]}/></mesh>;})}
- {props.ideas.slice(0,24).map((idea,i)=><Plant key={idea.id} idea={idea} index={i} selected={idea.id===props.selected} onSelect={()=>props.onSelect(idea.id)} motion={props.motion}/>)}</group>
- <mesh rotation={[-Math.PI/2,0,0]} position={[0,-1.285,0]} receiveShadow><planeGeometry args={[200,200]}/><shadowMaterial transparent opacity={.1}/></mesh>
- <OrbitControls ref={controls} makeDefault enablePan={false} enableZoom={false} enableRotate={!coarse} minPolarAngle={.6} maxPolarAngle={1.15} minAzimuthAngle={-.3} maxAzimuthAngle={1.6} enableDamping={props.motion} dampingFactor={.1} target={[0,0,0]}/></>;
+  return (
+    <>
+      <GardenLighting night={props.night} motion={props.motion} />
+      <group position={[0, -0.45, 0]}>
+        <mesh position={[0, -0.45, 0]} receiveShadow scale={[1, 1, 0.84]}>
+          <cylinderGeometry args={[6.65, 6.45, 0.74, 80]} />
+          <meshStandardMaterial color="#e7dfc9" roughness={1} />
+        </mesh>
+        <GardenGround />
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.008, 0]}
+          scale={[1, 0.83, 1]}
+          receiveShadow
+        >
+          <ringGeometry args={[4.57, 5.05, 80]} />
+          <meshStandardMaterial color="#e8dfc3" />
+        </mesh>
+        <Box at={[-1.8, 0.035, 0]} size={[0.62, 0.045, 6.4]} color="#e8dfc3" />
+        <Box at={[0, 0.04, 2.5]} size={[7.3, 0.045, 0.52]} color="#e8dfc3" />
+        <mesh
+          position={[1.3, 0.015, 0.1]}
+          scale={[2.23, 1, 1.62]}
+          receiveShadow
+        >
+          <cylinderGeometry args={[1.1, 1.1, 0.05, 72]} />
+          <meshStandardMaterial color="#eee4cb" />
+        </mesh>
+        <mesh
+          position={[1.3, 0.05, 0.1]}
+          scale={[2.16, 1, 1.53]}
+          onClick={(e) => {
+            e.stopPropagation();
+            play('pond');
+          }}
+        >
+          <cylinderGeometry args={[1.08, 1.08, 0.035, 72]} />
+          <meshStandardMaterial
+            color={gardenPalette.water}
+            roughness={0.24}
+            metalness={0.13}
+          />
+        </mesh>
+        {[0.65, 0.9].map((r, i) => (
+          <mesh
+            key={r}
+            position={[1.9, 0.075, 0.2]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            scale={[1, 0.58, 1]}
+          >
+            <ringGeometry args={[r, r + 0.013, 60]} />
+            <meshBasicMaterial
+              color="#d9eeea"
+              transparent
+              opacity={0.65 - i * 0.12}
+            />
+          </mesh>
+        ))}
+        <group position={[0.45, 0.16, 1.14]} rotation={[0, -0.22, 0]}>
+          <Box at={[0, 0, 0]} size={[3.85, 0.13, 0.45]} color="#d5bb90" />
+          <BridgePlanks />
+          {[-1.6, -0.8, 0, 0.8, 1.6].map((x) => (
+            <Box
+              key={x}
+              at={[x, -0.15, 0]}
+              size={[0.08, 0.33, 0.34]}
+              color="#9e8969"
+            />
+          ))}
+        </group>
+        <group visible={!focus}>
+          <Pavilion />
+          <Townhouses night={props.night} />
+        </group>
+        <Tram motion={props.motion && !props.low} />
+        <Goose
+          at={[2.1, 0.06, 0.2]}
+          rotate={-0.6}
+          event={event}
+          motion={props.motion}
+          onTap={() => play('goose')}
+        />
+        <Goose at={[1.75, 0.06, 0.56]} rotate={-0.5} />
+        <Goose at={[-0.8, 0.11, 1.7]} rotate={1.1} />
+        {[
+          [-3.2, 3.8],
+          [3.6, 0.8],
+          [-0.55, -1.1],
+        ].map(([x, z], i) => (
+          <group key={i} position={[x, 0.15, z]} rotation={[0, i * 0.9, 0]}>
+            <Box at={[0, 0.22, 0]} size={[0.66, 0.06, 0.24]} color="#b88e61" />
+            <Box
+              at={[0, 0.41, -0.1]}
+              size={[0.66, 0.26, 0.045]}
+              color="#b88e61"
+            />
+            {[-0.23, 0.23].map((n) => (
+              <Box
+                key={n}
+                at={[n, 0.08, 0]}
+                size={[0.045, 0.27, 0.2]}
+                color="#607459"
+              />
+            ))}
+          </group>
+        ))}
+        <Meadow />
+        <Forest
+          {...props}
+          ideas={focus ? [focus] : props.ideas}
+          momentReady={momentReady}
+        />
+        <Atmosphere night={props.night} motion={props.motion} low={props.low} />
+        <Ripple event={event} motion={props.motion} />
+        <GardenButterfly
+          visit={props.butterflyVisit}
+          enabled={props.active && props.motion && !props.night && !props.low}
+        />
+      </group>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -1.285, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[200, 200]} />
+        <shadowMaterial transparent opacity={0.1} />
+      </mesh>
+      <OrbitControls
+        ref={controls}
+        makeDefault
+        enablePan={false}
+        enableZoom={false}
+        enableRotate={!coarse && !props.moment}
+        minPolarAngle={0.6}
+        maxPolarAngle={1.15}
+        minAzimuthAngle={-0.3}
+        maxAzimuthAngle={1.6}
+        enableDamping={props.motion}
+        dampingFactor={0.1}
+      />
+    </>
+  );
 }
-export default function GardenScene(props:Props){
- const [active,setActive]=useState(true);useEffect(()=>{const check=()=>setActive(!document.hidden);document.addEventListener('visibilitychange',check);return()=>document.removeEventListener('visibilitychange',check);},[]);
- return <Canvas orthographic camera={{position:[9,10,13],zoom:48,near:.1,far:100}} dpr={[1,1.5]} shadows gl={{antialias:true,alpha:true,powerPreference:'low-power'}} frameloop={props.motion&&active?'always':'demand'} fallback={<div className="scene-fallback">The garden needs 3D support. Every idea is available in the list.</div>} onCreated={({gl})=>{gl.toneMapping=THREE.ACESFilmicToneMapping;gl.toneMappingExposure=1.12;}}><World {...props} motion={props.motion&&active}/></Canvas>;
+// Local inspection only; the production build removes this component.
+function GardenDiagnostics() {
+  const elapsed = useRef(0),
+    frames = useRef(0);
+  useFrame(({ gl, scene }, delta) => {
+    frames.current++;
+    elapsed.current += delta;
+    if (elapsed.current < 0.5) return;
+    elapsed.current = 0;
+    const batches: Record<string, number> = {};
+    scene.traverse((object) => {
+      if (object instanceof THREE.InstancedMesh)
+        batches[object.name || object.type] = object.count;
+    });
+    gl.domElement.dataset.renderStats = JSON.stringify({
+      frames: frames.current,
+      calls: gl.info.render.calls,
+      triangles: gl.info.render.triangles,
+      batches,
+    });
+  });
+  return null;
+}
+export default function GardenScene(props: Props) {
+  const container = useRef<HTMLDivElement>(null),
+    [active, setActive] = useState(false),
+    [present, setPresent] = useState(false),
+    [low, setLow] = useState(false);
+  useEffect(() => {
+    let ratio = 0;
+    const check = () => {
+      setActive(ratio > 0 && !document.hidden);
+      setPresent(ratio >= 0.75 && !document.hidden);
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        ratio = entries[0].intersectionRatio;
+        check();
+      },
+      { threshold: [0, 0.05, 0.75, 1] },
+    );
+    if (container.current) observer.observe(container.current);
+    document.addEventListener('visibilitychange', check);
+    check();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, []);
+  return (
+    <div
+      ref={container}
+      className="garden-canvas"
+      data-quality={low ? 'calm' : 'full'}
+      data-render-state={
+        !active ? 'suspended' : props.motion ? 'animated' : 'paused'
+      }
+    >
+      <Canvas
+        orthographic
+        camera={{ position: [9, 10, 13], zoom: 48, near: 0.1, far: 100 }}
+        dpr={low ? 1 : [1, 1.5]}
+        shadows={low ? false : { type: THREE.PCFShadowMap }}
+        gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
+        frameloop={!active ? 'never' : props.motion ? 'always' : 'demand'}
+        fallback={
+          <div className="scene-fallback">
+            Every idea is available in the list.
+          </div>
+        }
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.12;
+        }}
+      >
+        <PerformanceMonitor
+          bounds={() => [28, 55]}
+          onDecline={() => setLow(true)}
+        >
+          <World {...props} low={low} active={active} present={present} />
+          {process.env.NODE_ENV === 'development' && <GardenDiagnostics />}
+        </PerformanceMonitor>
+      </Canvas>
+    </div>
+  );
 }

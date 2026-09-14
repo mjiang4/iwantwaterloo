@@ -80,3 +80,40 @@ export const rateLimits = sqliteTable(
   },
   (t) => [index('idx_rate_limits_expiry').on(t.expiresAt)],
 );
+
+// These tables are inert unless a separately provisioned preview identity matches.
+export const previewIdentity = sqliteTable('preview_identity', {
+  id: integer('id').primaryKey(),
+  value: text('value').notNull(),
+});
+export const previewSessions = sqliteTable(
+  'preview_sessions',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    kind: text('kind').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+  },
+  (t) => [index('idx_preview_sessions_expiry').on(t.expiresAt)],
+);
+export const previewSnapshots = sqliteTable('preview_snapshots', {
+  id: integer('id').primaryKey(),
+  payload: text('payload').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
+export const previewOperations = sqliteTable('preview_operations', {
+  id: text('id').primaryKey(),
+  action: text('action').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
+export const previewChecks = sqliteTable(
+  'preview_checks',
+  {
+    id: text('id').primaryKey(),
+    ideaKey: text('idea_key').notNull(),
+    visitorId: text('visitor_id').notNull(),
+    createdAt: integer('created_at').notNull(),
+    status: text('status').notNull(),
+    results: text('results').notNull().default('[]'),
+  },
+  (t) => [index('idx_preview_checks_status_created').on(t.status, t.createdAt)],
+);

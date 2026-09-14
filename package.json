@@ -11,7 +11,10 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "preview": "node scripts/preview.mjs",
+    "test:preview": "node tests/preview-admin.mjs",
+    "preview:stage": "node scripts/preview-stage.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

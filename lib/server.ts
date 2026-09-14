@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import {
   CATEGORIES,
   CONNECTIONS,
@@ -17,13 +18,19 @@ export class InputError extends Error {
     super(message);
   }
 }
+export function visitorCookieName() {
+  return env.GARDEN_ENV === 'preview'
+    ? 'garden_preview_visitor'
+    : 'garden_visitor';
+}
 export function identity(request: Request) {
+  const name = visitorCookieName();
   const raw = request.headers
     .get('cookie')
     ?.split(';')
     .map((s) => s.trim())
-    .find((s) => s.startsWith('garden_visitor='))
-    ?.slice(15);
+    .find((s) => s.startsWith(name + '='))
+    ?.slice(name.length + 1);
   const existing = raw && /^[a-f0-9-]{36}$/.test(raw) ? raw : null;
   return {
     id: existing || crypto.randomUUID(),
@@ -43,7 +50,7 @@ export function response(
   };
   if (!['GET', 'HEAD'].includes(request.method))
     headers['Set-Cookie'] =
-      `garden_visitor=${id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
+      `${visitorCookieName()}=${id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
   if (retryAfter) headers['Retry-After'] = String(retryAfter);
   return Response.json(data, { status, headers });
 }

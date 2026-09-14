@@ -1,4 +1,5 @@
 'use client';
+import type { GardenMoment } from '@/lib/garden-visuals';
 import {
   useCallback,
   useEffect,
@@ -21,6 +22,7 @@ import {
   MessageCircle,
   Search,
   SlidersHorizontal,
+  Shuffle,
   Sprout,
   X,
 } from 'lucide-react';
@@ -51,18 +53,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  CONNECTIONS,
-  ideaTags,
-  filterIdeas,
-  SUGGESTED_TAGS,
-  type Idea,
-} from '@/lib/garden';
+import { CONNECTIONS, ideaTags, filterIdeas, type Idea } from '@/lib/garden';
 import { Choice, IdeaComposer } from './idea-composer';
 import { useGardenTools } from './garden-tools';
 import { GardenExplorer } from './garden-explorer';
-import { useTags } from './tag-picker';
+import { TagSearch } from './tag-picker';
 import { IdeaDiscussion } from './idea-discussion';
+import { useFreshHighlight } from './use-fresh-highlight';
+import { createButterflyVisit } from '@/lib/garden-discovery';
 export type PlantInput = {
   title: string;
   description: string;
@@ -163,14 +161,25 @@ function IdeaCard({
   onRead,
   onSupport,
   pending,
+  fresh,
+  onSeen,
 }: {
   idea: Idea;
   onRead: (idea: Idea) => void;
   onSupport: (idea: Idea) => void;
   pending: boolean;
+  fresh: boolean;
+  onSeen: () => void;
 }) {
+  const { ref: cueRef, highlighted } = useFreshHighlight<HTMLElement>(
+    fresh,
+    onSeen,
+  );
   return (
-    <article className="idea-card">
+    <article
+      ref={cueRef}
+      className={`idea-card ${highlighted ? 'is-fresh' : ''}`}
+    >
       <button className="idea-open" onClick={() => onRead(idea)}>
         <span className="idea-topic">
           {ideaTags(idea)
@@ -200,18 +209,33 @@ function Garden() {
   const client = useQueryClient();
   const [view, setView] = useState('ideas');
   const [tag, setTag] = useState('all');
-  const [tagSearch, setTagSearch] = useState('');
-  const tagChoices = useTags(tagSearch);
-  const browseTags = useTags();
+  const [plantingId, setPlantingId] = useState<string | null>(null);
+  const [newIdeaId, setNewIdeaId] = useState<string | null>(null);
+  const [treeHighlightId, setTreeHighlightId] = useState<string | null>(null);
+  const onIdeaSeen = useCallback(() => setNewIdeaId(null), []);
+  const onTreeHighlighted = useCallback(() => setTreeHighlightId(null), []);
+  const butterflyVisit = useRef(createButterflyVisit());
+  const onPlanted = useCallback(() => setPlantingId(null), []);
+  const [moment, setMoment] = useState<GardenMoment | null>(null);
+  const momentSerial = useRef(0);
+  const onMomentComplete = useCallback(
+    (serial: number) =>
+      setMoment((current) => (current?.serial === serial ? null : current)),
+    [],
+  );
   const [gardenFocus, setGardenFocus] = useState<Idea | null>(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [connection, setConnection] = useState('all');
   const [sort, setSort] = useState('newest');
   const [shuffle, setShuffle] = useState(0);
+  const [shuffleRequested, setShuffleRequested] = useState(false);
+  const [shuffleNotice, setShuffleNotice] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Idea | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const ideaOpener = useRef<HTMLElement | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [supportError, setSupportError] = useState('');
@@ -231,24 +255,46 @@ function Garden() {
         `/api/ideas?${new URLSearchParams({ tag, q: debouncedQuery, connection, sort, seed: String(shuffle), page: String(pageParam) })}`,
       ),
     getNextPageParam: (page) => page.nextPage,
+    placeholderData: (previous, previousQuery) =>
+      sort === 'random' &&
+      previousQuery?.queryKey[4] === 'random' &&
+      previousQuery.queryKey[1] === tag &&
+      previousQuery.queryKey[2] === debouncedQuery &&
+      previousQuery.queryKey[3] === connection
+        ? previous
+        : undefined,
     staleTime: 15000,
     refetchInterval: 20000,
   });
+  useEffect(() => {
+    if (!shuffleRequested || list.isFetching || list.isPlaceholderData) return;
+    // Query completion updates the one-shot accessibility announcement.
+    // oxlint-disable-next-line react/react-compiler
+    setShuffleRequested(false);
+    setShuffleNotice(
+      list.isError ? 'Couldn’t reshuffle. Try again.' : 'Ideas reshuffled.',
+    );
+  }, [shuffleRequested, list.isFetching, list.isPlaceholderData, list.isError]);
   const ideas = useMemo(() => {
     const real = list.data?.pages.flatMap((p) => p.ideas) || [];
     return filterIdeas(real, 'all', debouncedQuery, connection, sort, tag);
   }, [list.data, tag, debouncedQuery, connection, sort]);
   const total = list.data?.pages[0].total || 0;
-  const filtered = tag !== 'all' || connection !== 'all';
+  const filtered = tag !== 'all' || connection !== 'all' || sort !== 'newest';
   const clearFilters = useCallback(() => {
     setTag('all');
-    setTagSearch('');
     setQuery('');
+    setDebouncedQuery('');
     setConnection('all');
     setSort('newest');
   }, []);
   const selectIdea = useCallback((idea: Idea) => {
+    ideaOpener.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     setSelected(idea);
+    setSheetOpen(true);
     setSupportError('');
     const url = new URL(window.location.href);
     url.searchParams.set('idea', idea.id);
@@ -263,17 +309,52 @@ function Garden() {
     }
     directLinkChecked.current = true;
     void api<Page>(`/api/ideas?id=${encodeURIComponent(id)}`).then((page) => {
-      if (page.ideas[0]) setSelected(page.ideas[0]);
+      if (page.ideas[0]) {
+        setSelected(page.ideas[0]);
+        setSheetOpen(true);
+      }
     });
   }, []);
+  const revealTree = useCallback(
+    (idea: Idea, kind: GardenMoment['kind'], fromLikes = 0) => {
+      clearFilters();
+      setGardenFocus(idea);
+      setMoment({
+        id: idea.id,
+        kind,
+        fromLikes,
+        serial: ++momentSerial.current,
+      });
+      setSheetOpen(false);
+      setView('garden');
+      const url = new URL(location.href);
+      url.searchParams.delete('idea');
+      history.replaceState(null, '', url);
+    },
+    [clearFilters],
+  );
+  useEffect(() => {
+    if (!moment || view !== 'garden' || sheetOpen) return;
+    // Wait for the detail sheet to release scroll lock before framing the garden.
+    const timer = setTimeout(() => {
+      const stage = document.getElementById('garden-view');
+      stage?.scrollIntoView({
+        behavior: reduced ? 'instant' : 'smooth',
+        block: 'start',
+      });
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [moment?.serial, view, sheetOpen, reduced]);
   const share = useCallback(
     async (input: PlantInput) => {
       const { idea } = await api<{ idea: Idea }>('/api/ideas', {
         method: 'POST',
         body: JSON.stringify(input),
       });
-      clearFilters();
-      setView('ideas');
+      setPlantingId(idea.id);
+      setNewIdeaId(idea.id);
+      setTreeHighlightId(idea.id);
+      revealTree(idea, 'plant');
       void Promise.all([
         client.invalidateQueries({ queryKey: ['ideas'] }),
         client.invalidateQueries({ queryKey: ['tags'] }),
@@ -281,7 +362,7 @@ function Garden() {
       ]).catch(() => {});
       return idea;
     },
-    [client, clearFilters],
+    [client, revealTree],
   );
   const patchIdea = useCallback(
     (id: string, fields: Pick<Idea, 'waters' | 'watered'>) => {
@@ -303,6 +384,19 @@ function Garden() {
               }
             : data,
       );
+      client.setQueriesData<Page>({ queryKey: ['garden'] }, (data) =>
+        data
+          ? {
+              ...data,
+              ideas: data.ideas.map((idea) =>
+                idea.id === id ? { ...idea, ...fields } : idea,
+              ),
+              examples: data.examples.map((idea) =>
+                idea.id === id ? { ...idea, ...fields } : idea,
+              ),
+            }
+          : data,
+      );
       setSelected((i) => (i?.id === id ? { ...i, ...fields } : i));
     },
     [client],
@@ -313,6 +407,11 @@ function Garden() {
       locks.current.add(idea.id);
       setPending(new Set(locks.current));
       setSupportError('');
+      // Stop older polls from overwriting the optimistic tree and heart state.
+      await Promise.all([
+        client.cancelQueries({ queryKey: ['garden'] }),
+        client.cancelQueries({ queryKey: ['ideas'] }),
+      ]);
       const previous = { waters: idea.waters, watered: idea.watered };
       patchIdea(idea.id, {
         waters: Math.max(0, idea.waters + (idea.watered ? -1 : 1)),
@@ -328,6 +427,8 @@ function Garden() {
           body: JSON.stringify({ ideaId: idea.id, watered: !idea.watered }),
         });
         patchIdea(data.id, data);
+        if (!idea.watered && data.watered)
+          revealTree({ ...idea, ...data }, 'like', idea.waters);
         void client.invalidateQueries({ queryKey: ['garden'] });
       } catch (e) {
         patchIdea(idea.id, previous);
@@ -339,14 +440,10 @@ function Garden() {
         setPending(new Set(locks.current));
       }
     },
-    [client, patchIdea],
+    [client, patchIdea, revealTree],
   );
   useGardenTools({
-    plant: async (input) => {
-      const idea = await share(input);
-      setSelected(idea);
-      return idea;
-    },
+    plant: share,
     explore: (q, c) => {
       setQuery(q);
       setDebouncedQuery(q);
@@ -441,34 +538,67 @@ function Garden() {
                         Filter ideas
                       </PopoverTitle>
                       <label htmlFor="filter-tag-search">Tags</label>
-                      <Input
-                        id="filter-tag-search"
-                        value={tagSearch}
-                        onChange={(e) => setTagSearch(e.target.value)}
-                        placeholder="Find a tag…"
-                      />
-                      <div className="tag-options filter-tag-options">
-                        <button
-                          type="button"
-                          aria-pressed={tag === 'all'}
-                          onClick={() => setTag('all')}
-                        >
-                          All
-                        </button>
-                        {(
-                          tagChoices.data?.tags ||
-                          SUGGESTED_TAGS.map((tag) => ({ tag, count: 0 }))
-                        ).map((t) => (
+                      <TagSearch id="filter-tag-search" onChoose={setTag} />
+                      {tag !== 'all' && (
+                        <div className="tag-options selected-tags">
                           <button
                             type="button"
-                            key={t.tag}
-                            aria-pressed={tag === t.tag}
-                            onClick={() => setTag(t.tag)}
+                            onClick={() => setTag('all')}
+                            aria-label={`Remove tag ${tag}`}
                           >
-                            #{t.tag}
+                            #{tag}
+                            <X size={12} />
                           </button>
-                        ))}
-                      </div>
+                        </div>
+                      )}
+                      <div className="filter-field-label">Sort</div>
+                      <Choice
+                        label="Sort ideas"
+                        value={sort}
+                        onChange={(value) => {
+                          setSort(value);
+                          if (value === 'random')
+                            setShuffle(
+                              (current) =>
+                                (current + 1 + Math.floor(Math.random() * 61)) %
+                                64,
+                            );
+                        }}
+                        items={[
+                          { value: 'newest', label: 'New' },
+                          { value: 'watered', label: 'Most liked' },
+                          { value: 'random', label: 'Random' },
+                        ]}
+                      />
+                      {sort === 'random' && (
+                        <button
+                          className="tag-done reshuffle-button"
+                          type="button"
+                          disabled={list.isFetching || shuffleRequested}
+                          aria-busy={shuffleRequested}
+                          onClick={() => {
+                            setShuffleRequested(true);
+                            setShuffleNotice('');
+                            setShuffle(
+                              (current) =>
+                                (current + 1 + Math.floor(Math.random() * 61)) %
+                                64,
+                            );
+                          }}
+                        >
+                          <Shuffle
+                            key={shuffle}
+                            size={15}
+                            className={
+                              shuffleRequested || shuffleNotice
+                                ? 'shuffle-feedback'
+                                : ''
+                            }
+                            aria-hidden="true"
+                          />
+                          Reshuffle
+                        </button>
+                      )}
                       <label>Connection</label>
                       <Choice
                         label="Filter connection"
@@ -492,31 +622,6 @@ function Garden() {
                 </div>
               }
             </div>
-            {view === 'ideas' && (
-              <fieldset className="idea-sort" aria-label="Sort ideas">
-                {[
-                  ['newest', 'New'],
-                  ['watered', 'Most liked'],
-                  ['random', 'Random'],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={sort === value}
-                    onClick={() => {
-                      setSort(value);
-                      if (value === 'random')
-                        setShuffle(
-                          (current) =>
-                            (current + 1 + Math.floor(Math.random() * 61)) % 64,
-                        );
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </fieldset>
-            )}
             {searchOpen && (
               <div className="search-wrap">
                 <Search size={17} />
@@ -540,12 +645,25 @@ function Garden() {
             )}
             {filtered && (
               <div className="active-filter">
-                <span>{tag === 'all' ? 'Filtered' : `#${tag}`}</span>
+                <span>
+                  {[
+                    tag !== 'all' ? `#${tag}` : '',
+                    connection !== 'all' ? connection : '',
+                    sort === 'watered'
+                      ? 'Most liked'
+                      : sort === 'random'
+                        ? 'Random'
+                        : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
                 <button aria-label="Clear filters" onClick={clearFilters}>
                   <X size={13} />
                 </button>
               </div>
             )}
+            <output className="sr-only">{shuffleNotice}</output>
             {list.isError && (
               <p className="form-error" role="alert">
                 Couldn’t load community ideas.{' '}
@@ -558,25 +676,6 @@ function Garden() {
               </p>
             )}
             <TabsContent value="ideas" className="view-panel">
-              <div className="browse-tags" aria-label="Browse tags">
-                {(
-                  browseTags.data?.tags ||
-                  SUGGESTED_TAGS.map((tag) => ({ tag, count: 0 }))
-                )
-                  .slice(0, 8)
-                  .map((t) => (
-                    <button
-                      type="button"
-                      key={t.tag}
-                      aria-pressed={tag === t.tag}
-                      onClick={() =>
-                        setTag((v) => (v === t.tag ? 'all' : t.tag))
-                      }
-                    >
-                      #{t.tag}
-                    </button>
-                  ))}
-              </div>
               <section
                 className="ideas-grid"
                 aria-label="Ideas for Waterloo"
@@ -594,6 +693,8 @@ function Garden() {
                     onRead={selectIdea}
                     onSupport={support}
                     pending={pending.has(idea.id)}
+                    fresh={idea.id === newIdeaId}
+                    onSeen={onIdeaSeen}
                   />
                 ))}
                 {!ideas.length && !list.isPending && !list.isError && (
@@ -619,23 +720,40 @@ function Garden() {
                 </Button>
               )}
             </TabsContent>
-            <TabsContent value="garden" className="view-panel" id="garden-view">
+            <TabsContent
+              value="garden"
+              className="view-panel"
+              id="garden-view"
+              tabIndex={-1}
+            >
               <GardenExplorer
                 tag={tag}
                 query={debouncedQuery}
                 connection={connection}
                 focusIdea={gardenFocus}
+                moment={moment}
+                onMomentComplete={onMomentComplete}
+                plantingId={plantingId}
+                highlightId={treeHighlightId}
+                onHighlighted={onTreeHighlighted}
+                butterflyVisit={butterflyVisit}
+                onPlanted={onPlanted}
                 onRead={selectIdea}
+                onSupport={support}
+                pending={pending}
                 onList={() => setView('ideas')}
               />
             </TabsContent>
           </div>
         </main>
         <Sheet
-          open={!!selected}
+          open={sheetOpen}
+          onOpenChangeComplete={(open) => {
+            if (!open) setSelected(null);
+          }}
           onOpenChange={(open) => {
+            setSheetOpen(open);
             if (!open) {
-              setSelected(null);
               const url = new URL(window.location.href);
               url.searchParams.delete('idea');
               history.replaceState(null, '', url);
@@ -645,6 +763,13 @@ function Garden() {
           <SheetContent
             side={small ? 'bottom' : 'right'}
             className="idea-sheet"
+            finalFocus={() =>
+              view === 'garden' && moment
+                ? document.getElementById('garden-view')
+                : ideaOpener.current?.isConnected
+                  ? ideaOpener.current
+                  : document.getElementById('new-idea')
+            }
           >
             {selected && (
               <div className="idea-detail">
@@ -657,7 +782,10 @@ function Garden() {
                       onClick={() => {
                         clearFilters();
                         setTag(t);
-                        setSelected(null);
+                        setSheetOpen(false);
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete('idea');
+                        history.replaceState(null, '', url);
                         setView('ideas');
                       }}
                     >
