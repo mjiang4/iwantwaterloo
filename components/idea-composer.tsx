@@ -254,7 +254,7 @@ export function IdeaComposer({
               required
               placeholder="Your idea…"
               rows={3}
-              disabled={saving}
+              disabled={saving || !draftReady}
               onKeyDown={(e) => {
                 if (
                   (e.metaKey || e.ctrlKey) &&
@@ -277,7 +277,7 @@ export function IdeaComposer({
                 value={displayName}
                 placeholder="Alex, 19, CS student"
                 autoComplete="off"
-                disabled={saving}
+                disabled={saving || !draftReady}
                 onChange={(e) => setDisplayName(e.target.value)}
               />
               {(displayName || remember) && (
@@ -285,7 +285,7 @@ export function IdeaComposer({
                   <input
                     type="checkbox"
                     checked={remember}
-                    disabled={saving}
+                    disabled={saving || !draftReady}
                     onChange={(e) => setRemember(e.target.checked)}
                   />
                   Remember on this device
@@ -304,7 +304,7 @@ export function IdeaComposer({
                   placeholder="Where in Waterloo?"
                   value={place}
                   onChange={(e) => setPlace(e.target.value)}
-                  disabled={saving}
+                  disabled={saving || !draftReady}
                 />
                 <label htmlFor="idea-connection">Connection to Waterloo</label>
                 <Choice
@@ -321,7 +321,7 @@ export function IdeaComposer({
             </details>
             <div className="compose-actions">
               <div className="compose-options">
-                <TagPicker value={tags} onChange={setTags} disabled={saving} />
+                <TagPicker value={tags} onChange={setTags} disabled={saving || !draftReady} />
               </div>
               <Button
                 type="submit"
