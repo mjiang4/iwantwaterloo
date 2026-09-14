@@ -56,6 +56,7 @@ import {
   CONNECTIONS,
   ideaTags,
   ideaBody,
+  hasDerivedTitle,
   filterIdeas,
   type Idea,
 } from '@/lib/garden';
@@ -833,18 +834,18 @@ function Garden() {
                     <span className="example-badge">Example</span>
                   )}
                 </span>
-                <SheetTitle className="detail-title">
+                <SheetTitle className={hasDerivedTitle(selected) ? "sr-only" : "detail-title"}>
                   {selected.title}
                 </SheetTitle>
+                {Boolean(ideaBody(selected)) && (
+                  <p className={`detail-body${hasDerivedTitle(selected) ? ' full-idea' : ''}`}>{ideaBody(selected)}</p>
+                )}
                 <SheetDescription className="detail-meta">
                   {selected.place || 'Waterloo'}
                   {selected.connection ? ` · ${selected.connection}` : ''}
                 </SheetDescription>
                 {selected.displayName && (
                   <p className="idea-signature">{selected.displayName}</p>
-                )}
-                {Boolean(ideaBody(selected)) && (
-                  <p className="detail-body">{ideaBody(selected)}</p>
                 )}
                 <div className="detail-actions">
                   <SupportButton

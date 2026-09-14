@@ -179,3 +179,11 @@ button,input,textarea {font:inherit}button,a,input,textarea {-webkit-tap-highlig
 .signature-field input[data-slot=input]::placeholder{font-size:.75rem;color:#6e7d65;opacity:1}
 .idea-input[data-slot=textarea]::placeholder{font-size:.8125rem}
 .signature-field>label{font-size:.75rem;margin-bottom:6px}
+
+/* Keep the introduction on one quiet row, with a full-size touch target. */
+.signature-field{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;align-items:baseline;border-top:0;padding-top:4px}
+.signature-field>label{margin:0;white-space:nowrap}
+.signature-field input[data-slot=input]{background:transparent;border-radius:0;border-bottom:1px solid #dde3d8;padding:10px 0;height:44px}
+.signature-field input[data-slot=input]:focus-visible{border-bottom-color:#65815d;outline:none}
+.signature-field .remember-signature{grid-column:2;white-space:normal}
+.detail-body.full-idea,.shared-idea-body.full-idea{margin-top:0;color:#29332a}

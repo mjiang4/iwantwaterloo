@@ -202,8 +202,13 @@ export function decodeTags(value: unknown, category: string): string[] {
   return LEGACY_TAGS[category] || [];
 }
 
-// A derived heading should not repeat the same sentence in the detail body.
+export function hasDerivedTitle(idea: Pick<Idea, 'title' | 'description'>) {
+  return idea.title === ideaTitle(idea.description);
+}
+
+// Preserve the original text when the heading is only a generated excerpt.
 export function ideaBody(idea: Pick<Idea, 'title' | 'description'>) {
+  if (hasDerivedTitle(idea)) return idea.description;
   return idea.description.startsWith(idea.title)
     ? idea.description.slice(idea.title.length).trim()
     : idea.description;
