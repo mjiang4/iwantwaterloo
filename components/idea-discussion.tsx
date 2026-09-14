@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Flag, MessageCircle, Reply, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { readSignature } from '@/lib/signature';
 import { requestJSON } from '@/lib/client';
 import type { GardenComment, Idea } from '@/lib/garden';
 
@@ -15,6 +16,9 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
   const client = useQueryClient();
   const [body, setBody] = useState('');
   const [name, setName] = useState('');
+  useEffect(() => {
+    setName(readSignature());
+  }, []);
   const [replyingTo, setReplyingTo] = useState<GardenComment | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -102,7 +106,7 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
         <p className="discussion-empty">Listening for replies…</p>
       )}
       {!result.isPending && !comments.length && (
-        <p className="discussion-empty">What would make this idea stronger?</p>
+        <p className="discussion-empty">Add a detail or ask a question.</p>
       )}
       <div className="comment-list">
         {comments.map((comment) => (
@@ -117,7 +121,9 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
               </span>
             )}
             <div className="comment-meta">
-              <strong>{comment.displayName || 'A neighbour'}</strong>
+              <strong>
+                {comment.displayName && <span>{comment.displayName}</span>}
+              </strong>
               <time dateTime={new Date(comment.createdAt).toISOString()}>
                 {new Date(comment.createdAt).toLocaleDateString()}
               </time>
@@ -168,8 +174,8 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={60}
-            placeholder="Your name · optional"
-            aria-label="Your name, optional"
+            placeholder="Signature · optional, public"
+            aria-label="Signature, optional and public"
           />
           <Button disabled={saving || body.trim().length < 2}>
             {saving ? 'Adding…' : 'Add reply'}

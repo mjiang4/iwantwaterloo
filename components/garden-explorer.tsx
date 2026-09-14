@@ -35,6 +35,7 @@ import type { GardenMoment } from '@/lib/garden-visuals';
 import { requestJSON } from '@/lib/client';
 import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import type { ButterflyVisit } from '@/lib/garden-discovery';
+import { PlantReceipt } from './idea-share';
 const GardenScene = lazy(() => import('./garden-scene'));
 type GardenPage = {
   ideas: Idea[];
@@ -66,6 +67,9 @@ class SceneBoundary extends Component<
   }
 }
 export function GardenExplorer({
+  mine,
+  postedIdea,
+  onReceiptDone,
   tag,
   query,
   connection,
@@ -82,6 +86,9 @@ export function GardenExplorer({
   pending,
   onList,
 }: {
+  mine: boolean;
+  postedIdea: Idea | null;
+  onReceiptDone: () => void;
   tag: string;
   query: string;
   connection: string;
@@ -157,10 +164,10 @@ export function GardenExplorer({
     return () => media.removeEventListener('change', update);
   }, []);
   const result = useQuery({
-    queryKey: ['garden', page, tag, query, connection],
+    queryKey: ['garden', page, tag, query, connection, mine],
     queryFn: () =>
       requestJSON<GardenPage>(
-        `/api/ideas?${new URLSearchParams({ garden: '1', page: String(page), tag, q: query, connection })}`,
+        `/api/ideas?${new URLSearchParams({ garden: '1', mine: mine ? '1' : '0', page: String(page), tag, q: query, connection })}`,
       ),
     refetchInterval: 15000,
   });
@@ -315,7 +322,8 @@ export function GardenExplorer({
           </div>
         </div>
       )}
-      {inspected && (
+      {postedIdea && <PlantReceipt idea={postedIdea} onDone={onReceiptDone} />}
+      {inspected && !postedIdea && (
         <div className="garden-idea-dock" aria-label="Selected tree">
           <button
             className="garden-idea-title"

@@ -140,3 +140,42 @@ button,input,textarea {font:inherit}button,a,input,textarea {-webkit-tap-highlig
 #garden-view { scroll-margin-top:12px;outline:none; }
 
 .garden-controls .garden-back { width:auto;padding:0 9px;gap:5px;font-size:.75rem; }
+
+/* A continuous composer with a single optional public signature. */
+.compose-guidance{padding:16px 18px 0;color:#64755e;font-size:.875rem;line-height:1.5}
+.signature-field{margin:0 17px 8px;padding:14px 0 6px;border-top:1px solid #edf0e8}
+.signature-field>label{display:flex;gap:8px;align-items:center;font-size:.8125rem;color:#4e6247;margin-bottom:7px}
+.signature-field>label>span,.idea-context summary>span{font-size:.75rem;color:#7a8872;font-weight:400}
+.signature-field input[data-slot=input]{border:0;box-shadow:none;background:#f6f8f2;padding:10px 12px;height:44px;font-size:1rem;border-radius:9px;width:100%;min-width:0}
+.signature-field .remember-signature{display:flex;min-height:40px;margin:4px 0 0;font-size:.75rem;color:#6e7d65;cursor:pointer}
+.remember-signature input{width:16px;height:16px;accent-color:#315b43}
+.idea-context{margin:0 17px 8px;color:#64745c;font-size:.8125rem}
+.idea-context summary{cursor:pointer;min-height:44px;align-content:center;list-style-position:inside}
+.idea-context summary>span{margin-left:5px}
+.context-fields{display:grid;gap:9px;padding:7px 0 14px}
+.context-fields input{font-size:1rem;height:44px}
+.compose-shell:has(details[open]){overflow:visible}
+.yours-toggle{min-height:44px;min-width:44px;padding:0 8px;border-radius:10px;font-size:.8125rem;color:#6c7e62}
+.yours-toggle[aria-pressed=true]{background:#e7efdf;color:#365d2e}
+.yours-note{font-size:.8125rem;color:#6c7e62;margin:0 0 14px}
+.idea-signature,.receipt-signature{font-size:.875rem;color:#59724e;margin-top:14px;overflow-wrap:anywhere}
+.plant-receipt{margin:12px 0;padding:20px;border:1px solid #dee8d4;border-radius:16px;background:#fcfef8}
+.receipt-status{font-size:.8125rem;color:#6d805f;margin:0 0 10px}
+.receipt-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:1rem;line-height:1.6;max-height:180px;overflow:auto}
+.receipt-actions,.shared-actions{display:flex;align-items:flex-start;gap:12px;margin-top:16px}
+.receipt-actions button,.idea-share button{min-height:44px}
+.idea-share{display:flex;flex-direction:column;gap:6px;min-width:0}
+.share-feedback{font-size:.75rem;max-width:220px;color:#66765e}
+.shared-idea-page{max-width:700px;margin:45px auto;padding:0 22px 60px;width:100%}
+.shared-brand{display:inline-block;color:#4b6542;font-size:1rem;margin-bottom:45px}
+.shared-idea-page h1{font-size:clamp(1.7rem,4vw,2.6rem);line-height:1.2;letter-spacing:-.035em;overflow-wrap:anywhere}
+.shared-idea-body{font-size:1.125rem;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:25px}
+.shared-tags{margin-top:20px;color:#6b7e60;font-size:.8125rem;overflow-wrap:anywhere}
+.shared-garden-link{display:block;color:#5a7450;margin-top:35px;font-size:.875rem;min-height:44px}
+.shared-actions .support-button{min-height:44px}
+@media(max-width:600px){.compose-guidance{padding:12px 13px 0;font-size:.8125rem}.signature-field,.idea-context{margin-left:12px;margin-right:12px}.compose-actions .share-button[data-slot=button]{height:44px;min-height:44px}.explore-toolbar{gap:8px}.view-tabs[data-slot=tabs-list]{gap:12px}.explore-tools{gap:0}.yours-toggle{padding:0 6px}.plant-receipt{padding:17px}.shared-idea-page{margin-top:25px}.shared-brand{margin-bottom:32px}}
+
+.card-signature{font-size:.8125rem;line-height:1.5;color:#69805f;overflow-wrap:anywhere}
+.receipt-status{display:block}
+
+.reply-footer input,.reply-footer button{min-height:44px}

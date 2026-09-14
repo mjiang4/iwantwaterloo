@@ -34,6 +34,10 @@ export async function GET(request: Request) {
       garden = url.searchParams.get('garden') === '1';
     const where: string[] = ['1=1'],
       args: (string | number)[] = [];
+    if (url.searchParams.get('mine') === '1') {
+      where.push('i.visitor_id = ?');
+      args.push(id);
+    }
     const exactId = url.searchParams.get('id');
     if (exactId) {
       where.push('i.id = ?');

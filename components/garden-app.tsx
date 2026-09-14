@@ -18,7 +18,6 @@ import {
 import {
   Heart,
   Info,
-  Link as LinkIcon,
   MessageCircle,
   Search,
   SlidersHorizontal,
@@ -53,11 +52,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { CONNECTIONS, ideaTags, filterIdeas, type Idea } from '@/lib/garden';
+import {
+  CONNECTIONS,
+  ideaTags,
+  ideaBody,
+  filterIdeas,
+  type Idea,
+} from '@/lib/garden';
 import { Choice, IdeaComposer } from './idea-composer';
 import { useGardenTools } from './garden-tools';
 import { GardenExplorer } from './garden-explorer';
 import { TagSearch } from './tag-picker';
+import { IdeaShare } from './idea-share';
 import { IdeaDiscussion } from './idea-discussion';
 import { useFreshHighlight } from './use-fresh-highlight';
 import { createButterflyVisit } from '@/lib/garden-discovery';
@@ -187,6 +193,9 @@ function IdeaCard({
             .join(' ') || 'Idea'}
         </span>
         <h3>{idea.title}</h3>
+        {idea.displayName && (
+          <span className="card-signature">{idea.displayName}</span>
+        )}
       </button>
       <div className="idea-card-bottom">
         <span className={idea.example ? 'example-badge' : 'idea-place'}>
@@ -208,6 +217,8 @@ function IdeaCard({
 function Garden() {
   const client = useQueryClient();
   const [view, setView] = useState('ideas');
+  const [mine, setMine] = useState(false);
+  const [postedIdea, setPostedIdea] = useState<Idea | null>(null);
   const [tag, setTag] = useState('all');
   const [plantingId, setPlantingId] = useState<string | null>(null);
   const [newIdeaId, setNewIdeaId] = useState<string | null>(null);
@@ -248,11 +259,11 @@ function Garden() {
     return () => clearTimeout(timer);
   }, [query]);
   const list = useInfiniteQuery({
-    queryKey: ['ideas', tag, debouncedQuery, connection, sort, shuffle],
+    queryKey: ['ideas', tag, debouncedQuery, connection, sort, shuffle, mine],
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       api<Page>(
-        `/api/ideas?${new URLSearchParams({ tag, q: debouncedQuery, connection, sort, seed: String(shuffle), page: String(pageParam) })}`,
+        `/api/ideas?${new URLSearchParams({ tag, q: debouncedQuery, connection, sort, seed: String(shuffle), mine: mine ? '1' : '0', page: String(pageParam) })}`,
       ),
     getNextPageParam: (page) => page.nextPage,
     placeholderData: (previous, previousQuery) =>
@@ -260,7 +271,8 @@ function Garden() {
       previousQuery?.queryKey[4] === 'random' &&
       previousQuery.queryKey[1] === tag &&
       previousQuery.queryKey[2] === debouncedQuery &&
-      previousQuery.queryKey[3] === connection
+      previousQuery.queryKey[3] === connection &&
+      previousQuery.queryKey[6] === mine
         ? previous
         : undefined,
     staleTime: 15000,
@@ -280,8 +292,10 @@ function Garden() {
     return filterIdeas(real, 'all', debouncedQuery, connection, sort, tag);
   }, [list.data, tag, debouncedQuery, connection, sort]);
   const total = list.data?.pages[0].total || 0;
-  const filtered = tag !== 'all' || connection !== 'all' || sort !== 'newest';
+  const filtered =
+    mine || tag !== 'all' || connection !== 'all' || sort !== 'newest';
   const clearFilters = useCallback(() => {
+    setMine(false);
     setTag('all');
     setQuery('');
     setDebouncedQuery('');
@@ -351,6 +365,7 @@ function Garden() {
         method: 'POST',
         body: JSON.stringify(input),
       });
+      setPostedIdea(idea);
       setPlantingId(idea.id);
       setNewIdeaId(idea.id);
       setTreeHighlightId(idea.id);
@@ -519,6 +534,18 @@ function Garden() {
               </TabsList>
               {
                 <div className="explore-tools">
+                  <button
+                    className="yours-toggle"
+                    aria-label="Your ideas"
+                    aria-pressed={mine}
+                    onClick={() => {
+                      setMine(!mine);
+                      setGardenFocus(null);
+                      setPostedIdea(null);
+                    }}
+                  >
+                    Yours
+                  </button>
                   <IconButton
                     label="Search ideas"
                     onClick={() => setSearchOpen((v) => !v)}
@@ -622,6 +649,9 @@ function Garden() {
                 </div>
               }
             </div>
+            {mine && (
+              <p className="yours-note">Ideas posted from this browser.</p>
+            )}
             {searchOpen && (
               <div className="search-wrap">
                 <Search size={17} />
@@ -699,7 +729,11 @@ function Garden() {
                 ))}
                 {!ideas.length && !list.isPending && !list.isError && (
                   <div className="empty-state">
-                    <p>No ideas yet.</p>
+                    <p>
+                      {mine
+                        ? 'You haven’t posted an idea from this browser yet.'
+                        : 'No ideas yet.'}
+                    </p>
                     <Button
                       variant="ghost"
                       onClick={filtered || query ? clearFilters : focusComposer}
@@ -727,6 +761,9 @@ function Garden() {
               tabIndex={-1}
             >
               <GardenExplorer
+                mine={mine}
+                postedIdea={postedIdea}
+                onReceiptDone={() => setPostedIdea(null)}
                 tag={tag}
                 query={debouncedQuery}
                 connection={connection}
@@ -804,19 +841,10 @@ function Garden() {
                   {selected.connection ? ` · ${selected.connection}` : ''}
                 </SheetDescription>
                 {selected.displayName && (
-                  <Popover>
-                    <PopoverTrigger className="idea-byline">
-                      Shared by {selected.displayName}
-                    </PopoverTrigger>
-                    <PopoverContent className="author-card" align="start">
-                      <PopoverTitle>{selected.displayName}</PopoverTitle>
-                      <p>Contributed this idea to the Waterloo garden.</p>
-                      <small>Names are self-entered and not verified.</small>
-                    </PopoverContent>
-                  </Popover>
+                  <p className="idea-signature">{selected.displayName}</p>
                 )}
-                {selected.description !== selected.title && (
-                  <p className="detail-body">{selected.description}</p>
+                {Boolean(ideaBody(selected)) && (
+                  <p className="detail-body">{ideaBody(selected)}</p>
                 )}
                 <div className="detail-actions">
                   <SupportButton
@@ -825,17 +853,7 @@ function Garden() {
                     pending={pending.has(selected.id)}
                     large
                   />
-                  <Button
-                    variant="ghost"
-                    onClick={async () => {
-                      const url = `${location.origin}/?idea=${selected.id}`;
-                      if (navigator.share)
-                        await navigator.share({ title: selected.title, url });
-                      else await navigator.clipboard.writeText(url);
-                    }}
-                  >
-                    <LinkIcon size={16} /> Share
-                  </Button>
+                  <IdeaShare idea={selected} />
                 </div>
                 {supportError && (
                   <p className="form-error" role="alert">

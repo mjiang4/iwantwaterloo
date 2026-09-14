@@ -109,6 +109,17 @@ async function start(candidate) {
         signal: AbortSignal.timeout(1000),
       });
       if (r.ok) {
+        const version = await fetch(origin + '/__preview/build.json', {
+          signal: AbortSignal.timeout(1000),
+          cache: 'no-store',
+        });
+        if (
+          !version.ok ||
+          (await version.json()).revision !== candidate.build.revision
+        ) {
+          await delay(500);
+          continue;
+        }
         const admin = await fetch(origin + '/api/admin', {
           signal: AbortSignal.timeout(1000),
         });
@@ -219,6 +230,11 @@ async function rebuild(sourceHash) {
       '--command',
       `INSERT INTO preview_identity(id,value) SELECT 1,'${config.PREVIEW_ID}' WHERE NOT EXISTS(SELECT 1 FROM preview_identity) AND NOT EXISTS(SELECT 1 FROM ideas);`,
     ]);
+    await mkdir(path.join(directory, 'client/__preview'), { recursive: true });
+    await writeFile(
+      path.join(directory, 'client/__preview/build.json'),
+      JSON.stringify(build),
+    );
     const previous = active,
       candidate = { directory, wrangler: wranglerConfig, build };
     await stopWorker();
@@ -247,7 +263,6 @@ async function rebuild(sourceHash) {
       { mode: 0o600 },
     );
     console.log(`Preview ready: ${origin}/ · ${sourceHash.slice(0, 8)}`);
-
   } catch (error) {
     await status('failed');
     console.error(

@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState, useEffect, type SyntheticEvent } from 'react';
-import { ArrowUp, Check, Plus, X, TreeDeciduous, Sprout } from 'lucide-react';
+import { ArrowUp, X, TreeDeciduous, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -11,14 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { CONNECTIONS, ideaTitle, type Idea } from '@/lib/garden';
 import { TagPicker } from './tag-picker';
+import { readSignature, saveSignature } from '@/lib/signature';
 import type { PlantInput } from './garden-app';
 
 export function Choice({
@@ -70,7 +65,7 @@ export function IdeaComposer({
   const [place, setPlace] = useState('');
   const [connection, setConnection] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [focused, setFocused] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -82,6 +77,9 @@ export function IdeaComposer({
   const [draftReady, setDraftReady] = useState(false);
   const submission = useRef<{ key: string; payload: string } | null>(null);
   useEffect(() => {
+    const signature = readSignature();
+    setRemember(Boolean(signature));
+    setDisplayName(signature);
     try {
       const draft = JSON.parse(
         sessionStorage.getItem('waterloo-idea-draft') || 'null',
@@ -137,7 +135,9 @@ export function IdeaComposer({
         );
     } catch {}
   }, [draftReady, text, tags, place, connection, displayName, shared]);
-  const hasDetails = Boolean(place || connection || displayName);
+  useEffect(() => {
+    if (draftReady) saveSignature(remember ? displayName : '');
+  }, [draftReady, remember, displayName]);
 
   async function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -186,9 +186,8 @@ export function IdeaComposer({
       setText('');
       setPlace('');
       setConnection('');
-      setDisplayName('');
+      if (!remember) setDisplayName('');
       setTags([]);
-      setDetailsOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn’t share. Try again.');
     } finally {
@@ -218,8 +217,7 @@ export function IdeaComposer({
             <span className="success-symbol">
               <TreeDeciduous size={28} strokeWidth={1.6} />
             </span>
-            <h2>Idea shared.</h2>
-            <p>Your idea added a tree.</p>
+            <h2>Your idea is in the garden.</h2>
             <div className="success-actions">
               <Button variant="ghost" onClick={() => onGarden(shared)}>
                 See your tree
@@ -239,6 +237,9 @@ export function IdeaComposer({
             <label className="sr-only" htmlFor="new-idea">
               Your idea for Waterloo
             </label>
+            <p id="idea-guidance" className="compose-guidance">
+              Share a change and why it matters.
+            </p>
             <Textarea
               ref={textarea}
               id="new-idea"
@@ -264,65 +265,63 @@ export function IdeaComposer({
                   form.current?.requestSubmit();
                 }
               }}
-              aria-describedby={error ? 'compose-error' : 'sharing-notice'}
+              aria-describedby={`idea-guidance sharing-notice${error ? ' compose-error' : ''}`}
             />
+            <div className="signature-field">
+              <label htmlFor="idea-signature">
+                Signature <span>optional · public</span>
+              </label>
+              <Input
+                id="idea-signature"
+                maxLength={60}
+                value={displayName}
+                placeholder="Alex, 19, CS student"
+                autoComplete="off"
+                disabled={saving}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+              {(displayName || remember) && (
+                <label className="remember-signature">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    disabled={saving}
+                    onChange={(e) => setRemember(e.target.checked)}
+                  />
+                  Remember on this device
+                </label>
+              )}
+            </div>
+            <details className="idea-context">
+              <summary>
+                Place & connection <span>optional</span>
+              </summary>
+              <div className="context-fields">
+                <label htmlFor="idea-place">Place</label>
+                <Input
+                  id="idea-place"
+                  maxLength={90}
+                  placeholder="Where in Waterloo?"
+                  value={place}
+                  onChange={(e) => setPlace(e.target.value)}
+                  disabled={saving}
+                />
+                <label htmlFor="idea-connection">Connection to Waterloo</label>
+                <Choice
+                  id="idea-connection"
+                  label="Connection to Waterloo"
+                  value={connection}
+                  onChange={setConnection}
+                  items={[
+                    { value: '', label: 'Prefer not to say' },
+                    ...CONNECTIONS.map((c) => ({ value: c, label: c })),
+                  ]}
+                />
+              </div>
+            </details>
             <div className="compose-actions">
               <div className="compose-options">
                 <TagPicker value={tags} onChange={setTags} disabled={saving} />
-                <Popover open={detailsOpen} onOpenChange={setDetailsOpen}>
-                  <PopoverTrigger
-                    className={`details-trigger ${hasDetails ? 'has-details' : ''}`}
-                    disabled={saving}
-                  >
-                    <Plus size={15} />
-                    Details{hasDetails && <Check size={12} />}
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="details-popover"
-                    align="start"
-                    sideOffset={12}
-                  >
-                    <PopoverTitle className="popover-heading">
-                      Optional details
-                    </PopoverTitle>
-                    <label htmlFor="idea-name">Your name · optional</label>
-                    <Input
-                      id="idea-name"
-                      maxLength={60}
-                      placeholder="Shown publicly"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                    />
-                    <label htmlFor="idea-place">Place</label>
-                    <Input
-                      id="idea-place"
-                      maxLength={90}
-                      placeholder="Where in Waterloo?"
-                      value={place}
-                      onChange={(e) => setPlace(e.target.value)}
-                    />
-                    <label htmlFor="idea-connection">
-                      Connection to Waterloo
-                    </label>
-                    <Choice
-                      id="idea-connection"
-                      label="Connection to Waterloo"
-                      value={connection}
-                      onChange={setConnection}
-                      items={[
-                        { value: '', label: 'Prefer not to say' },
-                        ...CONNECTIONS.map((c) => ({ value: c, label: c })),
-                      ]}
-                    />
-                    <Button
-                      variant="ghost"
-                      className="details-done"
-                      onClick={() => setDetailsOpen(false)}
-                    >
-                      Done
-                    </Button>
-                  </PopoverContent>
-                </Popover>
               </div>
               <Button
                 type="submit"
@@ -330,7 +329,7 @@ export function IdeaComposer({
                 disabled={saving || text.trim().length < 5}
                 aria-busy={saving}
               >
-                {saving ? 'Sharing…' : 'Share idea'}
+                {saving ? 'Posting…' : 'Post idea'}
                 {!saving && <ArrowUp size={17} />}
               </Button>
             </div>
