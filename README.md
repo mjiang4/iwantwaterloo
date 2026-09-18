@@ -10,6 +10,8 @@ Share an idea, explore what others imagine, and support the changes you want to 
 
 Ideas for improving Waterloo belong on the site. Ideas for improving this project are welcome here, too!
 
+See the [issue tracker](docs/ISSUES.md) for known problems and planned improvements.
+
 - Open an issue with a suggestion, bug report, or design idea.
 - Submit a pull request with an improvement.
 - Help make the experience clearer, more accessible, and enjoyable on mobile.
