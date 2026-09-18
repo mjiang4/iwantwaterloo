@@ -1,3 +1,5 @@
+> Historical planning document. For current code and outstanding work, see [Architecture](ARCHITECTURE.md) and [Issues](ISSUES.md).
+
 > Current direction: seasons are removed in favor of permanent green foliage. Preview opens the actual site; the test dashboard is removed. Likes update the garden immediately, continue growing after 25 likes, and animate a short stretch. Earlier seasonal/dashboard items below are historical.
 
 # I want / Waterloo — interaction plan
@@ -27,7 +29,7 @@ Proposed milestones, to tune in a prototype:
 
 | Likes | Appearance                             |
 | ----- | -------------------------------------- |
-| 0     | Small sapling                              |
+| 0     | Small sapling                          |
 | 1–3   | 1–3 small blooms                       |
 | 4–9   | 5 blooms                               |
 | 10–24 | 8 blooms and one small leafy branch    |
@@ -84,9 +86,9 @@ Change the wordmark to “i want / waterloo”. Keep it a small home link, with 
 | Idea                             | Benefit                                     | Constraint                                             |
 | -------------------------------- | ------------------------------------------- | ------------------------------------------------------ |
 | Share an individual idea         | Makes it easy to invite a response          | Copy a stable link; no account required                |
-| Gentle card-to-detail transition | Implemented: 180ms fade and 8px movement     | Preserve closing content and return keyboard focus   |
-| A small shuffle motion           | Implemented: 320ms icon feedback             | Retain cards during loading; do not animate the grid  |
-| Return to your newly shared idea | Implemented: idea and tree highlights        | Show once when visible; preserve 48px tree targets    |
+| Gentle card-to-detail transition | Implemented: 180ms fade and 8px movement    | Preserve closing content and return keyboard focus     |
+| A small shuffle motion           | Implemented: 320ms icon feedback            | Retain cards during loading; do not animate the grid   |
+| Return to your newly shared idea | Implemented: idea and tree highlights       | Show once when visible; preserve 48px tree targets     |
 | Subtle tree variation            | Gives each contribution a recognizable form | A few shared low-poly shapes, deterministically chosen |
 
 Planting feedback and individual links remain the priority. The approved seasonal/night effects use capped points and palette changes; add further scenery only after physical-device profiling.

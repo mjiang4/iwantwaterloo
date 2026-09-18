@@ -1,30 +1,14 @@
 'use client';
+import { useIdeaFilters } from '@/features/ideas/use-idea-filters';
+import { useIdeas } from '@/features/ideas/queries';
 import type { GardenMoment } from '@/lib/garden-visuals';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   QueryClient,
   QueryClientProvider,
-  useInfiniteQuery,
   useQueryClient,
-  type InfiniteData,
 } from '@tanstack/react-query';
-import {
-  Heart,
-  Info,
-  MessageCircle,
-  Search,
-  SlidersHorizontal,
-  Shuffle,
-  Sprout,
-  X,
-} from 'lucide-react';
+import { Info, Search, Sprout, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -33,194 +17,47 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
-  CONNECTIONS,
-  ideaTags,
-  ideaBody,
-  hasDerivedTitle,
-  filterIdeas,
-  type Idea,
-} from '@/lib/garden';
-import { Choice, IdeaComposer } from './idea-composer';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { filterIdeas, type Idea } from '@/lib/garden';
+import { IdeaComposer } from './idea-composer';
 import { useGardenTools } from './garden-tools';
 import { GardenExplorer } from './garden-explorer';
-import { TagSearch } from './tag-picker';
-import { IdeaShare } from './idea-share';
-import { IdeaDiscussion } from './idea-discussion';
-import { useFreshHighlight } from './use-fresh-highlight';
+import { IdeaFilterMenu } from '@/features/ideas/idea-filter-menu';
+import { IdeaDetails } from '@/features/ideas/idea-details';
+import { IconButton } from './icon-button';
+import { IdeaCard } from '@/features/ideas/idea-card';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { useIdeaSupport } from '@/features/ideas/use-support';
+import { GardenWelcome, useGardenIntroduction } from './garden-welcome';
+import Link from 'next/link';
 import { createButterflyVisit } from '@/lib/garden-discovery';
-export type PlantInput = {
-  title: string;
-  description: string;
-  category?: string;
-  tags?: string[];
-  place: string;
-  connection: string;
-  consent: boolean;
-  website?: string;
-  submissionKey?: string;
-  displayName?: string;
-};
-type Page = {
-  ideas: Idea[];
-  examples: Idea[];
-  total: number;
-  nextPage: number | null;
-};
-
+import type {
+  PlantInput,
+  IdeasPage as Page,
+  SupportState,
+} from '@/features/ideas/model';
 import { requestJSON as api } from '@/lib/client';
-function useMedia(query: string) {
-  const [matches, setMatches] = useState(false);
-  useEffect(() => {
-    const m = matchMedia(query);
-    setMatches(m.matches);
-    const change = () => setMatches(m.matches);
-    m.addEventListener('change', change);
-    return () => m.removeEventListener('change', change);
-  }, [query]);
-  return matches;
-}
-function IconButton({
-  label,
-  onClick,
-  children,
-  pressed,
-  disabled,
-}: {
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-  pressed?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={label}
-            aria-pressed={pressed}
-            disabled={disabled}
-            onClick={onClick}
-          />
-        }
-      >
-        {children}
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-function SupportButton({
-  idea,
-  onSupport,
-  pending,
-  large = false,
-}: {
-  idea: Idea;
-  onSupport: (idea: Idea) => void;
-  pending: boolean;
-  large?: boolean;
-}) {
-  return (
-    <button
-      className={`support-button ${large ? 'support-large' : ''}`}
-      data-supported={idea.watered}
-      aria-pressed={idea.watered}
-      aria-label={`${idea.watered ? 'Remove support for' : 'Support'} ${idea.title}. ${idea.waters} supports`}
-      aria-disabled={pending}
-      onClick={() => {
-        if (!pending) onSupport(idea);
-      }}
-    >
-      <Heart
-        size={large ? 18 : 15}
-        fill={idea.watered ? 'currentColor' : 'none'}
-      />
-      {large && <span>{idea.watered ? 'Supported' : 'Support'}</span>}
-      <span>{idea.waters}</span>
-    </button>
-  );
-}
-function IdeaCard({
-  idea,
-  onRead,
-  onSupport,
-  pending,
-  fresh,
-  onSeen,
-}: {
-  idea: Idea;
-  onRead: (idea: Idea) => void;
-  onSupport: (idea: Idea) => void;
-  pending: boolean;
-  fresh: boolean;
-  onSeen: () => void;
-}) {
-  const { ref: cueRef, highlighted } = useFreshHighlight<HTMLElement>(
-    fresh,
-    onSeen,
-  );
-  return (
-    <article
-      ref={cueRef}
-      className={`idea-card ${highlighted ? 'is-fresh' : ''}`}
-    >
-      <button className="idea-open" onClick={() => onRead(idea)}>
-        <span className="idea-topic">
-          {ideaTags(idea)
-            .map((t) => `#${t}`)
-            .join(' ') || 'Idea'}
-        </span>
-        <h3>{idea.title}</h3>
-        {idea.displayName && (
-          <span className="card-signature">{idea.displayName}</span>
-        )}
-      </button>
-      <div className="idea-card-bottom">
-        <span className={idea.example ? 'example-badge' : 'idea-place'}>
-          {idea.example ? 'Example' : idea.place || 'Waterloo'}
-        </span>
-        <div className="idea-card-signals">
-          {Boolean(idea.commentCount) && (
-            <span aria-label={`${idea.commentCount} replies`}>
-              <MessageCircle size={14} />
-              {idea.commentCount}
-            </span>
-          )}
-          <SupportButton idea={idea} onSupport={onSupport} pending={pending} />
-        </div>
-      </div>
-    </article>
-  );
-}
 function Garden() {
   const client = useQueryClient();
-  const [view, setView] = useState('ideas');
-  const [mine, setMine] = useState(false);
+  const [view, setView] = useState('garden');
+  const filters = useIdeaFilters();
+  const {
+    mine,
+    setMine,
+    tag,
+    setTag,
+    query,
+    setQuery,
+    debouncedQuery,
+    setDebouncedQuery,
+    connection,
+    sort,
+    filtered,
+    clearFilters,
+  } = filters;
   const [postedIdea, setPostedIdea] = useState<Idea | null>(null);
-  const [tag, setTag] = useState('all');
   const [plantingId, setPlantingId] = useState<string | null>(null);
   const [newIdeaId, setNewIdeaId] = useState<string | null>(null);
   const [treeHighlightId, setTreeHighlightId] = useState<string | null>(null);
@@ -236,85 +73,26 @@ function Garden() {
     [],
   );
   const [gardenFocus, setGardenFocus] = useState<Idea | null>(null);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [connection, setConnection] = useState('all');
-  const [sort, setSort] = useState('newest');
-  const [shuffle, setShuffle] = useState(0);
-  const [shuffleRequested, setShuffleRequested] = useState(false);
-  const [shuffleNotice, setShuffleNotice] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<Idea | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const ideaOpener = useRef<HTMLElement | null>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (searchOpen) searchInput.current?.focus();
+  }, [searchOpen]);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [pending, setPending] = useState<Set<string>>(new Set());
-  const [supportError, setSupportError] = useState('');
-  const locks = useRef(new Set<string>());
+  const introduction = useGardenIntroduction();
+  const [directLinkError, setDirectLinkError] = useState('');
   const directLinkChecked = useRef(false);
-  const small = useMedia('(max-width:760px)');
-  const reduced = useMedia('(prefers-reduced-motion:reduce)');
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 200);
-    return () => clearTimeout(timer);
-  }, [query]);
-  const list = useInfiniteQuery({
-    queryKey: ['ideas', tag, debouncedQuery, connection, sort, shuffle, mine],
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) =>
-      api<Page>(
-        `/api/ideas?${new URLSearchParams({ tag, q: debouncedQuery, connection, sort, seed: String(shuffle), mine: mine ? '1' : '0', page: String(pageParam) })}`,
-      ),
-    getNextPageParam: (page) => page.nextPage,
-    placeholderData: (previous, previousQuery) =>
-      sort === 'random' &&
-      previousQuery?.queryKey[4] === 'random' &&
-      previousQuery.queryKey[1] === tag &&
-      previousQuery.queryKey[2] === debouncedQuery &&
-      previousQuery.queryKey[3] === connection &&
-      previousQuery.queryKey[6] === mine
-        ? previous
-        : undefined,
-    staleTime: 15000,
-    refetchInterval: 20000,
-  });
-  useEffect(() => {
-    if (!shuffleRequested || list.isFetching || list.isPlaceholderData) return;
-    // Query completion updates the one-shot accessibility announcement.
-    // oxlint-disable-next-line react/react-compiler
-    setShuffleRequested(false);
-    setShuffleNotice(
-      list.isError ? 'Couldn’t reshuffle. Try again.' : 'Ideas reshuffled.',
-    );
-  }, [shuffleRequested, list.isFetching, list.isPlaceholderData, list.isError]);
+  const small = useMediaQuery('(max-width:760px)');
+  const reduced = useMediaQuery('(prefers-reduced-motion:reduce)');
+  const list = useIdeas(filters);
   const ideas = useMemo(() => {
     const real = list.data?.pages.flatMap((p) => p.ideas) || [];
     return filterIdeas(real, 'all', debouncedQuery, connection, sort, tag);
   }, [list.data, tag, debouncedQuery, connection, sort]);
   const total = list.data?.pages[0].total || 0;
-  const filtered =
-    mine || tag !== 'all' || connection !== 'all' || sort !== 'newest';
-  const clearFilters = useCallback(() => {
-    setMine(false);
-    setTag('all');
-    setQuery('');
-    setDebouncedQuery('');
-    setConnection('all');
-    setSort('newest');
-  }, []);
-  const selectIdea = useCallback((idea: Idea) => {
-    ideaOpener.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    setSelected(idea);
-    setSheetOpen(true);
-    setSupportError('');
-    const url = new URL(window.location.href);
-    url.searchParams.set('idea', idea.id);
-    history.replaceState(null, '', url);
-  }, []);
   useEffect(() => {
     if (directLinkChecked.current) return;
     const id = new URL(window.location.href).searchParams.get('idea');
@@ -323,12 +101,16 @@ function Garden() {
       return;
     }
     directLinkChecked.current = true;
-    void api<Page>(`/api/ideas?id=${encodeURIComponent(id)}`).then((page) => {
-      if (page.ideas[0]) {
-        setSelected(page.ideas[0]);
-        setSheetOpen(true);
-      }
-    });
+    void api<Page>(`/api/ideas?id=${encodeURIComponent(id)}`)
+      .then((page) => {
+        if (page.ideas[0]) {
+          setSelected(page.ideas[0]);
+          setSheetOpen(true);
+        }
+      })
+      .catch(() =>
+        setDirectLinkError('Couldn’t open that idea. Please try again.'),
+      );
   }, []);
   const revealTree = useCallback(
     (idea: Idea, kind: GardenMoment['kind'], fromLikes = 0) => {
@@ -359,7 +141,7 @@ function Garden() {
       });
     }, 220);
     return () => clearTimeout(timer);
-  }, [moment?.serial, view, sheetOpen, reduced]);
+  }, [moment, view, sheetOpen, reduced]);
   const share = useCallback(
     async (input: PlantInput) => {
       const { idea } = await api<{ idea: Idea }>('/api/ideas', {
@@ -380,83 +162,36 @@ function Garden() {
     },
     [client, revealTree],
   );
-  const patchIdea = useCallback(
-    (id: string, fields: Pick<Idea, 'waters' | 'watered'>) => {
-      client.setQueriesData<InfiniteData<Page>>(
-        { queryKey: ['ideas'] },
-        (data) =>
-          data
-            ? {
-                ...data,
-                pages: data.pages.map((page) => ({
-                  ...page,
-                  ideas: page.ideas.map((i) =>
-                    i.id === id ? { ...i, ...fields } : i,
-                  ),
-                  examples: page.examples.map((i) =>
-                    i.id === id ? { ...i, ...fields } : i,
-                  ),
-                })),
-              }
-            : data,
-      );
-      client.setQueriesData<Page>({ queryKey: ['garden'] }, (data) =>
-        data
-          ? {
-              ...data,
-              ideas: data.ideas.map((idea) =>
-                idea.id === id ? { ...idea, ...fields } : idea,
-              ),
-              examples: data.examples.map((idea) =>
-                idea.id === id ? { ...idea, ...fields } : idea,
-              ),
-            }
-          : data,
-      );
-      setSelected((i) => (i?.id === id ? { ...i, ...fields } : i));
+  const onSupportChange = useCallback((id: string, fields: SupportState) => {
+    setSelected((idea) => (idea?.id === id ? { ...idea, ...fields } : idea));
+  }, []);
+  const onLiked = useCallback(
+    (idea: Idea, previousLikes: number) => {
+      setPostedIdea(null);
+      revealTree(idea, 'like', previousLikes);
     },
-    [client],
+    [revealTree],
   );
-  const support = useCallback(
-    async (idea: Idea) => {
-      if (locks.current.has(idea.id)) return;
-      locks.current.add(idea.id);
-      setPending(new Set(locks.current));
+  const {
+    support,
+    pending,
+    error: supportError,
+    setError: setSupportError,
+  } = useIdeaSupport({ onChange: onSupportChange, onLiked });
+  const selectIdea = useCallback(
+    (idea: Idea) => {
+      ideaOpener.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      setSelected(idea);
+      setSheetOpen(true);
       setSupportError('');
-      // Stop older polls from overwriting the optimistic tree and heart state.
-      await Promise.all([
-        client.cancelQueries({ queryKey: ['garden'] }),
-        client.cancelQueries({ queryKey: ['ideas'] }),
-      ]);
-      const previous = { waters: idea.waters, watered: idea.watered };
-      patchIdea(idea.id, {
-        waters: Math.max(0, idea.waters + (idea.watered ? -1 : 1)),
-        watered: !idea.watered,
-      });
-      try {
-        const data = await api<{
-          id: string;
-          waters: number;
-          watered: boolean;
-        }>('/api/support', {
-          method: 'PUT',
-          body: JSON.stringify({ ideaId: idea.id, watered: !idea.watered }),
-        });
-        patchIdea(data.id, data);
-        if (!idea.watered && data.watered)
-          revealTree({ ...idea, ...data }, 'like', idea.waters);
-        void client.invalidateQueries({ queryKey: ['garden'] });
-      } catch (e) {
-        patchIdea(idea.id, previous);
-        setSupportError(
-          e instanceof Error ? e.message : 'Couldn’t save support. Try again.',
-        );
-      } finally {
-        locks.current.delete(idea.id);
-        setPending(new Set(locks.current));
-      }
+      const url = new URL(window.location.href);
+      url.searchParams.set('idea', idea.id);
+      history.replaceState(null, '', url);
     },
-    [client, patchIdea, revealTree],
+    [setSupportError],
   );
   useGardenTools({
     plant: share,
@@ -469,6 +204,7 @@ function Garden() {
     },
   });
   function focusComposer() {
+    introduction.dismiss();
     setView('ideas');
     requestAnimationFrame(() => {
       document.getElementById('new-idea')?.focus();
@@ -497,17 +233,22 @@ function Garden() {
         onValueChange={(v) => setView(String(v))}
         className="garden-app"
       >
-        <a className="skip-link" href="#new-idea">
+        <button className="skip-link" onClick={focusComposer}>
           Suggest an idea
-        </a>
+        </button>
         <header className="site-header">
-          <a className="brand" href="/" aria-label="I want Waterloo">
+          <Link
+            prefetch={false}
+            className="brand"
+            href="/"
+            aria-label="I want Waterloo"
+          >
             <Sprout size={23} strokeWidth={1.8} />
             <span>
               i want<span className="brand-divider">/</span>
               <span className="brand-muted">waterloo</span>
             </span>
-          </a>
+          </Link>
           <div className="header-actions">
             <IconButton
               label="About and privacy"
@@ -518,11 +259,25 @@ function Garden() {
           </div>
         </header>
         <main>
-          <div>
-            <IdeaComposer
-              onShare={share}
-              onGarden={showGarden}
-            />
+          {view === 'garden' && (
+            <section className="park-heading" aria-labelledby="park-heading">
+              <h1 id="park-heading">What would make Waterloo better?</h1>
+              <Button onClick={focusComposer}>
+                Share an idea <Sprout size={17} />
+              </Button>
+            </section>
+          )}
+          {introduction.open && (
+            <GardenWelcome onDismiss={introduction.dismiss} />
+          )}
+          {directLinkError && (
+            <p className="form-error" role="alert">
+              {directLinkError}{' '}
+              <button onClick={() => window.location.reload()}>Retry</button>
+            </p>
+          )}
+          <div hidden={view === 'garden'}>
+            <IdeaComposer onShare={share} onGarden={showGarden} />
           </div>
           <div className="explore-section">
             <div className="explore-toolbar">
@@ -553,99 +308,12 @@ function Garden() {
                   >
                     <Search size={18} />
                   </IconButton>
-                  <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-                    <PopoverTrigger
-                      className={`icon-button ${filtered ? 'has-filter' : ''}`}
-                      aria-label="Filter ideas"
-                    >
-                      <SlidersHorizontal size={18} />
-                    </PopoverTrigger>
-                    <PopoverContent className="filter-popover" align="end">
-                      <PopoverTitle className="popover-heading">
-                        Filter ideas
-                      </PopoverTitle>
-                      <label htmlFor="filter-tag-search">Tags</label>
-                      <TagSearch id="filter-tag-search" onChoose={setTag} />
-                      {tag !== 'all' && (
-                        <div className="tag-options selected-tags">
-                          <button
-                            type="button"
-                            onClick={() => setTag('all')}
-                            aria-label={`Remove tag ${tag}`}
-                          >
-                            #{tag}
-                            <X size={12} />
-                          </button>
-                        </div>
-                      )}
-                      <div className="filter-field-label">Sort</div>
-                      <Choice
-                        label="Sort ideas"
-                        value={sort}
-                        onChange={(value) => {
-                          setSort(value);
-                          if (value === 'random')
-                            setShuffle(
-                              (current) =>
-                                (current + 1 + Math.floor(Math.random() * 61)) %
-                                64,
-                            );
-                        }}
-                        items={[
-                          { value: 'newest', label: 'New' },
-                          { value: 'watered', label: 'Most liked' },
-                          { value: 'random', label: 'Random' },
-                        ]}
-                      />
-                      {sort === 'random' && (
-                        <button
-                          className="tag-done reshuffle-button"
-                          type="button"
-                          disabled={list.isFetching || shuffleRequested}
-                          aria-busy={shuffleRequested}
-                          onClick={() => {
-                            setShuffleRequested(true);
-                            setShuffleNotice('');
-                            setShuffle(
-                              (current) =>
-                                (current + 1 + Math.floor(Math.random() * 61)) %
-                                64,
-                            );
-                          }}
-                        >
-                          <Shuffle
-                            key={shuffle}
-                            size={15}
-                            className={
-                              shuffleRequested || shuffleNotice
-                                ? 'shuffle-feedback'
-                                : ''
-                            }
-                            aria-hidden="true"
-                          />
-                          Reshuffle
-                        </button>
-                      )}
-                      <label>Connection</label>
-                      <Choice
-                        label="Filter connection"
-                        value={connection}
-                        onChange={setConnection}
-                        items={[
-                          { value: 'all', label: 'Everyone' },
-                          ...CONNECTIONS.map((c) => ({ value: c, label: c })),
-                        ]}
-                      />
-                      <div className="filter-actions">
-                        <Button variant="ghost" onClick={clearFilters}>
-                          Reset
-                        </Button>
-                        <Button onClick={() => setFilterOpen(false)}>
-                          Done
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <IdeaFilterMenu
+                    filters={filters}
+                    loading={list.isFetching}
+                    placeholder={list.isPlaceholderData}
+                    failed={list.isError}
+                  />
                 </div>
               }
             </div>
@@ -656,7 +324,7 @@ function Garden() {
               <div className="search-wrap">
                 <Search size={17} />
                 <Input
-                  autoFocus
+                  ref={searchInput}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search ideas"
@@ -693,7 +361,6 @@ function Garden() {
                 </button>
               </div>
             )}
-            <output className="sr-only">{shuffleNotice}</output>
             {list.isError && (
               <p className="form-error" role="alert">
                 Couldn’t load community ideas.{' '}
@@ -712,9 +379,7 @@ function Garden() {
                 aria-busy={list.isPending}
               >
                 {list.isPending && (
-                  <p className="empty-copy" role="status">
-                    Loading ideas…
-                  </p>
+                  <output className="empty-copy">Loading ideas…</output>
                 )}
                 {ideas.map((idea) => (
                   <IdeaCard
@@ -784,7 +449,26 @@ function Garden() {
           </div>
         </main>
         <footer className="site-footer">
-          <button type="button" onClick={() => setAboutOpen(true)}>Privacy</button>
+          <div className="footer-links">
+            <button type="button" onClick={introduction.show}>
+              How it works
+            </button>
+            <button type="button" onClick={() => setAboutOpen(true)}>
+              Privacy
+            </button>
+            <a href="https://github.com/mjiang4/iwantwaterloo">GitHub</a>
+          </div>
+          <p>
+            Help improve this project:{' '}
+            <a href="https://github.com/mjiang4/iwantwaterloo/issues">
+              suggest a change
+            </a>{' '}
+            or{' '}
+            <a href="https://github.com/mjiang4/iwantwaterloo/blob/main/CONTRIBUTING.md">
+              make a pull request
+            </a>
+            .
+          </p>
         </footer>
         <Sheet
           open={sheetOpen}
@@ -804,7 +488,7 @@ function Garden() {
             side={small ? 'bottom' : 'right'}
             className="idea-sheet"
             finalFocus={() =>
-              view === 'garden' && moment
+              view === 'garden'
                 ? document.getElementById('garden-view')
                 : ideaOpener.current?.isConnected
                   ? ideaOpener.current
@@ -812,85 +496,22 @@ function Garden() {
             }
           >
             {selected && (
-              <div className="idea-detail">
-                <span className="detail-topic">
-                  {ideaTags(selected).map((t) => (
-                    <button
-                      type="button"
-                      className="detail-tag"
-                      key={t}
-                      onClick={() => {
-                        clearFilters();
-                        setTag(t);
-                        setSheetOpen(false);
-                        const url = new URL(window.location.href);
-                        url.searchParams.delete('idea');
-                        history.replaceState(null, '', url);
-                        setView('ideas');
-                      }}
-                    >
-                      #{t}
-                    </button>
-                  ))}
-                  {selected.example && (
-                    <span className="example-badge">Example</span>
-                  )}
-                </span>
-                <SheetTitle className={hasDerivedTitle(selected) ? "sr-only" : "detail-title"}>
-                  {selected.title}
-                </SheetTitle>
-                {Boolean(ideaBody(selected)) && (
-                  <p className={`detail-body${hasDerivedTitle(selected) ? ' full-idea' : ''}`}>{ideaBody(selected)}</p>
-                )}
-                <SheetDescription className="detail-meta">
-                  {selected.place || 'Waterloo'}
-                  {selected.connection ? ` · ${selected.connection}` : ''}
-                </SheetDescription>
-                {selected.displayName && (
-                  <p className="idea-signature">{selected.displayName}</p>
-                )}
-                <div className="detail-actions">
-                  <SupportButton
-                    idea={selected}
-                    onSupport={support}
-                    pending={pending.has(selected.id)}
-                    large
-                  />
-                  <IdeaShare idea={selected} />
-                </div>
-                {supportError && (
-                  <p className="form-error" role="alert">
-                    {supportError}
-                  </p>
-                )}
-                <IdeaDiscussion idea={selected} />
-                <button
-                  type="button"
-                  className="report-idea"
-                  onClick={async () => {
-                    try {
-                      await api('/api/reports', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                          ideaId: selected.id,
-                          reason: 'Please review this idea.',
-                        }),
-                      });
-                      setSupportError(
-                        'Thanks. This idea was flagged for review.',
-                      );
-                    } catch (error) {
-                      setSupportError(
-                        error instanceof Error
-                          ? error.message
-                          : 'Couldn’t send the report.',
-                      );
-                    }
-                  }}
-                >
-                  Report this idea
-                </button>
-              </div>
+              <IdeaDetails
+                key={selected.id}
+                idea={selected}
+                pending={pending.has(selected.id)}
+                error={supportError}
+                onSupport={support}
+                onTag={(tag) => {
+                  clearFilters();
+                  setTag(tag);
+                  setSheetOpen(false);
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('idea');
+                  history.replaceState(null, '', url);
+                  setView('ideas');
+                }}
+              />
             )}
           </SheetContent>
         </Sheet>

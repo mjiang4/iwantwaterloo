@@ -1,6 +1,7 @@
 import { database } from '@/db/raw';
 import {
   identity,
+  requireVisitor,
   response,
   readBody,
   validateIdea,
@@ -9,7 +10,8 @@ import {
   tagsSQL,
   connectionSQL,
 } from '@/lib/server';
-import { decodeTags, GROVE_SIZE, type Idea } from '@/lib/garden';
+import { GROVE_SIZE } from '@/lib/garden';
+import { IDEA_SELECT, ideaFromRow } from '@/server/idea-records';
 import { limitWrites } from '@/lib/rate-limit';
 export async function GET(request: Request) {
   const { id } = identity(request);
@@ -85,23 +87,22 @@ export async function GET(request: Request) {
     const [rows, count] = await db.batch<Record<string, unknown>>([
       db
         .prepare(
-          `SELECT i.id,i.title,i.description,i.category,i.tags,i.rowid + 5 AS plot,i.place,${connectionSQL} AS connection,i.display_name AS displayName,i.created_at AS createdAt,(SELECT count(*) FROM supports s WHERE s.idea_id=i.id) AS waters,(SELECT count(*) FROM comments c WHERE c.idea_id=i.id AND c.moderation_state='visible') AS commentCount,EXISTS(SELECT 1 FROM supports s WHERE s.idea_id=i.id AND s.visitor_id=?) AS watered FROM ideas i WHERE ${clause}${pageClause} ORDER BY ${garden ? 'i.rowid' : order} ${garden ? 'LIMIT 24' : 'LIMIT 50 OFFSET ?'}`,
+          `${IDEA_SELECT} WHERE ${clause}${pageClause} ORDER BY ${garden ? 'i.rowid' : order} ${garden ? 'LIMIT ' + GROVE_SIZE : 'LIMIT 50 OFFSET ?'}`,
         )
         .bind(id, ...args, ...pageArgs),
       db
         .prepare(
-          `SELECT count(*) AS total,group_concat(DISTINCT cast((i.rowid + 5) / 24 AS integer)) AS grovePages FROM ideas i WHERE ${clause}`,
+          `SELECT count(*) AS total,group_concat(DISTINCT cast((i.rowid + 5) / ${GROVE_SIZE} AS integer)) AS grovePages FROM ideas i WHERE ${clause}`,
         )
         .bind(...args),
     ]);
-    const ideas = rows.results.map((i) => ({
-      ...i,
-      tags: decodeTags(i.tags, String(i.category)),
-      watered: Boolean(i.watered),
-      example: false,
-    })) as Idea[];
+    const ideas = rows.results.map(ideaFromRow);
     const total = Number(count.results[0]?.total || 0);
-    const grovePages = String(count.results[0]?.grovePages || '')
+    const grovePages = (
+      typeof count.results[0]?.grovePages === 'string'
+        ? count.results[0].grovePages
+        : ''
+    )
       .split(',')
       .filter(Boolean)
       .map(Number)
@@ -121,6 +122,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { id } = identity(request);
   try {
+    requireVisitor(request);
     const data = validateIdea(await readBody(request)),
       db = database(),
       ideaId = crypto.randomUUID(),
@@ -129,9 +131,7 @@ export async function POST(request: Request) {
     async function previous() {
       if (!submissionKey) return null;
       const row = await db
-        .prepare(
-          "SELECT i.id,i.title,i.description,i.category,i.tags,i.place,i.connection,i.display_name AS displayName,i.rowid+5 AS plot,i.created_at AS createdAt,(SELECT count(*) FROM supports WHERE idea_id=i.id) AS waters,(SELECT count(*) FROM comments WHERE idea_id=i.id AND moderation_state='visible') AS commentCount,EXISTS(SELECT 1 FROM supports WHERE idea_id=i.id AND visitor_id=?) AS watered FROM ideas i WHERE submission_key=?",
-        )
+        .prepare(IDEA_SELECT + ' WHERE submission_key=?')
         .bind(id, submissionKey)
         .first<Record<string, unknown>>();
       if (!row) return null;
@@ -148,12 +148,7 @@ export async function POST(request: Request) {
           'This submission changed. Edit the idea and try again.',
           409,
         );
-      return {
-        ...row,
-        tags: decodeTags(row.tags, String(row.category)),
-        watered: Boolean(row.watered),
-        example: false,
-      };
+      return ideaFromRow(row);
     }
     const saved = await previous();
     if (saved) return response(request, id, { idea: saved });
@@ -194,6 +189,7 @@ export async function POST(request: Request) {
         idea: {
           id: ideaId,
           ...fields,
+          displayName: fields.displayName || undefined,
           plot: Number(result.meta.last_row_id) + 5,
           createdAt: now,
           waters: 0,

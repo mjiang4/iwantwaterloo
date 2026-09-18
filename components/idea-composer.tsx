@@ -4,51 +4,11 @@ import { ArrowUp, X, TreeDeciduous, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { ideaTitle, type Idea } from '@/lib/garden';
+import { WritingExample } from './writing-example';
+import { submissionFor, type Submission } from '@/lib/submission';
 import { readSignature, saveSignature } from '@/lib/signature';
-import type { PlantInput } from './garden-app';
-
-export function Choice({
-  value,
-  onChange,
-  label,
-  items,
-  id,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-  items: { value: string; label: string }[];
-  id?: string;
-}) {
-  return (
-    <Select
-      value={value}
-      onValueChange={(v) => {
-        if (v !== null) onChange(v);
-      }}
-      items={items}
-    >
-      <SelectTrigger id={id} className="choice" aria-label={label}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent className="choice-menu">
-        {items.map((i) => (
-          <SelectItem key={i.value} value={i.value}>
-            {i.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
+import type { PlantInput } from '@/features/ideas/model';
 
 export function IdeaComposer({
   onShare,
@@ -69,9 +29,11 @@ export function IdeaComposer({
   const form = useRef<HTMLFormElement>(null);
   const submitting = useRef(false);
   const [draftReady, setDraftReady] = useState(false);
-  const submission = useRef<{ key: string; payload: string } | null>(null);
+  const submission = useRef<Submission | null>(null);
   useEffect(() => {
     const signature = readSignature();
+    // Hydrate browser-only signature and draft after SSR.
+    // oxlint-disable-next-line react/react-compiler
     setRemember(Boolean(signature));
     setDisplayName(signature);
     try {
@@ -136,9 +98,7 @@ export function IdeaComposer({
         consent: true,
         website: honeypot.current?.value || '',
       };
-      const payload = JSON.stringify(input);
-      if (submission.current?.payload !== payload)
-        submission.current = { key: crypto.randomUUID(), payload };
+      submission.current = submissionFor(input, submission.current);
       try {
         sessionStorage.setItem(
           'waterloo-idea-draft',
@@ -182,7 +142,7 @@ export function IdeaComposer({
         className={`compose-shell ${focused ? 'is-focused' : ''} ${shared ? 'is-shared' : ''}`}
       >
         {shared ? (
-          <div className="share-success" role="status">
+          <div className="share-success" aria-live="polite">
             <span className="success-symbol">
               <TreeDeciduous size={28} strokeWidth={1.6} />
             </span>
@@ -195,14 +155,7 @@ export function IdeaComposer({
             </div>
           </div>
         ) : (
-          <form
-            ref={form}
-            onSubmit={submit}
-            onFocus={() => setFocused(true)}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
-            }}
-          >
+          <form ref={form} onSubmit={submit}>
             <label className="sr-only" htmlFor="new-idea">
               Your idea for Waterloo
             </label>
@@ -210,6 +163,8 @@ export function IdeaComposer({
               Share a change and why it matters.
             </p>
             <Textarea
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
               ref={textarea}
               id="new-idea"
               className="idea-input"
@@ -236,6 +191,7 @@ export function IdeaComposer({
               }}
               aria-describedby={`idea-guidance${error ? ' compose-error' : ''}`}
             />
+            <WritingExample />
             <div className="signature-field">
               <label htmlFor="idea-signature">
                 About you <span className="sr-only">(optional)</span>

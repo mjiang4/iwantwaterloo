@@ -34,8 +34,15 @@ export function identity(request: Request) {
   const existing = raw && /^[a-f0-9-]{36}$/.test(raw) ? raw : null;
   return {
     id: existing || crypto.randomUUID(),
-    cookie: existing ? null : undefined,
+    existing: Boolean(existing),
   };
+}
+export function requireVisitor(request: Request) {
+  if (!identity(request).existing)
+    throw new InputError(
+      'Refresh the page and allow cookies to keep your ideas and likes.',
+      409,
+    );
 }
 export function response(
   request: Request,

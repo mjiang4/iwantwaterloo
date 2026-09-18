@@ -1,3 +1,5 @@
+> Historical planning document. For current code and outstanding work, see [Architecture](ARCHITECTURE.md) and [Issues](ISSUES.md).
+
 # Submission experience — development preview
 
 Approved September 14, 2026. Develop and test separately; do not publish these changes to iwantwaterloo.com without a new production request.

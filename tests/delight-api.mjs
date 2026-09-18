@@ -1,99 +1,103 @@
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { createApiHarness, ideaPayload } from './helpers/api-harness.mjs';
 
-const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
-const visitor = randomUUID();
-const created = { ideas: [], comments: [] };
-const db =
-  '.wrangler/state/v3/d1/miniflare-D1DatabaseObject/faaf2b0445ab934c3aac48ddf0cdfade8f9bac050be98993748742cdd2cb05fb.sqlite';
-async function request(path, { method = 'GET', body } = {}) {
-  const init = {
-    method,
-    headers: {
-      Cookie: `garden_visitor=${visitor}`,
-      ...(body ? { 'Content-Type': 'application/json', Origin: base } : {}),
-    },
-  };
-  if (body) init.body = JSON.stringify(body);
-  const response = await fetch(base + path, {
-    ...init,
-  });
-  return { response, data: await response.json() };
-}
-
-try {
-  const ideaPayload = {
-    title: 'A delightful test idea',
-    description: 'A fixture for names, links, and thoughtful replies.',
-    displayName: 'River',
-    tags: ['testing'],
-    place: '',
-    connection: '',
-    consent: true,
+void test('concurrent replies and lost-response retries create one comment', async (t) => {
+  const app = await createApiHarness();
+  t.after(() => app.dispose());
+  const browser = await app.browser();
+  const idea = (
+    await browser.request('/api/ideas', { method: 'POST', body: ideaPayload() })
+  ).data.idea;
+  const payload = {
+    ideaId: idea.id,
+    parentId: '',
+    body: 'Could we try this by the library?',
+    displayName: 'Alex, student',
     submissionKey: randomUUID(),
   };
-  const saved = await request('/api/ideas', {
-    method: 'POST',
-    body: ideaPayload,
-  });
-  assert.equal(saved.response.status, 201);
-  assert.equal(saved.data.idea.displayName, 'River');
-  created.ideas.push(saved.data.idea.id);
-  const direct = await request(`/api/ideas?id=${saved.data.idea.id}`);
-  assert.equal(direct.data.ideas.length, 1);
-
-  const root = await request('/api/comments', {
-    method: 'POST',
-    body: {
-      ideaId: saved.data.idea.id,
-      parentId: '',
-      body: 'Could this start near the library?',
-      displayName: 'Alex',
-      submissionKey: randomUUID(),
-    },
-  });
-  assert.equal(root.response.status, 201);
-  created.comments.push(root.data.comment.id);
-  const replyKey = randomUUID();
-  const replyPayload = {
-    ideaId: saved.data.idea.id,
-    parentId: root.data.comment.id,
-    body: 'That would be a great pilot location.',
-    displayName: '',
-    submissionKey: replyKey,
-  };
-  const reply = await request('/api/comments', {
-    method: 'POST',
-    body: replyPayload,
-  });
-  assert.equal(reply.response.status, 201);
-  created.comments.push(reply.data.comment.id);
-  const retried = await request('/api/comments', {
-    method: 'POST',
-    body: replyPayload,
-  });
-  assert.equal(retried.data.comment.id, reply.data.comment.id);
-  const thread = await request(`/api/comments?ideaId=${saved.data.idea.id}`);
-  assert.equal(thread.data.comments.length, 2);
-  assert.equal(thread.data.comments[1].parentId, root.data.comment.id);
-  const report = await request('/api/reports', {
-    method: 'POST',
-    body: {
-      commentId: root.data.comment.id,
-      reason: 'Integration test report',
-    },
-  });
-  assert.equal(report.response.status, 201);
-  console.log(
-    'PASS: optional names, direct idea lookup, nested replies, retry safety, and reporting.',
+  const pair = await Promise.all(
+    [1, 2].map(() =>
+      browser.request('/api/comments', { method: 'POST', body: payload }),
+    ),
   );
-} finally {
-  const cleanup = spawnSync('python3', [
-    '-c',
-    "import sqlite3,json,sys; d=sqlite3.connect(sys.argv[1]); ids=json.loads(sys.argv[2]); [d.execute('DELETE FROM reports WHERE idea_id=? OR comment_id IN (SELECT id FROM comments WHERE idea_id=?)',(i,i)) for i in ids]; [d.execute('DELETE FROM comments WHERE idea_id=?',(i,)) for i in ids]; [d.execute('DELETE FROM supports WHERE idea_id=?',(i,)) for i in ids]; [d.execute('DELETE FROM ideas WHERE id=?',(i,)) for i in ids]; d.commit()",
-    db,
-    JSON.stringify(created.ideas),
-  ]);
-  assert.equal(cleanup.status, 0, cleanup.stderr.toString());
-}
+  pair.forEach((r) =>
+    assert.ok([200, 201].includes(r.response.status), r.text),
+  );
+  assert.equal(pair[0].data.comment.id, pair[1].data.comment.id);
+  const retry = await browser.request('/api/comments', {
+    method: 'POST',
+    body: payload,
+  });
+  assert.equal(retry.response.status, 200);
+  assert.equal(
+    (await browser.request('/api/comments?ideaId=' + idea.id)).data.comments
+      .length,
+    1,
+  );
+  const conflict = await browser.request('/api/comments', {
+    method: 'POST',
+    body: { ...payload, body: 'Changed after submitting.' },
+  });
+  assert.equal(conflict.response.status, 409);
+  const nested = await browser.request('/api/comments', {
+    method: 'POST',
+    body: {
+      ...payload,
+      parentId: pair[0].data.comment.id,
+      submissionKey: randomUUID(),
+      displayName: '',
+    },
+  });
+  assert.equal(nested.response.status, 201);
+  assert.equal(nested.data.comment.parentId, pair[0].data.comment.id);
+  const updated = (await browser.request('/api/ideas?id=' + idea.id)).data
+    .ideas[0];
+  assert.equal(updated.commentCount, 2);
+});
+
+void test('reports accept one existing target and reject contradictory targets', async (t) => {
+  const app = await createApiHarness();
+  t.after(() => app.dispose());
+  const browser = await app.browser();
+  const idea = (
+    await browser.request('/api/ideas', { method: 'POST', body: ideaPayload() })
+  ).data.idea;
+  const reply = (
+    await browser.request('/api/comments', {
+      method: 'POST',
+      body: {
+        ideaId: idea.id,
+        body: 'A useful addition.',
+        submissionKey: randomUUID(),
+      },
+    })
+  ).data.comment;
+  for (const target of [{ ideaId: idea.id }, { commentId: reply.id }]) {
+    const result = await browser.request('/api/reports', {
+      method: 'POST',
+      body: { ...target, reason: 'Please review.' },
+    });
+    assert.equal(result.response.status, 201);
+  }
+  const ambiguous = await browser.request('/api/reports', {
+    method: 'POST',
+    body: {
+      ideaId: randomUUID(),
+      commentId: reply.id,
+      reason: 'Please review.',
+    },
+  });
+  assert.equal(ambiguous.response.status, 400);
+  const missing = await browser.request('/api/reports', {
+    method: 'POST',
+    body: { ideaId: randomUUID(), reason: 'Please review.' },
+  });
+  assert.equal(missing.response.status, 404);
+  assert.equal(
+    (await app.db.prepare('SELECT count(*) AS count FROM reports').first())
+      .count,
+    2,
+  );
+});

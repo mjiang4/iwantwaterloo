@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Flag, MessageCircle, Reply, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { readSignature } from '@/lib/signature';
+import { useReplyDraft } from '@/features/ideas/use-reply-draft';
+import { WritingExample } from './writing-example';
 import { requestJSON } from '@/lib/client';
 import type { GardenComment, Idea } from '@/lib/garden';
 
@@ -14,20 +15,24 @@ type CommentsPage = { comments: GardenComment[]; nextPage: number | null };
 
 export function IdeaDiscussion({ idea }: { idea: Idea }) {
   const client = useQueryClient();
-  const [body, setBody] = useState('');
-  const [name, setName] = useState('');
-  useEffect(() => {
-    setName(readSignature());
-  }, []);
-  const [replyingTo, setReplyingTo] = useState<GardenComment | null>(null);
+  const { draft, setDraft, ready, prepare, clear } = useReplyDraft(idea.id);
+  const { body, name, parent: replyingTo } = draft;
+  const setBody = (body: string) =>
+    setDraft((current) => ({ ...current, body }));
+  const setName = (name: string) =>
+    setDraft((current) => ({ ...current, name }));
+  const setReplyingTo = (parent: { id: string; displayName: string } | null) =>
+    setDraft((current) => ({ ...current, parent }));
+  const submitting = useRef(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const result = useInfiniteQuery({
     queryKey: ['comments', idea.id],
     initialPageParam: 0,
-    queryFn: ({ pageParam }) =>
+    queryFn: ({ pageParam, signal }) =>
       requestJSON<CommentsPage>(
         `/api/comments?ideaId=${idea.id}&page=${pageParam}`,
+        { signal },
       ),
     getNextPageParam: (page) => page.nextPage,
     refetchInterval: 20000,
@@ -49,30 +54,32 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
 
   async function submit(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (body.trim().length < 2 || saving) return;
+    if (body.trim().length < 2 || submitting.current || !ready) return;
+    submitting.current = true;
     setSaving(true);
     setMessage('');
     try {
+      const input = {
+        ideaId: idea.id,
+        parentId: replyingTo?.id || '',
+        body: body.trim(),
+        displayName: name.trim(),
+      };
       await requestJSON('/api/comments', {
         method: 'POST',
-        body: JSON.stringify({
-          ideaId: idea.id,
-          parentId: replyingTo?.id || '',
-          body,
-          displayName: name,
-          submissionKey: crypto.randomUUID(),
-        }),
+        body: JSON.stringify({ ...input, submissionKey: prepare(input) }),
       });
-      setBody('');
-      setReplyingTo(null);
+      clear();
       setMessage('Your reply joined the conversation.');
       await client.invalidateQueries({ queryKey: ['comments', idea.id] });
       void client.invalidateQueries({ queryKey: ['ideas'] });
+      void client.invalidateQueries({ queryKey: ['garden'] });
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : 'Couldn’t add your reply.',
       );
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   }
@@ -105,7 +112,28 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
       {result.isPending && (
         <p className="discussion-empty">Listening for replies…</p>
       )}
-      {!result.isPending && !comments.length && (
+      {result.isError && (
+        <div className="discussion-error" role="alert">
+          <p>
+            {result.isFetchNextPageError
+              ? 'Couldn’t load more replies.'
+              : comments.length
+                ? 'Couldn’t refresh replies.'
+                : 'Couldn’t load replies.'}
+          </p>
+          <Button
+            variant="ghost"
+            onClick={() =>
+              result.isFetchNextPageError
+                ? result.fetchNextPage()
+                : result.refetch()
+            }
+          >
+            Retry
+          </Button>
+        </div>
+      )}
+      {!result.isPending && !result.isError && !comments.length && (
         <p className="discussion-empty">Add a detail or ask a question.</p>
       )}
       <div className="comment-list">
@@ -130,7 +158,7 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
             </div>
             <p>{comment.body}</p>
             <div className="comment-actions">
-              <button onClick={() => setReplyingTo(comment)}>
+              <button disabled={saving} onClick={() => setReplyingTo(comment)}>
                 <Reply size={13} /> Reply
               </button>
               <button onClick={() => void report(comment.id)}>
@@ -154,30 +182,38 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
         {replyingTo && (
           <div className="replying-banner">
             <span>Replying to {replyingTo.displayName || 'a neighbour'}</span>
-            <button type="button" onClick={() => setReplyingTo(null)}>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setReplyingTo(null)}
+            >
               Cancel
             </button>
           </div>
         )}
         <Textarea
+          disabled={saving || !ready}
           value={body}
           onChange={(event) => setBody(event.target.value)}
           minLength={2}
           maxLength={1000}
-          placeholder={
-            replyingTo ? 'Write a thoughtful reply…' : 'Add to this idea…'
-          }
+          placeholder={'What would make this idea work better?'}
           aria-label="Your reply"
         />
+        <WritingExample reply />
         <div className="reply-footer">
           <Input
+            disabled={saving || !ready}
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={60}
-            placeholder="Signature · optional, public"
-            aria-label="Signature, optional and public"
+            placeholder="About you"
+            aria-label="About you (optional, shown with your reply)"
           />
-          <Button disabled={saving || body.trim().length < 2}>
+          <Button
+            type="submit"
+            disabled={saving || !ready || body.trim().length < 2}
+          >
             {saving ? 'Adding…' : 'Add reply'}
             <Send size={14} />
           </Button>

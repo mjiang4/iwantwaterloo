@@ -1,3 +1,5 @@
+> Historical planning document. For current code and outstanding work, see [Architecture](ARCHITECTURE.md) and [Issues](ISSUES.md).
+
 # Garden changes — local development
 
 September 13, 2026. Branch: `codex/review-and-enhance-website-features`. Unpublished.

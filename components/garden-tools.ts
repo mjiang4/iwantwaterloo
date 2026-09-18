@@ -7,7 +7,7 @@ import {
   ideaTitle,
   type Idea,
 } from '@/lib/garden';
-import type { PlantInput } from './garden-app';
+import type { PlantInput } from '@/features/ideas/model';
 type Tool = {
   name: string;
   title: string;
@@ -21,7 +21,9 @@ export function useGardenTools(actions: {
   explore: (query: string, tag: string) => void;
 }) {
   const ref = useRef(actions);
-  ref.current = actions;
+  useEffect(() => {
+    ref.current = actions;
+  }, [actions]);
   useEffect(() => {
     const context = (
       document as Document & {

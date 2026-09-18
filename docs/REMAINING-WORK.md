@@ -1,3 +1,5 @@
+> Historical planning document. For current code and outstanding work, see [Architecture](ARCHITECTURE.md) and [Issues](ISSUES.md).
+
 > Current direction: seasons are removed in favor of permanent green foliage. Preview opens the actual site; the test dashboard is removed. Likes update the garden immediately, continue growing after 25 likes, and animate a short stretch. Earlier seasonal/dashboard items below are historical.
 
 # Remaining work — Waterloo
@@ -6,25 +8,25 @@ Updated September 13, 2026. This is a code-based status check of the local cloud
 
 ## Current status
 
-| Feature | Status | Remaining work |
-| --- | --- | --- |
-| i want / waterloo header | Implemented locally | Final mobile review |
-| Optional names on ideas | Implemented locally | Verify blank names never produce identity placeholders |
-| Optional names on replies | Partial | Remove “A neighbour” as an unnamed byline; use neutral reply context without inventing an identity |
-| Individual idea links and sharing | Implemented locally | Test native sharing and clipboard failure paths on mobile |
-| Comments and nested replies | Implemented locally | Private moderation; preserve draft and submission key across failed retries; non-disruptive new-reply notices |
-| Growing saplings, flowers and branches | Implemented locally | Six shared tree/flower batches; capped growth; like/undo, pause and full-grove browser checks completed. Physical iPhone/Android profiling remains |
-| Planting confirmation / See your tree | Implemented locally | Review animation and camera handoff on touch devices |
-| Sorting inside Filter | Updated locally in this pass | New, Most liked, Random; Reshuffle appears only when Random is chosen |
-| Tag autocomplete | Updated locally in this pass | Search-first suggestions, up to five matches plus one create option; no permanent tag catalogue |
-| Admin mode | Preview/testing studio implemented | Protected scenarios, growth controls, Undo and visitor checks. Production moderation, report queue and search still pending |
-| Local testing environment | Implemented | Same source, compiled production build, isolated database and automatic rebuilds at port 3001; ordinary hot reload at port 3000 |
-| Continuously updated test environment | Partial | Local compiled preview rebuilds automatically. A separate private remote preview supports phone testing. Automatic CI checks and remote deployment per push remain pending |
-| Seasons | Implemented locally | Four palettes; Waterloo calendar default or saved manual choice; at most 18 ambient points. Physical-device review remains |
-| Day/night interaction | Implemented locally | Saved day/night switch, soft lighting transition, warm windows and eight small night glows |
-| Additional Easter eggs | Implemented locally | A short pond ripple and goose response; keyboard/touch controls; static responses with motion disabled |
-| Live multiplayer presence | Not implemented | Comments refresh periodically; no live cursors, presence, typing indicators or real-time shared events |
-| Persistent contributor profiles | Deferred | Explicit identity/ownership model before grouping contributions across submissions |
+| Feature                                | Status                             | Remaining work                                                                                                                                                             |
+| -------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| i want / waterloo header               | Implemented locally                | Final mobile review                                                                                                                                                        |
+| Optional names on ideas                | Implemented locally                | Verify blank names never produce identity placeholders                                                                                                                     |
+| Optional names on replies              | Partial                            | Remove “A neighbour” as an unnamed byline; use neutral reply context without inventing an identity                                                                         |
+| Individual idea links and sharing      | Implemented locally                | Test native sharing and clipboard failure paths on mobile                                                                                                                  |
+| Comments and nested replies            | Implemented locally                | Private moderation; preserve draft and submission key across failed retries; non-disruptive new-reply notices                                                              |
+| Growing saplings, flowers and branches | Implemented locally                | Six shared tree/flower batches; capped growth; like/undo, pause and full-grove browser checks completed. Physical iPhone/Android profiling remains                         |
+| Planting confirmation / See your tree  | Implemented locally                | Review animation and camera handoff on touch devices                                                                                                                       |
+| Sorting inside Filter                  | Updated locally in this pass       | New, Most liked, Random; Reshuffle appears only when Random is chosen                                                                                                      |
+| Tag autocomplete                       | Updated locally in this pass       | Search-first suggestions, up to five matches plus one create option; no permanent tag catalogue                                                                            |
+| Admin mode                             | Preview/testing studio implemented | Protected scenarios, growth controls, Undo and visitor checks. Production moderation, report queue and search still pending                                                |
+| Local testing environment              | Implemented                        | Same source, compiled production build, isolated database and automatic rebuilds at port 3001; ordinary hot reload at port 3000                                            |
+| Continuously updated test environment  | Partial                            | Local compiled preview rebuilds automatically. A separate private remote preview supports phone testing. Automatic CI checks and remote deployment per push remain pending |
+| Seasons                                | Implemented locally                | Four palettes; Waterloo calendar default or saved manual choice; at most 18 ambient points. Physical-device review remains                                                 |
+| Day/night interaction                  | Implemented locally                | Saved day/night switch, soft lighting transition, warm windows and eight small night glows                                                                                 |
+| Additional Easter eggs                 | Implemented locally                | A short pond ripple and goose response; keyboard/touch controls; static responses with motion disabled                                                                     |
+| Live multiplayer presence              | Not implemented                    | Comments refresh periodically; no live cursors, presence, typing indicators or real-time shared events                                                                     |
+| Persistent contributor profiles        | Deferred                           | Explicit identity/ownership model before grouping contributions across submissions                                                                                         |
 
 ## What “test mode” means
 

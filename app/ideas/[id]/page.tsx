@@ -3,29 +3,15 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { env } from 'cloudflare:workers';
-import { database } from '@/db/raw';
-import { decodeTags, ideaBody, hasDerivedTitle, type Idea } from '@/lib/garden';
+import { findIdea } from '@/server/idea-records';
+import { ideaBody, hasDerivedTitle } from '@/lib/garden';
 import { SharedIdeaActions } from '@/components/shared-idea-actions';
 export const dynamic = 'force-dynamic';
 const getIdea = cache(async (id: string) => {
   if (!/^[a-f0-9-]{36}$/.test(id)) notFound();
-  const row = await database()
-    .prepare(
-      `SELECT i.id,i.title,i.description,i.category,i.tags,i.place,i.connection,
-    i.display_name AS displayName,i.created_at AS createdAt,
-    (SELECT count(*) FROM supports WHERE idea_id=i.id) AS waters,
-    (SELECT count(*) FROM comments WHERE idea_id=i.id AND moderation_state='visible') AS commentCount
-    FROM ideas i WHERE i.id=?`,
-    )
-    .bind(id)
-    .first<Record<string, unknown>>();
-  if (!row) notFound();
-  return {
-    ...row,
-    tags: decodeTags(row.tags, String(row.category)),
-    watered: false,
-    example: false,
-  } as Idea;
+  const idea = await findIdea(id);
+  if (!idea) notFound();
+  return idea;
 });
 type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -58,9 +44,15 @@ export default async function IdeaPage({ params }: Props) {
         i want / waterloo
       </Link>
       <article>
-        <h1 className={hasDerivedTitle(idea) ? "sr-only" : undefined}>{idea.title}</h1>
+        <h1 className={hasDerivedTitle(idea) ? 'sr-only' : undefined}>
+          {idea.title}
+        </h1>
         {Boolean(ideaBody(idea)) && (
-          <p className={`shared-idea-body${hasDerivedTitle(idea) ? ' full-idea' : ''}`}>{ideaBody(idea)}</p>
+          <p
+            className={`shared-idea-body${hasDerivedTitle(idea) ? ' full-idea' : ''}`}
+          >
+            {ideaBody(idea)}
+          </p>
         )}
         {idea.displayName && (
           <p className="idea-signature">{idea.displayName}</p>

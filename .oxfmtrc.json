@@ -8,6 +8,8 @@
     "pnpm-lock.yaml",
     "yarn.lock",
     "bun.lock",
-    "bun.lockb"
+    "bun.lockb",
+    "drizzle/**",
+    "components/ui/**"
   ]
 }

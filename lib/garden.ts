@@ -196,8 +196,13 @@ export function connectionGroup(connection: string) {
 }
 export function decodeTags(value: unknown, category: string): string[] {
   try {
-    const tags = JSON.parse(String(value || '[]'));
-    if (Array.isArray(tags) && tags.length) return tags;
+    const tags = JSON.parse(typeof value === 'string' ? value : '[]');
+    if (
+      Array.isArray(tags) &&
+      tags.length &&
+      tags.every((tag) => typeof tag === 'string' && validTag(tag))
+    )
+      return tags;
   } catch {}
   return LEGACY_TAGS[category] || [];
 }

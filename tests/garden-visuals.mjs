@@ -10,7 +10,7 @@ import {
   clusterTargets,
 } from '../lib/garden-visuals.ts';
 
-test('growth stays monotonic, bounded and reversible, including malformed counts', () => {
+void test('growth stays monotonic, bounded and reversible, including malformed counts', () => {
   const sapling = growthForLikes(0);
   assert.equal(sapling.height, 0.78);
   assert.equal(sapling.flowers, 0);
@@ -33,7 +33,7 @@ test('growth stays monotonic, bounded and reversible, including malformed counts
   assert.deepEqual(growthForLikes(0), sapling);
 });
 
-test('each like can make a visible, finite stretch without changing final size', () => {
+void test('each like can make a visible, finite stretch without changing final size', () => {
   assert.equal(growthStretch(0), 1);
   assert.equal(growthStretch(1), 1);
   assert.ok(growthStretch(0.18) >= 1.33);
@@ -42,7 +42,7 @@ test('each like can make a visible, finite stretch without changing final size',
     assert.ok(growthStretch(i / 100) >= 1 && growthStretch(i / 100) <= 1.34);
 });
 
-test('tree identity and plots stay stable when lists are reordered or paged', () => {
+void test('tree identity and plots stay stable when lists are reordered or paged', () => {
   const ids = ['river', 'library', 'housing'];
   const original = new Map(ids.map((id) => [id, randomAt(seedForId(id), 12)]));
   for (const id of ids.reverse())
@@ -51,7 +51,7 @@ test('tree identity and plots stay stable when lists are reordered or paged', ()
     assert.deepEqual(plotPosition(i), plotPosition(i + 24));
 });
 
-test('crowded mobile targets keep every idea and leave 48px hit areas separate', () => {
+void test('crowded mobile targets keep every idea and leave 48px hit areas separate', () => {
   for (const spread of [0, 20, 50, 100, 400]) {
     const input = Array.from({ length: 24 }, (_, index) => ({
       index,
@@ -74,7 +74,7 @@ test('crowded mobile targets keep every idea and leave 48px hit areas separate',
   assert.deepEqual(clusterTargets([]), []);
 });
 
-test('planting rises quickly above its final size, then settles without undershooting', () => {
+void test('planting rises quickly above its final size, then settles without undershooting', () => {
   assert.equal(plantingScale(0), 0.025);
   assert.ok(plantingScale(0.24) > 1.2);
   assert.ok(plantingScale(0.65) < plantingScale(0.24));

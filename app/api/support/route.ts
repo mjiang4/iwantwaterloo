@@ -1,6 +1,7 @@
 import { database } from '@/db/raw';
 import {
   identity,
+  requireVisitor,
   response,
   readBody,
   failure,
@@ -10,6 +11,7 @@ import { limitWrites } from '@/lib/rate-limit';
 export async function PUT(request: Request) {
   const { id } = identity(request);
   try {
+    requireVisitor(request);
     const raw = await readBody(request);
     if (
       !raw ||

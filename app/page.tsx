@@ -1,2 +1,4 @@
 import GardenApp from '@/components/garden-app';
-export default function Home(){return <GardenApp/>;}
+export default function Home() {
+  return <GardenApp />;
+}

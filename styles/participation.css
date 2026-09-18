@@ -1,0 +1,179 @@
+/* Participation UI: writing, orientation, and contribution links. */
+.park-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 24px 0 28px;
+}
+.park-heading h1 {
+  font-size: clamp(1.375rem, 2.6vw, 2rem);
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+  font-weight: 500;
+  max-width: 32ch;
+  text-wrap: balance;
+}
+.park-heading button {
+  min-height: 44px;
+  padding: 12px 18px;
+  flex-shrink: 0;
+  font-size: var(--text-body);
+}
+.garden-welcome {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #f0f5ec;
+}
+.garden-welcome p {
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: #455b3e;
+}
+.garden-welcome strong {
+  font-weight: 550;
+}
+.garden-welcome button {
+  min-height: 44px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.signature-field {
+  display: block;
+  margin: 0 17px 8px;
+  padding: 4px 0 6px;
+}
+.signature-field > label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 6px;
+  font-size: var(--text-small);
+  color: #4e6247;
+}
+.signature-field input[data-slot='input'] {
+  border: 0;
+  border-bottom: 1px solid #dde3d8;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 10px 0;
+  height: 44px;
+  width: 100%;
+  min-width: 0;
+  font-size: var(--text-body);
+}
+.signature-field input[data-slot='input']:focus-visible {
+  border-bottom-color: #65815d;
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.signature-field input[data-slot='input']::placeholder {
+  font-size: 0.9375rem;
+  color: #65775d;
+  opacity: 1;
+}
+.signature-field .remember-signature {
+  display: flex;
+  min-height: 44px;
+  margin: 4px 0 0;
+  font-size: var(--text-small);
+  color: #5f7256;
+  cursor: pointer;
+}
+.writing-example {
+  margin: 0 17px 12px;
+  font-size: var(--text-small);
+  line-height: 1.6;
+  color: #53694b;
+}
+.writing-example summary {
+  cursor: pointer;
+  width: fit-content;
+  min-height: 44px;
+  padding: 10px 0;
+}
+.writing-example p {
+  max-width: 55ch;
+  padding-bottom: 8px;
+}
+.reply-form .writing-example {
+  margin: 0 12px;
+}
+.discussion-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: var(--text-body);
+}
+.discussion-error button {
+  min-height: 44px;
+}
+.site-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 16px 20px calc(24px + env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: var(--text-small);
+  color: #5d6f54;
+  line-height: 1.7;
+}
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.footer-links a,
+.footer-links button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+}
+.site-footer p a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer-links a:hover,
+.footer-links button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .park-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+    margin: 14px 0 24px;
+  }
+  .park-heading h1 {
+    max-width: 22ch;
+  }
+  .garden-welcome {
+    align-items: flex-start;
+    padding: 14px;
+    gap: 8px;
+  }
+  .garden-welcome p {
+    font-size: var(--text-small);
+  }
+  .signature-field {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+  .writing-example {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+}

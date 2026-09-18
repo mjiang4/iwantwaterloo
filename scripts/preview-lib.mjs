@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { parseEnv } from 'node:util';
 import path from 'node:path';
@@ -55,7 +55,18 @@ export async function fingerprint() {
       }
     }
   }
-  for (const dir of ['app', 'components', 'lib', 'db', 'drizzle', 'public'])
+  for (const dir of [
+    'app',
+    'components',
+    'features',
+    'hooks',
+    'server',
+    'styles',
+    'lib',
+    'db',
+    'drizzle',
+    'public',
+  ])
     await walk(dir);
   for (const file of [
     'package.json',

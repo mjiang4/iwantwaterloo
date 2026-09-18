@@ -1,4 +1,7 @@
 'use client';
+/* The input owns keyboard focus and Arrow/Enter handling through aria-activedescendant.
+   Options intentionally stay outside the tab order (WAI-ARIA editable combobox pattern). */
+/* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-to-interactive-role, jsx-a11y/click-events-have-key-events */
 import { useState, useEffect, useId } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
@@ -140,13 +143,13 @@ export function TagSearch({
         </ul>
       )}
       {open && !choices.length && (
-        <p className="tag-hint" role="status">
+        <output className="tag-hint">
           {result.isFetching || result.isPending
             ? 'Searching…'
             : result.isError
               ? 'Couldn’t load tags.'
               : 'No matching tags.'}
-        </p>
+        </output>
       )}
     </div>
   );

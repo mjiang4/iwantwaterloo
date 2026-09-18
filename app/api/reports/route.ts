@@ -2,6 +2,7 @@ import { database } from '@/db/raw';
 import {
   failure,
   identity,
+  requireVisitor,
   InputError,
   readBody,
   response,
@@ -11,6 +12,7 @@ import { limitWrites } from '@/lib/rate-limit';
 export async function POST(request: Request) {
   const { id } = identity(request);
   try {
+    requireVisitor(request);
     const raw = await readBody(request);
     if (!raw || typeof raw !== 'object' || Array.isArray(raw))
       throw new InputError('Choose something to report.');
@@ -22,6 +24,8 @@ export async function POST(request: Request) {
       typeof value.reason === 'string' ? value.reason.trim().slice(0, 240) : '';
     if ((!ideaId && !commentId) || !reason)
       throw new InputError('Add a short reason for the report.');
+    if (ideaId && commentId)
+      throw new InputError('Choose one idea or reply to report.');
     const db = database();
     const target = commentId
       ? await db

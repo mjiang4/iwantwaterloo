@@ -2,6 +2,7 @@ import { database } from '@/db/raw';
 import {
   failure,
   identity,
+  requireVisitor,
   InputError,
   readBody,
   response,
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { id } = identity(request);
   try {
+    requireVisitor(request);
     const raw = await readBody(request);
     if (!raw || typeof raw !== 'object' || Array.isArray(raw))
       throw new InputError('Write a reply first.');
@@ -70,22 +72,30 @@ export async function POST(request: Request) {
     )
       throw new InputError('Please retry this reply.');
     const db = database();
-    const previous = await db
-      .prepare(
-        "SELECT id,idea_id AS ideaId,parent_id AS parentId,body,coalesce(display_name,'') AS displayName,created_at AS createdAt FROM comments WHERE submission_key=?",
-      )
-      .bind(submissionKey)
-      .first();
-    if (previous) {
-      if (
-        previous.ideaId !== ideaId ||
-        previous.parentId !== (parentId || null) ||
-        previous.body !== body ||
-        previous.displayName !== displayName
-      )
-        throw new InputError('This reply changed. Edit it and try again.', 409);
-      return response(request, id, { comment: previous });
+    async function findPrevious() {
+      const previous = await db
+        .prepare(
+          "SELECT id,idea_id AS ideaId,parent_id AS parentId,body,coalesce(display_name,'') AS displayName,created_at AS createdAt FROM comments WHERE submission_key=?",
+        )
+        .bind(submissionKey)
+        .first();
+      if (previous) {
+        if (
+          previous.ideaId !== ideaId ||
+          previous.parentId !== (parentId || null) ||
+          previous.body !== body ||
+          previous.displayName !== displayName
+        )
+          throw new InputError(
+            'This reply changed. Edit it and try again.',
+            409,
+          );
+        return previous;
+      }
+      return null;
     }
+    const previous = await findPrevious();
+    if (previous) return response(request, id, { comment: previous });
     const idea = await db
       .prepare('SELECT id FROM ideas WHERE id=?')
       .bind(ideaId)
@@ -104,9 +114,9 @@ export async function POST(request: Request) {
     await limitWrites(request, id, 'comments');
     const commentId = crypto.randomUUID();
     const now = Date.now();
-    await db
+    const inserted = await db
       .prepare(
-        'INSERT INTO comments (id,idea_id,parent_id,body,display_name,created_at,visitor_id,submission_key) VALUES (?,?,?,?,?,?,?,?)',
+        'INSERT INTO comments (id,idea_id,parent_id,body,display_name,created_at,visitor_id,submission_key) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         commentId,
@@ -119,6 +129,11 @@ export async function POST(request: Request) {
         submissionKey,
       )
       .run();
+    if (!inserted.meta.changes) {
+      const saved = await findPrevious();
+      if (!saved) throw new Error('Comment retry could not be recovered');
+      return response(request, id, { comment: saved });
+    }
     return response(
       request,
       id,

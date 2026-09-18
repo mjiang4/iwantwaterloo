@@ -1,31 +1,49 @@
 # Issues and improvements
 
-Current backlog for I Want Waterloo. Add new problems here, link related GitHub issues or PRs, and mark items complete only after implementation and verification.
+Current backlog for I Want Waterloo. Add problems here, link related issues or PRs, and record verification before closing an item.
 
-Reported September 18, 2026. All items below are open; recording them does not mean they are implemented.
+Updated September 18, 2026. Completed changes below are on `codex/contributor-refactor`; they have not been deployed to production.
 
-## Open
+## Implemented and verified in development
 
-- [ ] **IW-001 · Improve text readability on desktop.** Some people find the text too small. Review body text, labels, placeholders, buttons, and secondary text. Done when essential text is comfortably readable and the layout remains usable at 200% zoom and on mobile.
-- [ ] **IW-002 · Make the park the landing view.** Visitors should arrive at the garden rather than the idea list. Done when the park opens by default and writing an idea or switching to the list remains easy on desktop and mobile.
-- [ ] **IW-003 · Add a short introduction for first-time visitors.** Explain what the site is for, how to contribute an idea, and how ideas and likes grow the garden. Keep it brief and skippable. Done when visitors can dismiss it, revisit it, and use the site without repeated interruptions.
-- [ ] **IW-004 · Link to the GitHub repository from the site.** Add a discoverable, unobtrusive link to [mjiang4/iwantwaterloo](https://github.com/mjiang4/iwantwaterloo), such as in the footer. Done when it is easy to find and works on desktop and mobile.
-- [ ] **IW-005 · Invite contributions to the project.** Make it clear on the site that people can suggest improvements, report problems, and submit pull requests. Use short copy near the GitHub link, distinguishing website improvements from ideas for Waterloo. Done when visitors can reach both GitHub issues and the repository contribution guidance.
+- [x] **IW-001 · Improve text readability.** Raised essential text sizes, consolidated form styles, and kept inputs readable on mobile. Desktop checks include 200% text enlargement without horizontal overflow; Chromium and WebKit mobile checks pass.
+- [x] **IW-002 · Make the park the landing view.** The garden opens first, with a clear Share an idea action and access to the idea list. Posting returns visitors to their new tree.
+- [x] **IW-003 · Introduce the garden briefly.** A dismissible introduction explains ideas, trees, likes, and replies. Starting an idea dismisses it; How it works in the footer reopens it. Dismissal is remembered on the device.
+- [x] **IW-004 · Link to GitHub.** The footer links to [the repository](https://github.com/mjiang4/iwantwaterloo).
+- [x] **IW-005 · Invite project contributions.** The footer links to GitHub issues and contribution guidance. [CONTRIBUTING.md](../CONTRIBUTING.md) covers local setup, checks, architecture, and pull requests. Publish the guide with the site release so its GitHub link resolves.
 
-- [ ] **IW-006 · Encourage more thoughtful ideas and replies.** Explore prompts that help people describe specific changes, lived experiences, and useful additions to another person's idea without adding mandatory fields or making participation feel like homework. Start with the experiments below. Done when a small usability test shows people understand the prompts and can add useful detail easily; assess specificity and relevance alongside submission completion, not length or likes alone.
+Implementation date: September 18, 2026. See branch `codex/contributor-refactor` and [architecture](ARCHITECTURE.md).
 
-## IW-006 · Experiments to try
+## Implemented experiment, awaiting user feedback
 
-These are design hypotheses, not implemented features or proven results.
+- [ ] **IW-006 · Encourage more thoughtful ideas and replies.** Replies now ask “What would make this idea work better?” Both writing forms offer one short example on request. No new required fields, minimum word count, public quality score, or generated text. Submission and retry behavior pass browser checks; whether the prompts improve contributions still needs a small usability test.
 
-- **Ask for a concrete experience.** Try “What would make your day in Waterloo better?” for ideas, with a quiet follow-up such as “A place or example helps.” Compare with the existing prompt rather than stacking more instructions.
-- **Help replies add something.** Try “What would make this idea work better?” instead of a generic comment prompt. Offer an optional alternative, “Where have you seen this work?”, when relevant. Keep disagreement and other replies welcome.
-- **Offer one optional follow-up after posting.** For example, “Where would you try this first?” Let the author add context to their existing contribution or skip it. Do not create a second required submission step, generate words for them, or overwrite their original text.
-- **Show one short example when requested.** Contrast “More public spaces” with “A covered seating area near the library so we can meet outside when it rains.” Keep examples out of the published idea feed and avoid suggesting there is one correct opinion.
-- **Test usefulness rather than verbosity.** Look for a concrete proposal, a reason or experience, or a relevant new perspective in a reply. Short contributions can be excellent. Avoid public quality scores, minimum word targets, and rewards for padding or popularity.
+For that test, observe whether people understand the prompt and can add a concrete proposal, experience, or relevant perspective without abandoning the form. Compare with the prior prompt. Assess specificity and relevance alongside completion, not length or likes alone. Short contributions can be excellent.
 
-Start with the reply prompt and one optional example; test these before adding adaptive prompts, classification, or AI rewriting.
+Only consider adaptive follow-up questions or classification after evaluating this small change. A post-submission follow-up is a later experiment, not a new mandatory step.
 
-## Completed
+## Engineering fixes completed
 
-None yet. When closing an item, record its completion date and the relevant PR or commit.
+The [September 18 review](CODE-REVIEW-2026-09-18.md) describes the original checkout. Its six concrete findings are now addressed in development:
+
+- [x] **CR-001:** Reply drafts retain submission keys across retries and survive closing the discussion.
+- [x] **CR-002:** Concurrent identical replies return one saved result; conflicting content under one key is rejected.
+- [x] **CR-003:** Anonymous browser identity is established and verified before writes, preserving ownership after a lost response.
+- [x] **CR-004:** Initial, refresh, and pagination failures have explicit retry states; loaded replies and drafts are retained.
+- [x] **CR-005:** API and browser tests own disposable databases, refuse external targets, and cannot use the ordinary preview database.
+- [x] **CR-006:** Reports require exactly one existing target.
+
+Shared idea contracts, query construction, filters, likes, detail UI, reply drafts, and SQL mapping now have focused modules. Unused UI scaffolding and dependencies are removed. Contributor instructions, current architecture documentation, operator guidance, and a checks-only CI workflow are included.
+
+Verification: a fresh source checkout installs dependencies and passes type checking, lint, formatting, and all 16 unit/API tests. The compiled application passes desktop and mobile Chromium/WebKit browser checks. Production data and existing preview data were not used as test fixtures.
+
+## Follow-up work
+
+- [ ] **IW-007 · Persist plot positions explicitly.** Replace legacy SQLite rowid placement with an explicit value through a migration that preserves every current tree position. Test an upgrade with existing records before release.
+- [ ] **IW-008 · Record the title format explicitly.** Replace the historical generated-title heuristic with a schema field and fixtures for older ideas when the schema next evolves.
+- [ ] **IW-009 · Add a protected moderation workflow.** Reports have [operator guidance](OPERATIONS.md); a production queue, resolution status, and idea hiding remain separate work. Do not reuse preview reset controls for production moderation.
+- [ ] **IW-010 · Validate on physical phones.** Check text comfort, keyboard behavior, assistive technology, and garden performance on representative devices. Browser emulation and bounded-render tests do not establish physical-device performance.
+
+## Adding an issue
+
+Describe the observed problem, who it affects, and a concrete completion condition. Keep proposed solutions separate from measured results. Record the release separately from implementation: a completed branch is not a production deployment.

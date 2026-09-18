@@ -106,7 +106,8 @@ export function Atmosphere({
         Math.sin(phase) * (2.2 + randomAt(180, i) * 3) +
         Math.sin(t * 0.24 + phase) * 0.12;
       positions[i * 3 + 2] = Math.cos(phase) * (1.5 + randomAt(190, i) * 2.7);
-      positions[i * 3 + 1] = 0.5 + randomAt(200, i) * 0.8 + Math.sin(t * 0.8 + phase) * 0.08;
+      positions[i * 3 + 1] =
+        0.5 + randomAt(200, i) * 0.8 + Math.sin(t * 0.8 + phase) * 0.08;
     }
     if (points.current) {
       points.current.geometry.setDrawRange(0, count);

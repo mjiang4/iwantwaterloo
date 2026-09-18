@@ -174,7 +174,8 @@ export async function runPreviewChecks(
     });
   } catch {
     /* Failed steps are shown; cleanup still runs. */
-  } finally {
+  }
+  {
     const finish = await call('/api/admin/checks', 'POST', {
       action: 'finish',
       id: started.data.id,

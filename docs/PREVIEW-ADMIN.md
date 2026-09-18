@@ -10,6 +10,8 @@ The isolated D1 database is in `.preview/state`, with credentials in `.env.previ
 
 ## Remote
 
+Maintainer setup is required first: provision a separate private development Site and keep its own hosting manifest and identity migration in ignored `.preview/remote`. This is not part of fresh-clone contributor setup.
+
 Run `npm run preview:stage` to copy current source into `.preview/remote`. It refuses the public Site identity, excludes credentials and local data, removes deleted source, and preserves the private development Site manifest and its isolated identity migration. Build, commit, push and publish this staged checkout through Sites. Repeat this process for each remote update. A failed build is not deployed.
 
 Remote preview has a distinct Site/Worker, URL, D1 database, runtime secrets and owner-only access policy. It does not call iwantwaterloo.com or read its data. Local watching does not deploy remotely or promote production.
@@ -18,4 +20,4 @@ There are no preview scripts, dashboard assets, test polling or embedded preview
 
 ## Testing
 
-`node --test tests/garden-visuals.mjs tests/garden-discovery.mjs` checks growth, bounded decoration, mobile targets and motion. Existing `npm run test:preview` additionally exercises private test API authorization and database isolation; it requires an empty local preview database. Use the actual visitor UI for submitting, liking and replying. Never seed or clear the public database for preview work.
+`node --test tests/garden-visuals.mjs tests/garden-discovery.mjs` checks growth, bounded decoration, mobile targets and motion. `npm run test:preview` exercises private test API authorization and database isolation using a disposable Worker and database; no running preview or empty personal database is required. Use the actual visitor UI for submitting, liking and replying. Never seed or clear the public database for preview work.

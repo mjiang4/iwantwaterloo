@@ -1,5 +1,5 @@
 {
-  "name": "sites-project",
+  "name": "iwantwaterloo",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -13,29 +13,26 @@
     "format": "oxfmt",
     "db:generate": "drizzle-kit generate",
     "preview": "node scripts/preview.mjs",
-    "test:preview": "node tests/preview-admin.mjs",
-    "preview:stage": "node scripts/preview-stage.mjs"
+    "test:preview": "node --experimental-strip-types --test tests/preview-admin.mjs",
+    "preview:stage": "node scripts/preview-stage.mjs",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/*.mjs",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
+    "format:check": "oxfmt --check",
+    "test:browser": "npm run build && node tests/e2e/check.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
-    "@shadcn/react": "0.3.0",
     "@tanstack/react-query": "^5.102.8",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
-    "cmdk": "1.1.1",
-    "date-fns": "4.1.0",
     "drizzle-orm": "0.45.2",
-    "embla-carousel-react": "8.5.2",
-    "input-otp": "1.4.2",
     "lucide-react": "1.31.0",
     "react": "^19.2.8",
-    "react-day-picker": "9.8.1",
     "react-dom": "^19.2.8",
-    "react-resizable-panels": "4.5.8",
     "react-server-dom-webpack": "^19.2.8",
-    "recharts": "3.8.0",
     "shadcn": "4.18.0",
     "tailwind-merge": "3.6.0",
     "three": "^0.185.1",
@@ -54,9 +51,12 @@
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "^0.5.34",
     "drizzle-kit": "0.31.10",
+    "esbuild": "0.28.2",
+    "miniflare": "4.20260515.0",
     "oxfmt": "0.61.0",
     "oxlint": "1.76.0",
     "oxlint-tsgolint": "7.0.2001",
+    "playwright": "1.62.1",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vite": "^8.2.2",
@@ -64,6 +64,9 @@
   },
   "type": "module",
   "overrides": {
-    "undici": "7.29.1"
+    "undici": "7.29.1",
+    "ws": "8.21.0",
+    "sharp": "0.35.4",
+    "esbuild": "0.28.2"
   }
 }

@@ -37,14 +37,7 @@ import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import type { ButterflyVisit } from '@/lib/garden-discovery';
 import { PlantReceipt } from './idea-share';
 const GardenScene = lazy(() => import('./garden-scene'));
-type GardenPage = {
-  ideas: Idea[];
-  examples: Idea[];
-  total: number;
-  examplesTotal: number;
-  groves: number;
-  grovePages: number[];
-};
+import type { GardenPage } from '@/features/ideas/model';
 class SceneBoundary extends Component<
   { children: ReactNode; onFailure: () => void },
   { failed: boolean }
@@ -165,9 +158,10 @@ export function GardenExplorer({
   }, []);
   const result = useQuery({
     queryKey: ['garden', page, tag, query, connection, mine],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       requestJSON<GardenPage>(
         `/api/ideas?${new URLSearchParams({ garden: '1', mine: mine ? '1' : '0', page: String(page), tag, q: query, connection })}`,
+        { signal },
       ),
     refetchInterval: 15000,
   });

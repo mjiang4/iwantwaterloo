@@ -6,7 +6,7 @@ import {
   advanceButterfly,
 } from '../lib/garden-discovery.ts';
 
-test('butterfly requires three eligible pond taps and cannot accumulate or replay', () => {
+void test('butterfly requires three eligible pond taps and cannot accumulate or replay', () => {
   const visit = createButterflyVisit();
   for (let i = 0; i < 20; i++) inviteButterfly(visit, false);
   assert.equal(visit.taps, 0);
@@ -31,7 +31,7 @@ test('butterfly requires three eligible pond taps and cannot accumulate or repla
   assert.equal(advanceButterfly(visit, 1 / 60, true), -1);
 });
 
-test('pause, offscreen or reduced detail cancels a flight without replay on resume', () => {
+void test('pause, offscreen or reduced detail cancels a flight without replay on resume', () => {
   const visit = createButterflyVisit();
   for (let i = 0; i < 3; i++) inviteButterfly(visit, true);
   assert.ok(advanceButterfly(visit, 0.02, true) >= 0);
@@ -40,7 +40,7 @@ test('pause, offscreen or reduced detail cancels a flight without replay on resu
   assert.equal(advanceButterfly(visit, 0.02, true), -1);
 });
 
-test('suspended clocks and malformed frame deltas cannot jump or poison the flight', () => {
+void test('suspended clocks and malformed frame deltas cannot jump or poison the flight', () => {
   const visit = createButterflyVisit();
   for (let i = 0; i < 3; i++) inviteButterfly(visit, true);
   for (const delta of [NaN, Infinity, -1])

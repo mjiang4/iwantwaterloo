@@ -65,7 +65,9 @@ export async function previewStatus() {
     build = JSON.parse(env.PREVIEW_BUILD || '{}');
   } catch {}
   const latest = checks.results[0];
-  const builtAt = Date.parse(String(build.builtAt || ''));
+  const builtAt = Date.parse(
+    typeof build.builtAt === 'string' ? build.builtAt : '',
+  );
   const currentCheck =
     latest &&
     (!Number.isFinite(builtAt) || Number(latest.created_at) >= builtAt);
@@ -257,7 +259,7 @@ export async function changePreview(raw: unknown) {
   )
     throw new InputError('There is nothing to undo.', 409);
   // The operation receipt makes retrying a lost response harmless. All changes are one D1 transaction.
-  const fresh = `NOT EXISTS(SELECT 1 FROM preview_operations WHERE id='${key}')${action === 'undo' ? ' AND EXISTS(SELECT 1 FROM preview_snapshots WHERE id=1)' : action === 'likes' ? ` AND EXISTS(SELECT 1 FROM ideas WHERE id='${body.ideaId}')` : ''}`;
+  const fresh = `NOT EXISTS(SELECT 1 FROM preview_operations WHERE id='${key}')${action === 'undo' ? ' AND EXISTS(SELECT 1 FROM preview_snapshots WHERE id=1)' : action === 'likes' ? ` AND EXISTS(SELECT 1 FROM ideas WHERE id='${String(body.ideaId)}')` : ''}`;
   const statements: D1PreparedStatement[] = [];
   if (action !== 'undo') statements.push(snapshotSQL(fresh));
   if (action === 'scenario' || action === 'undo')
