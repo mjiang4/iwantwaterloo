@@ -874,3 +874,40 @@
     animation: none;
   }
 }
+
+/* Keep navigation readable over the night scene and clear of landscape cards. */
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .site-header
+  .brand,
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .site-header
+  .brand
+  > svg {
+  color: #eaf3ed;
+}
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .footer-links {
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding-inline: 8px;
+  border-radius: 24px;
+  background: #081820b3;
+}
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .footer-links
+  a,
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .footer-links
+  button {
+  color: #eaf3ed;
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .park-experiment[data-view='garden'] .garden-idea-dock {
+    bottom: 140px;
+  }
+  .park-experiment[data-view='garden'] .garden-welcome {
+    bottom: 140px;
+    width: 300px;
+  }
+}
