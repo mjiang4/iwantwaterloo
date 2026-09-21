@@ -20,7 +20,7 @@ export function rejectExternalTarget() {
 }
 
 /** No persisted files, external URLs, owner credentials, or existing databases. */
-export async function createApiHarness({ preview = false } = {}) {
+export async function createApiHarness({ preview = false, mapsKey = '' } = {}) {
   rejectExternalTarget();
   bundle ||= build({
     entryPoints: [path.join(root, 'tests/helpers/api-worker.ts')],
@@ -46,6 +46,7 @@ export async function createApiHarness({ preview = false } = {}) {
     bindings: {
       GARDEN_ENV: preview ? 'preview' : 'test',
       RATE_LIMIT_SECRET: secret,
+      VITE_GOOGLE_MAPS_BROWSER_KEY: mapsKey,
       ...(preview
         ? {
             PREVIEW_ID: previewId,

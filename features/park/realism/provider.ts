@@ -17,3 +17,17 @@ export function parseParkProvider(value: unknown): ParkProvider {
         : 300,
   };
 }
+
+/** Hosted settings take precedence; local builds may provide the static fallback. */
+export async function loadParkProvider(
+  signal: AbortSignal,
+): Promise<ParkProvider> {
+  const options = { signal, cache: 'no-store' as const };
+  const runtime = await fetch('/api/park-provider', options);
+  if (!runtime.ok) throw new Error('Imagery configuration is unavailable.');
+  const provider = parseParkProvider(await runtime.json());
+  if (provider.googleMapsKey) return provider;
+  const local = await fetch('/park-provider.json', options);
+  if (!local.ok) return provider;
+  return parseParkProvider(await local.json());
+}

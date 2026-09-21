@@ -60,3 +60,15 @@ void test('public imagery configuration fails closed and does not return unrelat
   for (const elevation of [NaN, Infinity, -12, 12000, '300'])
     assert.equal(parseParkProvider({ elevation }).elevation, 300);
 });
+
+void test('hosted imagery settings expose only the browser key, never other runtime secrets', async (t) => {
+  const { createApiHarness } = await import('./helpers/api-harness.mjs');
+  const mapsKey = 'test_browser_key_for_hosted_preview';
+  const app = await createApiHarness({ preview: true, mapsKey });
+  t.after(() => app.dispose());
+  const result = await app.request('/api/park-provider');
+  assert.equal(result.response.status, 200);
+  assert.equal(result.response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(result.data, { googleMapsKey: mapsKey, elevation: 300 });
+  assert.ok(!result.text.includes(app.secret));
+});

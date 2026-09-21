@@ -1,3 +1,4 @@
+import * as parkProvider from '../../app/api/park-provider/route';
 import * as ideas from '../../app/api/ideas/route';
 import * as comments from '../../app/api/comments/route';
 import * as support from '../../app/api/support/route';
@@ -11,6 +12,7 @@ import * as scenario from '../../app/api/admin/scenario/route';
 type Handler = (request: Request) => Response | Promise<Response>;
 const routes: Record<string, Partial<Record<string, Handler>>> = {
   '/api/ideas': ideas,
+  '/api/park-provider': parkProvider,
   '/api/comments': comments,
   '/api/support': support,
   '/api/reports': reports,

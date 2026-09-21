@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import landmarks from '@/assets/park/landmarks.json';
-import { parseParkProvider, type ParkProvider } from './realism/provider';
+import { loadParkProvider, type ParkProvider } from './realism/provider';
 export type ParkQuality = 'light' | 'high' | 'realism';
 export function QualityPicker({
   quality,
@@ -30,16 +30,9 @@ export function QualityPicker({
     let current = true;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    fetch('/park-provider.json', {
-      signal: controller.signal,
-      cache: 'no-store',
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error('Unavailable');
-        return response.json();
-      })
+    loadParkProvider(controller.signal)
       .then((value) => {
-        if (current) setProvider(parseParkProvider(value));
+        if (current) setProvider(value);
       })
       .catch(() => {
         if (current) setProvider(null);

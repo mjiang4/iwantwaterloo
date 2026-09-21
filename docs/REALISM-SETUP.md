@@ -33,9 +33,26 @@ and [usage guidance](https://developers.google.com/maps/documentation/tile/usage
 cover project setup and service costs. Nothing contacts Google until someone
 explicitly enables Realism.
 
+## Hosted development preview
+
+The existing Waterloo Development Preview has its own Site and database. Configure
+`VITE_GOOGLE_MAPS_BROWSER_KEY` in that Site's runtime environment settings, then
+redeploy. The `/api/park-provider` endpoint exposes only this intentionally public
+browser key and the reference elevation. Other environment values remain private.
+Hosted settings take precedence over the local build's fallback configuration.
+
+In Google Cloud, allow this website referrer for the preview key:
+
+```text
+https://waterloo-development-preview.helloimjerry.chatgpt.site/*
+```
+
+Do not add production referrers until choosing to release Realism publicly. Do not
+copy `.env.local` into the staged Site source or commit it.
+
 ## What still needs live verification
 
-**A real key has not been configured in this checkout.** Automated integration
+Automated integration
 tests use original synthetic geometry and intercepted requests, not Google
 imagery. They verify the rendering integration, not Waterloo's photographic
 appearance or performance on physical phones.
