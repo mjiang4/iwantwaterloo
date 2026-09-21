@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useState,
+  useRef,
   type ReactNode,
   type RefObject,
 } from 'react';
@@ -39,8 +40,13 @@ import { PlantReceipt } from './idea-share';
 const GardenScene = lazy(() => import('./garden-scene'));
 import { ideaTheme } from '@/features/park/themes';
 import { ThemePicker } from '@/features/park/theme-picker';
+import {
+  QualityPicker,
+  type ParkQuality,
+} from '@/features/park/quality-picker';
 import { useParkTime } from '@/features/park/use-park-time';
 import type { GardenPage } from '@/features/ideas/model';
+const EMPTY_IDEAS: Idea[] = [];
 class SceneBoundary extends Component<
   { children: ReactNode; fallback: ReactNode; onFailure: () => void },
   { failed: boolean }
@@ -74,6 +80,8 @@ export function GardenExplorer({
   onRead,
   onExplore,
   obscured,
+  showIntroduction,
+  discoveryRequest,
   onSupport,
   pending,
   onList,
@@ -95,6 +103,8 @@ export function GardenExplorer({
   onRead: (idea: Idea) => void;
   onExplore: () => void;
   obscured: boolean;
+  showIntroduction: boolean;
+  discoveryRequest: number;
   onSupport: (idea: Idea) => void;
   pending: Set<string>;
   onList: () => void;
@@ -114,6 +124,17 @@ export function GardenExplorer({
     [framedId, setFramedId] = useState<string | null>(focusIdea?.id || null),
     [nearby, setNearby] = useState<string[]>([]);
   const [theme, setTheme] = useState('all');
+  const [quality, setQuality] = useState<ParkQuality>('light');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [qualityNotice, setQualityNotice] = useState('');
+  const [sceneKey, setSceneKey] = useState(0);
+  const handledDiscovery = useRef(0);
+  const onDetailReady = useCallback(() => setDetailLoading(false), []);
+  const onDetailError = useCallback(() => {
+    setQuality('light');
+    setDetailLoading(false);
+    setQualityNotice('Detail could not load. Light mode is still available.');
+  }, []);
   const clock = useParkTime();
   const night = clock.night;
   useEffect(() => {
@@ -153,7 +174,20 @@ export function GardenExplorer({
     refetchInterval: 15000,
   });
   const data = result.data,
-    ideas = data?.ideas || [];
+    ideas = data?.ideas || EMPTY_IDEAS;
+  useEffect(() => {
+    if (
+      !discoveryRequest ||
+      handledDiscovery.current === discoveryRequest ||
+      !ideas.length
+    )
+      return;
+    handledDiscovery.current = discoveryRequest;
+    const idea = ideas[(discoveryRequest - 1) % ideas.length];
+    setTheme('all');
+    setInspectedId(idea.id);
+    setFramedId(idea.id);
+  }, [discoveryRequest, ideas]);
   const visibleIdeas =
     theme === 'all' || moment
       ? ideas
@@ -171,9 +205,16 @@ export function GardenExplorer({
       setPage(data.grovePages[0] ?? 0);
   }, [data, page, moment, result.isFetching]);
   const onFailure = useCallback(() => {
+    if (quality === 'high') {
+      setQuality('light');
+      setDetailLoading(false);
+      setQualityNotice('Your browser switched to Light mode.');
+      setSceneKey((key) => key + 1);
+      return;
+    }
     setFailed(true);
     if (moment) onMomentComplete(moment.serial);
-  }, [moment, onMomentComplete]);
+  }, [moment, onMomentComplete, quality]);
   function toggleMotion() {
     setMotion((v) => {
       try {
@@ -189,6 +230,16 @@ export function GardenExplorer({
         onChange={(id) => {
           setTheme(id);
           setInspectedId(null);
+        }}
+      />
+      <QualityPicker
+        quality={quality}
+        loading={detailLoading}
+        notice={qualityNotice}
+        onChange={(next) => {
+          setQuality(next);
+          setDetailLoading(next === 'high');
+          setQualityNotice('');
         }}
       />
       <div className="garden-caption">
@@ -215,6 +266,7 @@ export function GardenExplorer({
         >
           <div className="scene">
             <SceneBoundary
+              key={sceneKey}
               onFailure={onFailure}
               fallback={
                 <div className="scene-fallback">
@@ -233,6 +285,13 @@ export function GardenExplorer({
                   </div>
                 ) : (
                   <GardenScene
+                    key={sceneKey}
+                    quality={quality}
+                    discoveryId={
+                      showIntroduction ? visibleIdeas[0]?.id || null : null
+                    }
+                    onDetailReady={onDetailReady}
+                    onDetailError={onDetailError}
                     ideas={visibleIdeas}
                     selected={inspected?.id || focusIdea?.id || null}
                     onSelect={(id) => {
@@ -278,8 +337,9 @@ export function GardenExplorer({
             </output>
           )}
           <div className="park-location">
-            <span>WATERLOO PARK</span>
+            <h1>Waterloo Park</h1>
             <span>
+              Waterloo, Ontario ·{' '}
               {clock.mode === 'live' ? clock.clock : clock.mode + ' preview'}
             </span>
           </div>

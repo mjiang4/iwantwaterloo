@@ -27,6 +27,7 @@ const growthKeys = [
   'planted',
 ] as const;
 type ForestProps = {
+  discoveryId?: string | null;
   ideas: Idea[];
   motion: boolean;
   moment: GardenMoment | null;
@@ -424,6 +425,7 @@ function markerHeight(idea: Idea) {
   return 0.36 + base * growthForLikes(idea.waters).height * 1.18;
 }
 function TreeMarkers({
+  discoveryId,
   ideas,
   selected,
   onSelect,
@@ -489,7 +491,11 @@ function TreeMarkers({
           <TreeMarker
             key={members.map((i) => i.id).join(':')}
             members={members}
+            discoveryTitle={members.find((i) => i.id === discoveryId)?.title}
             position={position}
+            tooltipOffset={
+              Math.max(126, Math.min(size.width - 126, group.x)) - group.x
+            }
             active={active}
             fresh={members.some((i) => i.id === highlightId)}
             onSeen={() => {
@@ -507,6 +513,8 @@ function TreeMarkers({
 }
 
 function TreeMarker({
+  discoveryTitle,
+  tooltipOffset,
   members,
   position,
   active,
@@ -516,6 +524,8 @@ function TreeMarker({
   onSelect,
   onCluster,
 }: {
+  discoveryTitle?: string;
+  tooltipOffset: number;
   members: Idea[];
   position: THREE.Vector3;
   active: boolean;
@@ -532,10 +542,14 @@ function TreeMarker({
   const single = members.length === 1,
     idea = members[0];
   return (
-    <Html position={position} center zIndexRange={[20, 0]}>
+    <Html
+      position={position}
+      center
+      zIndexRange={discoveryTitle ? [23, 21] : [20, 0]}
+    >
       <button
         ref={cueRef}
-        className={`plant-marker garden-target ${active ? 'selected' : ''} ${single ? '' : 'cluster-marker'} ${highlighted || showCue ? 'is-fresh' : ''} ${highlighted ? 'is-arriving' : ''}`}
+        className={`plant-marker garden-target ${active ? 'selected' : ''} ${single ? '' : 'cluster-marker'} ${highlighted || showCue ? 'is-fresh' : ''} ${highlighted ? 'is-arriving' : ''} ${discoveryTitle ? 'is-discovery' : ''}`}
         aria-label={
           single
             ? `Read idea: ${idea.title}`
@@ -565,8 +579,12 @@ function TreeMarker({
             Your tree{single ? '' : ' is here'}
           </span>
         )}
-        <span className="plant-tooltip">
-          {single ? idea.title : `${members.length} nearby ideas`}
+        <span
+          className="plant-tooltip"
+          style={discoveryTitle ? { marginLeft: tooltipOffset } : undefined}
+        >
+          {discoveryTitle ||
+            (single ? idea.title : `${members.length} nearby ideas`)}
         </span>
       </button>
     </Html>

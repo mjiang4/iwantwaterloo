@@ -2,7 +2,7 @@
 /* oxlint-disable react/react-compiler -- Hydrate the first-visit device preference after SSR. */
 import { useEffect, useState } from 'react';
 import { X, ArrowRight } from 'lucide-react';
-const storageKey = 'waterloo-park-tour-seen';
+const storageKey = 'waterloo-park-tour-seen-v2';
 export function useGardenIntroduction() {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -26,13 +26,17 @@ export function useGardenIntroduction() {
   }
   return { open, dismiss, show };
 }
-const steps = [
-  ['Ideas grow here.', 'Tap a marked tree to explore an idea.'],
-  ['Help a good idea grow.', 'Like it, or add your perspective.'],
-  ['Make room for your idea.', 'Plant one. Watch it take root.'],
-];
-export function GardenWelcome({ onDismiss }: { onDismiss: () => void }) {
-  const [step, setStep] = useState(0);
+export function GardenWelcome({
+  onDismiss,
+  onExplore,
+  onPlant,
+  hasIdeas,
+}: {
+  onDismiss: () => void;
+  onExplore: () => void;
+  onPlant: () => void;
+  hasIdeas: boolean;
+}) {
   return (
     <aside
       id="garden-introduction"
@@ -47,21 +51,15 @@ export function GardenWelcome({ onDismiss }: { onDismiss: () => void }) {
       >
         <X size={16} />
       </button>
-      <div className="tour-dots" aria-label={`Step ${step + 1} of 3`}>
-        {steps.map((_, i) => (
-          <i key={i} data-active={i === step} />
-        ))}
-      </div>
-      <div aria-live="polite">
-        <strong>{steps[step][0]}</strong>
-        <p>{steps[step][1]}</p>
-      </div>
-      <button
-        className="tour-next"
-        onClick={() => (step === 2 ? onDismiss() : setStep(step + 1))}
-      >
-        {step === 2 ? 'Explore' : 'Next'}
-        <ArrowRight size={15} />
+      <strong>Explore ideas for Waterloo.</strong>
+      <p>
+        {hasIdeas
+          ? 'Each glowing tree holds an idea for Waterloo.'
+          : 'Plant the first idea for Waterloo.'}
+      </p>
+      <button className="tour-next" onClick={hasIdeas ? onExplore : onPlant}>
+        {hasIdeas ? 'Explore an idea' : 'Plant the first idea'}
+        <ArrowRight size={16} />
       </button>
     </aside>
   );

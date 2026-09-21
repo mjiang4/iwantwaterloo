@@ -373,20 +373,6 @@
   min-height: 44px;
   font-weight: 600;
 }
-.tour-dots {
-  display: flex;
-  gap: 5px;
-  margin: 0 0 15px;
-}
-.tour-dots i {
-  height: 3px;
-  width: 18px;
-  border-radius: 3px;
-  background: #b9cbbd;
-}
-.tour-dots i[data-active='true'] {
-  background: #315a49;
-}
 .park-experiment .garden-welcome p {
   margin: 5px 0 0;
 }
@@ -713,5 +699,178 @@
   }
   .park-experiment[data-view='garden'] .garden-idea-dock {
     bottom: 145px;
+  }
+}
+
+/* Arrival gives the place a name and one real idea a clear invitation. */
+.park-location {
+  letter-spacing: 0;
+  gap: 6px;
+}
+.park-location h1 {
+  font-size: clamp(28px, 3.2vw, 42px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  margin: 0;
+}
+.park-location time {
+  font-size: 13px;
+  letter-spacing: 0.015em;
+}
+.park-landmark-key {
+  color: #fff;
+  letter-spacing: 0;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #12313875;
+}
+.park-experiment .plant-marker.is-discovery .plant-tooltip {
+  display: block;
+  opacity: 1;
+  visibility: visible;
+  width: 220px;
+}
+.park-experiment .plant-marker.is-discovery .marker-face {
+  animation: discover-tree 2.4s ease-out 2;
+}
+@keyframes discover-tree {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 5px #fff2,
+      0 3px 14px #0d3c2955;
+  }
+  50% {
+    box-shadow:
+      0 0 0 16px #c5efda44,
+      0 0 28px #ebffd3;
+  }
+}
+.park-experiment .garden-welcome strong {
+  display: block;
+  max-width: calc(100% - 20px);
+  font-weight: 600;
+}
+.park-quality {
+  position: absolute;
+  z-index: 24;
+  right: 36px;
+  top: 154px;
+}
+.quality-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 14px;
+  border-radius: 30px;
+  color: #fff;
+  background: #142d2d9f;
+  backdrop-filter: blur(12px);
+  font-size: 14px;
+}
+.quality-toggle:hover {
+  background: #254943;
+}
+.quality-toggle:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+.quality-notice {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  width: 240px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  color: #234237;
+  font-size: 14px;
+}
+.quality-dialog {
+  max-width: 390px;
+  border-radius: 24px;
+}
+.quality-dialog p {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.quality-dialog .quality-hint {
+  color: #607368;
+  font-size: 14px;
+}
+.quality-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.quality-actions button {
+  min-height: 44px;
+  font-size: 14px;
+}
+.park-experiment .park-empty-lens {
+  top: 214px;
+}
+@media (max-width: 760px) {
+  .park-location {
+    top: 92px;
+    left: 20px;
+  }
+  .park-location h1 {
+    font-size: 29px;
+  }
+  .park-themes {
+    top: 165px;
+    left: 18px;
+    right: auto;
+  }
+  .park-quality {
+    top: 165px;
+    right: 18px;
+  }
+  .park-experiment[data-view='garden'] .garden-controls {
+    top: 224px;
+  }
+  .park-experiment .park-empty-lens {
+    top: 220px;
+    max-width: 230px;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .park-location {
+    top: 76px;
+  }
+  .park-location h1 {
+    font-size: 26px;
+  }
+  .park-location time {
+    font-size: 12px;
+  }
+  .park-quality {
+    top: 76px;
+    right: 18px;
+  }
+  .park-themes {
+    top: 76px;
+    left: auto;
+    right: 182px;
+  }
+  .park-experiment[data-view='garden'] .garden-controls {
+    top: 143px;
+  }
+  .park-experiment .park-empty-lens {
+    top: 128px;
+    right: 18px;
+  }
+  .quality-dialog {
+    max-height: calc(100svh - 24px);
+    overflow: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .park-experiment .plant-marker.is-discovery .marker-face {
+    animation: none;
   }
 }

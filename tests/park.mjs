@@ -56,3 +56,65 @@ void test('shipped park stays within the geometry budget and keeps the lake faci
       'water normals face skyward',
     );
 });
+
+void test('ION follows the mapped polyline and stays inside its endpoints', async () => {
+  const { railPath } = await import('../features/park/rail-path.ts');
+  const path = railPath([
+    [0, 0],
+    [3, 0],
+    [3, 4],
+  ]);
+  assert.equal(path.length, 7);
+  assert.deepEqual(path.at(2), { x: 2, z: 0, angle: Math.PI / 2 });
+  assert.deepEqual(path.at(5), { x: 3, z: 2, angle: 0 });
+  assert.equal(path.at(-5).x, 0);
+  assert.equal(path.at(99).z, 4);
+  assert.throws(() =>
+    railPath([
+      [1, 1],
+      [1, 1],
+    ]),
+  );
+  const landmarks = JSON.parse(
+    await readFile(new URL('../assets/park/landmarks.json', import.meta.url)),
+  );
+  const mapped = railPath(landmarks.ion.points);
+  assert.ok(mapped.length > 30 && mapped.length < 50);
+  assert.equal(landmarks.perimeter.osmWay, 240741299);
+  for (let distance = 0; distance < mapped.length; distance += 0.1) {
+    const p = mapped.at(distance);
+    assert.ok(
+      Number.isFinite(p.angle) && Number.isFinite(p.x) && Number.isFinite(p.z),
+    );
+  }
+});
+
+void test('optional detail is compressed and bounded; base landmarks remain lightweight', async () => {
+  const assets = new URL('../public/park/', import.meta.url);
+  const detail = await readFile(new URL('waterloo-park-detail.glb', assets));
+  assert.ok(detail.length < 6_000_000);
+  const gltf = JSON.parse(detail.subarray(20, 20 + detail.readUInt32LE(12)));
+  assert.ok(gltf.extensionsRequired.includes('KHR_draco_mesh_compression'));
+  const primitives = gltf.meshes.flatMap((mesh) => mesh.primitives);
+  assert.ok(primitives.length <= 32);
+  assert.ok(
+    primitives.reduce((n, p) => n + gltf.accessors[p.indices].count / 3, 0) <
+      550_000,
+  );
+  const landmarks = JSON.parse(
+    await readFile(new URL('../assets/park/landmarks.json', import.meta.url)),
+  );
+  assert.equal(
+    landmarks.detailBytes,
+    detail.length,
+    'warning follows the actual export size',
+  );
+  const baseBytes = (
+    await Promise.all(
+      ['waterloo-park.glb', 'perimeter.glb', 'ion-track.glb'].map(
+        async (name) => (await readFile(new URL(name, assets))).length,
+      ),
+    )
+  ).reduce((a, b) => a + b, 0);
+  assert.ok(baseBytes < 2_500_000);
+});

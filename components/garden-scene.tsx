@@ -1,8 +1,16 @@
 'use client';
 /* oxlint-disable react/react-compiler -- Three.js objects and shader uniforms are intentionally mutated outside React's render cycle. */
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Html } from '@react-three/drei';
+import { OrbitControls, Html } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import type { Idea } from '@/lib/garden';
@@ -11,10 +19,19 @@ import { type GardenMoment, randomAt } from '@/lib/garden-visuals';
 import type { ButterflyVisit } from '@/lib/garden-discovery';
 import { parkLight, type TimeMode } from '@/features/park/time';
 import map from '@/assets/park/map.json';
+import landmarks from '@/assets/park/landmarks.json';
+import { ParkModel, clearDetailCache } from '@/features/park/landscape';
+import { IonTrain } from '@/features/park/ion-train';
+import { DetailBoundary } from '@/features/park/detail-boundary';
+import type { ParkQuality } from '@/features/park/quality-picker';
 import { LakeGeese } from '@/features/park/wildlife';
 import { parkPlotPosition } from '@/features/park/plots';
 type Props = {
   ideas: Idea[];
+  quality: ParkQuality;
+  discoveryId: string | null;
+  onDetailReady: () => void;
+  onDetailError: () => void;
   selected: string | null;
   focusId: string | null;
   moment: GardenMoment | null;
@@ -34,40 +51,6 @@ type Props = {
   reset: number;
   onFailure: () => void;
 };
-const waterVertex = `varying vec3 vWorld; varying vec3 vNormal; void main(){ vec4 w=modelMatrix*vec4(position,1.); vWorld=w.xyz; vNormal=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }`;
-const waterFragment = `uniform float uTime;uniform float uDay; varying vec3 vWorld; varying vec3 vNormal;
-void main(){vec2 p=vWorld.xz;float waves=sin(p.x*13.+p.y*9.+uTime*.8)*sin(p.x*3.-p.y*17.-uTime*.55);float gleam=pow(max(0.,waves),14.);vec3 col=mix(vec3(.025,.10,.17),vec3(.11,.37,.40),uDay);float fres=pow(1.-max(0.,dot(normalize(cameraPosition-vWorld),vNormal)),3.);col+=mix(vec3(.10,.16,.24),vec3(.26,.38,.35),uDay)*fres;col+=gleam*mix(.10,.32,uDay);gl_FragColor=vec4(col,1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>}`;
-function Landscape({ day, motion }: { day: number; motion: boolean }) {
-  const { scene } = useGLTF('/park/waterloo-park.glb');
-  const water = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        vertexShader: waterVertex,
-        fragmentShader: waterFragment,
-        uniforms: { uTime: { value: 0 }, uDay: { value: 1 } },
-      }),
-    [],
-  );
-  const model = useMemo(() => {
-    const copy = scene.clone(true);
-    copy.traverse((o) => {
-      if (o instanceof THREE.Mesh) {
-        o.castShadow = o.name !== 'water' && o.name !== 'lawn';
-        o.receiveShadow = true;
-        if (o.name === 'water') o.material = water;
-      }
-    });
-    return copy;
-  }, [scene, water]);
-  useEffect(() => {
-    water.uniforms.uDay.value = day;
-  }, [day, water]);
-  useEffect(() => () => water.dispose(), [water]);
-  useFrame((_, delta) => {
-    if (motion) water.uniforms.uTime.value += Math.min(0.05, delta);
-  });
-  return <primitive object={model} />;
-}
 function Sky({ day, sun }: { day: number; sun: [number, number, number] }) {
   const material = useMemo(
     () =>
@@ -178,21 +161,56 @@ function CameraRig({
   const focusedPlot = props.ideas.find(
     (idea) => idea.id === (props.moment?.id || props.focusId),
   )?.plot;
+  const arrivalPlot = props.ideas[0]?.plot;
   useEffect(() => {
     const focused = focusedPlot !== undefined;
-    const position = focused ? parkPlotPosition(focusedPlot) : [8, -0.5];
-    target.current.set(position[0], 0.3, position[1]);
-    const mobile = size.width < size.height;
-    const distance = focused ? 8 : mobile ? 27 : 31;
-    destination.current.set(
-      position[0] + (distance * 0.23) / props.zoom,
-      (distance * (focused ? 0.82 : props.night ? 0.28 : 0.7)) / props.zoom,
-      position[1] + (distance * 0.9) / props.zoom,
-    );
+    const arrival = parkPlotPosition(arrivalPlot ?? 0);
+    const pi = landmarks.perimeter.position;
+    const position = focused
+      ? parkPlotPosition(focusedPlot)
+      : [(arrival[0] + pi[0]) / 2, (arrival[1] + pi[2]) / 2];
+    target.current.set(position[0], focused ? 0.9 : 0.5, position[1]);
+    let distance = focused ? 10 : 20;
+    const placeCamera = () =>
+      destination.current.set(
+        position[0] + (distance * (focused ? 0.23 : -0.65)) / props.zoom,
+        (distance * (focused ? 0.82 : props.night ? 0.4 : 0.52)) / props.zoom,
+        position[1] + (distance * (focused ? 0.9 : -0.7)) / props.zoom,
+      );
+    placeCamera();
+    // Fit a real idea and the landmark in the central safe region on narrow screens.
+    // Two projected points are sufficient; this runs on navigation, never per frame.
+    if (!focused) {
+      const probe = new THREE.PerspectiveCamera(
+        45,
+        size.width / size.height,
+        0.1,
+        200,
+      );
+      const anchors = [
+        new THREE.Vector3(arrival[0], 1.4, arrival[1]),
+        new THREE.Vector3(pi[0], pi[1], pi[2]),
+      ];
+      for (let attempt = 0; attempt < 12; attempt++) {
+        probe.position.copy(destination.current);
+        probe.lookAt(target.current);
+        probe.updateMatrixWorld();
+        if (
+          anchors.every((anchor) => {
+            const p = anchor.clone().project(probe);
+            return Math.abs(p.x) < 0.58 && Math.abs(p.y) < 0.38;
+          })
+        )
+          break;
+        distance *= 1.08;
+        placeCamera();
+      }
+    }
     transition.current = 1;
     ready.current = false;
     invalidate();
   }, [
+    arrivalPlot,
     focusedPlot,
     props.night,
     props.focusId,
@@ -275,6 +293,20 @@ function FrameClock({ motion, active }: { motion: boolean; active: boolean }) {
 }
 function World(props: Props & { active: boolean }) {
   const ready = useRef(false);
+  const [detailReady, setDetailReady] = useState(false);
+  const notifyReady = props.onDetailReady;
+  const detailLoaded = useCallback(() => {
+    setDetailReady(true);
+    notifyReady();
+  }, [notifyReady]);
+  useEffect(() => {
+    if (props.quality === 'light') setDetailReady(false);
+  }, [props.quality]);
+  const detailFailed = () => {
+    clearDetailCache();
+    props.onDetailError();
+  };
+  const detailed = props.quality === 'high' && detailReady;
   const { gl, scene, invalidate } = useThree();
   const light = parkLight(
     props.timestamp || Date.UTC(2026, 8, 21, 16),
@@ -313,7 +345,7 @@ function World(props: Props & { active: boolean }) {
         color={light.night ? '#98bae6' : '#fff0cb'}
         intensity={light.night ? 0.65 : 2.7}
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={detailed ? [2048, 2048] : [1024, 1024]}
         shadow-camera-left={-26}
         shadow-camera-right={26}
         shadow-camera-top={25}
@@ -322,7 +354,47 @@ function World(props: Props & { active: boolean }) {
         shadow-camera-far={160}
         shadow-bias={-0.0003}
       />
-      <Landscape day={light.daylight} motion={props.motion} />
+      <ParkModel
+        url="/park/waterloo-park.glb"
+        day={light.daylight}
+        motion={props.motion}
+        visible={!detailed}
+      />
+      <ParkModel
+        url="/park/perimeter.glb"
+        day={light.daylight}
+        motion={false}
+        visible={!detailed}
+      />
+      <ParkModel
+        url="/park/ion-track.glb"
+        day={light.daylight}
+        motion={false}
+        visible={!detailed}
+      />
+      {props.quality === 'high' && (
+        <DetailBoundary onError={detailFailed}>
+          <Suspense fallback={null}>
+            <ParkModel
+              url="/park/waterloo-park-detail.glb"
+              day={light.daylight}
+              motion={props.motion}
+              detailed
+              onReady={detailLoaded}
+            />
+          </Suspense>
+        </DetailBoundary>
+      )}
+      <IonTrain motion={props.motion} />
+      <Html
+        position={landmarks.perimeter.position as [number, number, number]}
+        center
+        zIndexRange={[2, 0]}
+      >
+        <span className="park-landmark park-landmark-key">
+          Perimeter Institute
+        </span>
+      </Html>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -0.28, 0]}
@@ -363,6 +435,7 @@ export default function GardenScene(props: Props) {
   return (
     <div
       className="garden-canvas"
+      data-quality={props.quality}
       data-render-state={
         active ? (props.motion ? 'animated' : 'paused') : 'suspended'
       }

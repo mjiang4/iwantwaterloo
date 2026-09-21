@@ -10,6 +10,7 @@
     "bun.lock",
     "bun.lockb",
     "drizzle/**",
-    "components/ui/**"
+    "components/ui/**",
+    "public/draco/**"
   ]
 }

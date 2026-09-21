@@ -84,6 +84,7 @@ function Garden() {
   }, [searchOpen]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const introduction = useGardenIntroduction();
+  const [discoveryRequest, setDiscoveryRequest] = useState(0);
   const [directLinkError, setDirectLinkError] = useState('');
   const directLinkChecked = useRef(false);
   const small = useMediaQuery('(max-width:760px)');
@@ -269,7 +270,15 @@ function Garden() {
         </header>
         <main>
           {view === 'garden' && introduction.open && (
-            <GardenWelcome onDismiss={introduction.dismiss} />
+            <GardenWelcome
+              onDismiss={introduction.dismiss}
+              hasIdeas={total > 0}
+              onExplore={() => {
+                introduction.dismiss();
+                setDiscoveryRequest((request) => request + 1);
+              }}
+              onPlant={focusComposer}
+            />
           )}
           {directLinkError && (
             <p className="form-error" role="alert">
@@ -428,6 +437,8 @@ function Garden() {
             >
               <GardenExplorer
                 onExplore={introduction.dismiss}
+                showIntroduction={introduction.open}
+                discoveryRequest={discoveryRequest}
                 obscured={sheetOpen || aboutOpen}
                 mine={mine}
                 postedIdea={postedIdea}
