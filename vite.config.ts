@@ -1,7 +1,7 @@
 import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type ViteDevServer } from 'vite';
 import hostingConfig from './.openai/hosting.json' with { type: 'json' };
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
@@ -34,7 +34,12 @@ const localBindingConfig = {
     : [],
 };
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ mode }) => {
+  const maps = loadEnv(mode, process.cwd(), 'VITE_GOOGLE_MAPS_');
+  const publicProvider = JSON.stringify({
+    googleMapsKey: maps.VITE_GOOGLE_MAPS_BROWSER_KEY || '',
+    elevation: Number(maps.VITE_GOOGLE_MAPS_ELEVATION || 300),
+  });
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= 'false';
@@ -50,6 +55,27 @@ export default defineConfig(async () => {
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     plugins: [
+      {
+        name: 'waterloo-park-provider',
+        generateBundle() {
+          if (this.environment.name === 'client')
+            this.emitFile({
+              type: 'asset',
+              fileName: 'park-provider.json',
+              source: publicProvider,
+            });
+        },
+        configureServer(server: ViteDevServer) {
+          server.middlewares.use(
+            '/park-provider.json',
+            (_request, response) => {
+              response.setHeader('Content-Type', 'application/json');
+              response.setHeader('Cache-Control', 'no-store');
+              response.end(publicProvider);
+            },
+          );
+        },
+      },
       vinext(),
       sites(),
       cloudflare({

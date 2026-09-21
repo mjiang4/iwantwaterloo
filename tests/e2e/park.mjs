@@ -11,13 +11,17 @@ async function checkQuality(page, requests, label) {
     0,
     'detail and decoder must not load by default',
   );
-  await page.getByRole('button', { name: 'Try high fidelity' }).click();
+  await page
+    .getByRole('button', { name: 'Choose realism or high fidelity' })
+    .click();
   await page.getByText(/more graphics power and battery/).waitFor();
   await page.getByRole('button', { name: 'Keep it light' }).click();
   assert.equal(requests.length, 0, 'dismissing the warning downloads nothing');
-  await page.getByRole('button', { name: 'Try high fidelity' }).click();
   await page
-    .getByRole('button', { name: 'Load high fidelity', exact: true })
+    .getByRole('button', { name: 'Choose realism or high fidelity' })
+    .click();
+  await page
+    .getByRole('button', { name: 'Load detailed model', exact: true })
     .click();
   await page.waitForFunction(
     () =>
@@ -197,9 +201,11 @@ try {
   await p.goto(site.origin);
   await p.getByRole('button', { name: 'Skip introduction' }).click();
   await p.locator('.garden-target').first().waitFor({ timeout: 30000 });
-  await p.getByRole('button', { name: 'Try high fidelity' }).click();
   await p
-    .getByRole('button', { name: 'Load high fidelity', exact: true })
+    .getByRole('button', { name: 'Choose realism or high fidelity' })
+    .click();
+  await p
+    .getByRole('button', { name: 'Load detailed model', exact: true })
     .click();
   await p
     .getByText('Detail could not load. Light mode is still available.')
@@ -211,9 +217,11 @@ try {
   await p.locator('.garden-target').first().click();
   await p.locator('.garden-idea-dock').waitFor();
   await brokenDetail.unroute('**/park/waterloo-park-detail.glb');
-  await p.getByRole('button', { name: 'Try high fidelity' }).click();
   await p
-    .getByRole('button', { name: 'Load high fidelity', exact: true })
+    .getByRole('button', { name: 'Choose realism or high fidelity' })
+    .click();
+  await p
+    .getByRole('button', { name: 'Load detailed model', exact: true })
     .click();
   await p.waitForFunction(
     () =>

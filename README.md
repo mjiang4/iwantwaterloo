@@ -8,7 +8,7 @@ Share an idea, explore what others imagine, and support the changes you want to 
 
 ## Park experiment
 
-This branch explores a mapped, interactive Waterloo Park. See the [editable design notebook](docs/PARK-NOTEBOOK.md) for the concept, preview instructions, and open questions, and the [Blender model guide](assets/park/README.md) to work on the landscape.
+This branch explores a mapped, interactive Waterloo Park. See the [editable design notebook](docs/PARK-NOTEBOOK.md) for the concept, preview instructions, and open questions, and the [Blender model guide](assets/park/README.md) to work on the landscape. The optional [photographic realism view](docs/REALISM-SETUP.md) requires a restricted Google Maps browser key.
 
 ## Contribute
 

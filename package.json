@@ -19,13 +19,14 @@
     "test": "node --experimental-strip-types --test --test-concurrency=1 tests/*.mjs",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
     "format:check": "oxfmt --check",
-    "test:browser": "npm run build && node tests/e2e/check.mjs && node tests/e2e/park.mjs"
+    "test:browser": "npm run build && node tests/e2e/check.mjs && node tests/e2e/park.mjs && node tests/e2e/realism.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@tanstack/react-query": "^5.102.8",
+    "3d-tiles-renderer": "0.5.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.2",

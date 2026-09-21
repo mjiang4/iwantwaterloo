@@ -911,3 +911,78 @@
     width: 300px;
   }
 }
+.quality-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.quality-actions .realism-action {
+  grid-column: 1 / -1;
+}
+.realism-credits {
+  position: absolute;
+  z-index: 26;
+  bottom: 124px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #253735;
+  background: #fffffff0;
+  border-radius: 10px;
+  padding: 0 10px;
+  min-height: 34px;
+}
+.google-maps-credit {
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.realism-credits > button {
+  min-height: 34px;
+  font-size: 12px;
+  text-decoration: underline;
+}
+.park-experiment:has([data-realism='true']) .map-credit {
+  display: none;
+}
+.park-experiment[data-view='garden']:has([data-realism='true'])
+  .garden-idea-dock {
+  bottom: 170px;
+}
+.realism-idea-pulse {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f1fff1;
+  color: #204830;
+  box-shadow: 0 0 0 8px #e4ffe180;
+  font-size: 20px;
+  font-weight: 600;
+  animation: realism-acknowledge 1.4s ease-out both;
+}
+@keyframes realism-acknowledge {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.25);
+    box-shadow: 0 0 0 20px #e4ffe144;
+  }
+  65% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 0 32px #e4ffe100;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .realism-idea-pulse {
+    animation: none;
+  }
+}

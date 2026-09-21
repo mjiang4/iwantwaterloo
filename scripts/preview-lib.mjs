@@ -80,5 +80,19 @@ export async function fingerprint() {
     hash.update(file);
     hash.update(await readFile(path.join(root, file)));
   }
+  // Vite reads public Maps configuration at build time. A local key change rebuilds
+  // the preview without ever writing its value into the build metadata.
+  for (const file of [
+    '.env.local',
+    '.env.production',
+    '.env.production.local',
+  ]) {
+    try {
+      hash.update(file);
+      hash.update(await readFile(path.join(root, file)));
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
   return hash.digest('hex');
 }

@@ -24,6 +24,8 @@ import { filterIdeas, type Idea } from '@/lib/garden';
 import { IdeaComposer } from './idea-composer';
 import { useGardenTools } from './garden-tools';
 import { GardenExplorer } from './garden-explorer';
+import type { ParkQuality } from '@/features/park/quality-picker';
+import type { ParkProvider } from '@/features/park/realism/provider';
 import { IdeaFilterMenu } from '@/features/ideas/idea-filter-menu';
 import { IdeaDetails } from '@/features/ideas/idea-details';
 import { IconButton } from './icon-button';
@@ -43,6 +45,20 @@ import { requestJSON as api } from '@/lib/client';
 function Garden() {
   const client = useQueryClient();
   const [view, setView] = useState('garden');
+  // Preserve this visit's explicit opt-in when the form/list unmounts the canvas.
+  const [parkView, setParkView] = useState<{
+    quality: ParkQuality;
+    provider: ParkProvider | null;
+  }>({ quality: 'light', provider: null });
+  const changeParkQuality = useCallback(
+    (quality: ParkQuality, provider?: ParkProvider) => {
+      setParkView((current) => ({
+        quality,
+        provider: provider ?? current.provider,
+      }));
+    },
+    [],
+  );
   const filters = useIdeaFilters();
   const {
     mine,
@@ -436,6 +452,9 @@ function Garden() {
               tabIndex={-1}
             >
               <GardenExplorer
+                quality={parkView.quality}
+                photoProvider={parkView.provider}
+                onQualityChange={changeParkQuality}
                 onExplore={introduction.dismiss}
                 showIntroduction={introduction.open}
                 discoveryRequest={discoveryRequest}
@@ -551,6 +570,26 @@ function Garden() {
             <p>
               Support counts are not a representative poll. This is an
               independent project, not a City of Waterloo service.
+            </p>
+            <p>
+              Realism mode loads imagery from Google Maps when you enable it.
+              Google receives those map requests; its{' '}
+              <a
+                href="https://policies.google.com/privacy"
+                target="_blank"
+                rel="noreferrer"
+              >
+                privacy policy
+              </a>{' '}
+              and{' '}
+              <a
+                href="https://www.google.com/help/terms_maps/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Maps terms
+              </a>{' '}
+              apply.
             </p>
             <Button onClick={() => setAboutOpen(false)}>Got it</Button>
           </DialogContent>

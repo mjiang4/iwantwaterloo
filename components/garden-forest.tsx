@@ -26,7 +26,8 @@ const growthKeys = [
   'branches',
   'planted',
 ] as const;
-type ForestProps = {
+export type ForestProps = {
+  anchorHeights?: Record<string, number>;
   discoveryId?: string | null;
   ideas: Idea[];
   motion: boolean;
@@ -424,7 +425,8 @@ function markerHeight(idea: Idea) {
   const base = 0.88 + randomAt(seedForId(idea.id), 0) * 0.18;
   return 0.36 + base * growthForLikes(idea.waters).height * 1.18;
 }
-function TreeMarkers({
+export function TreeMarkers({
+  anchorHeights,
   discoveryId,
   ideas,
   selected,
@@ -449,7 +451,8 @@ function TreeMarkers({
     ideas.map((i) => `${i.id}:${i.plot}:${i.waters}`).join(':') +
     size.width +
     ':' +
-    size.height;
+    size.height +
+    JSON.stringify(anchorHeights || {});
   useFrame(() => {
     if (
       version.current === key &&
@@ -464,7 +467,9 @@ function TreeMarkers({
       clusterTargets(
         ideas.slice(0, 24).map((idea, index) => {
           const [x, z] = plotPosition(idea.plot ?? index);
-          point.set(x, markerHeight(idea), z).project(camera);
+          point
+            .set(x, anchorHeights?.[idea.id] ?? markerHeight(idea), z)
+            .project(camera);
           return {
             x: ((point.x + 1) * size.width) / 2,
             y: ((1 - point.y) * size.height) / 2,
@@ -483,7 +488,13 @@ function TreeMarkers({
         for (const idea of members) {
           const index = ideas.indexOf(idea),
             [x, z] = plotPosition(idea.plot ?? index);
-          position.add(new THREE.Vector3(x, markerHeight(idea), z));
+          position.add(
+            new THREE.Vector3(
+              x,
+              anchorHeights?.[idea.id] ?? markerHeight(idea),
+              z,
+            ),
+          );
         }
         position.divideScalar(members.length);
         const active = members.some((i) => i.id === selected);

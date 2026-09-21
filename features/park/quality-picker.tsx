@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sparkles, Leaf } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,7 +9,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import landmarks from '@/assets/park/landmarks.json';
-export type ParkQuality = 'light' | 'high';
+import { parseParkProvider, type ParkProvider } from './realism/provider';
+export type ParkQuality = 'light' | 'high' | 'realism';
 export function QualityPicker({
   quality,
   loading,
@@ -19,53 +20,109 @@ export function QualityPicker({
   quality: ParkQuality;
   loading: boolean;
   notice: string;
-  onChange: (quality: ParkQuality) => void;
+  onChange: (quality: ParkQuality, provider?: ParkProvider) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [provider, setProvider] = useState<ParkProvider | null>(null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    let current = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    fetch('/park-provider.json', {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('Unavailable');
+        return response.json();
+      })
+      .then((value) => {
+        if (current) setProvider(parseParkProvider(value));
+      })
+      .catch(() => {
+        if (current) setProvider(null);
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+        if (current) setChecking(false);
+      });
+    return () => {
+      current = false;
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [open]);
+  const connected = !!provider?.googleMapsKey;
   return (
     <div className="park-quality">
       <button
         className="quality-toggle"
-        aria-label={quality === 'high' ? 'Use light mode' : 'Try high fidelity'}
-        aria-pressed={quality === 'high'}
+        aria-label={
+          quality !== 'light'
+            ? 'Use light mode'
+            : 'Choose realism or high fidelity'
+        }
+        aria-pressed={quality !== 'light'}
         aria-busy={loading}
-        onClick={() => (quality === 'high' ? onChange('light') : setOpen(true))}
+        onClick={() => {
+          if (quality !== 'light') onChange('light');
+          else {
+            setChecking(true);
+            setOpen(true);
+          }
+        }}
       >
-        {quality === 'high' ? <Leaf size={16} /> : <Sparkles size={16} />}
-        {loading
-          ? 'Loading detail…'
-          : quality === 'high'
-            ? 'Light mode'
-            : 'High fidelity'}
+        {quality !== 'light' ? <Leaf size={16} /> : <Sparkles size={16} />}
+        {loading ? 'Loading…' : quality !== 'light' ? 'Light mode' : 'Realism'}
       </button>
       {notice && <output className="quality-notice">{notice}</output>}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="quality-dialog">
-          <DialogTitle>A closer look.</DialogTitle>
+          <DialogTitle>See the real park.</DialogTitle>
           <DialogDescription>
-            Detailed foliage, architecture and water reflections.
+            Photographic 3D imagery from Google Maps.
           </DialogDescription>
           <p>
-            Downloads about {Math.ceil(landmarks.detailBytes / 1_000_000)} MB
-            and uses more graphics power and battery. Phones may feel slower or
-            warmer.
+            Streams as you explore and uses more graphics power and battery.
           </p>
-          <p className="quality-hint">
-            You can switch back to Light at any time.
-          </p>
+          {!connected && (
+            <p className="quality-hint">
+              {checking
+                ? 'Checking connection…'
+                : 'Realism isn’t connected yet.'}
+            </p>
+          )}
           <div className="quality-actions">
+            <Button
+              className="realism-action"
+              disabled={!connected || checking}
+              onClick={() => {
+                if (!provider?.googleMapsKey) return;
+                setOpen(false);
+                onChange('realism', provider);
+              }}
+            >
+              Enter realism
+            </Button>
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Keep it light
             </Button>
             <Button
+              variant="outline"
               onClick={() => {
                 setOpen(false);
                 onChange('high');
               }}
             >
-              Load high fidelity
+              Load detailed model
             </Button>
           </div>
+          <p className="quality-hint">
+            The detailed model downloads about{' '}
+            {Math.ceil(landmarks.detailBytes / 1_000_000)} MB.
+          </p>
         </DialogContent>
       </Dialog>
     </div>

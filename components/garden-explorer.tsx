@@ -44,6 +44,8 @@ import {
   QualityPicker,
   type ParkQuality,
 } from '@/features/park/quality-picker';
+import type { ParkProvider } from '@/features/park/realism/provider';
+import { RealismCredits } from '@/features/park/realism/credits';
 import { useParkTime } from '@/features/park/use-park-time';
 import type { GardenPage } from '@/features/ideas/model';
 const EMPTY_IDEAS: Idea[] = [];
@@ -63,6 +65,9 @@ class SceneBoundary extends Component<
   }
 }
 export function GardenExplorer({
+  quality,
+  photoProvider,
+  onQualityChange,
   mine,
   postedIdea,
   onReceiptDone,
@@ -86,6 +91,9 @@ export function GardenExplorer({
   pending,
   onList,
 }: {
+  quality: ParkQuality;
+  photoProvider: ParkProvider | null;
+  onQualityChange: (quality: ParkQuality, provider?: ParkProvider) => void;
   mine: boolean;
   postedIdea: Idea | null;
   onReceiptDone: () => void;
@@ -124,19 +132,25 @@ export function GardenExplorer({
     [framedId, setFramedId] = useState<string | null>(focusIdea?.id || null),
     [nearby, setNearby] = useState<string[]>([]);
   const [theme, setTheme] = useState('all');
-  const [quality, setQuality] = useState<ParkQuality>('light');
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [photoCredits, setPhotoCredits] = useState('');
+  const [detailLoading, setDetailLoading] = useState(quality !== 'light');
   const [qualityNotice, setQualityNotice] = useState('');
   const [sceneKey, setSceneKey] = useState(0);
   const handledDiscovery = useRef(0);
   const onDetailReady = useCallback(() => setDetailLoading(false), []);
   const onDetailError = useCallback(() => {
-    setQuality('light');
+    onQualityChange('light');
     setDetailLoading(false);
     setQualityNotice('Detail could not load. Light mode is still available.');
-  }, []);
+  }, [onQualityChange]);
+  const onRealismError = useCallback(() => {
+    onQualityChange('light');
+    setDetailLoading(false);
+    setPhotoCredits('');
+    setQualityNotice('Realism could not load. Light mode is still available.');
+  }, [onQualityChange]);
   const clock = useParkTime();
-  const night = clock.night;
+  const night = quality === 'realism' ? false : clock.night;
   useEffect(() => {
     setPage(0);
     setNearby([]);
@@ -205,8 +219,8 @@ export function GardenExplorer({
       setPage(data.grovePages[0] ?? 0);
   }, [data, page, moment, result.isFetching]);
   const onFailure = useCallback(() => {
-    if (quality === 'high') {
-      setQuality('light');
+    if (quality !== 'light') {
+      onQualityChange('light');
       setDetailLoading(false);
       setQualityNotice('Your browser switched to Light mode.');
       setSceneKey((key) => key + 1);
@@ -214,7 +228,7 @@ export function GardenExplorer({
     }
     setFailed(true);
     if (moment) onMomentComplete(moment.serial);
-  }, [moment, onMomentComplete, quality]);
+  }, [moment, onMomentComplete, quality, onQualityChange]);
   function toggleMotion() {
     setMotion((v) => {
       try {
@@ -236,9 +250,14 @@ export function GardenExplorer({
         quality={quality}
         loading={detailLoading}
         notice={qualityNotice}
-        onChange={(next) => {
-          setQuality(next);
-          setDetailLoading(next === 'high');
+        onChange={(next, provider) => {
+          if (next === 'realism') {
+            if (!provider?.googleMapsKey) return;
+            setPhotoCredits('');
+            onExplore();
+          }
+          onQualityChange(next, provider);
+          setDetailLoading(next !== 'light');
           setQualityNotice('');
         }}
       />
@@ -261,6 +280,7 @@ export function GardenExplorer({
         <div
           className="garden-stage"
           data-night={night}
+          data-realism={quality === 'realism'}
           data-motion={motion}
           data-celebrating={moment?.kind || undefined}
         >
@@ -287,6 +307,9 @@ export function GardenExplorer({
                   <GardenScene
                     key={sceneKey}
                     quality={quality}
+                    photoProvider={photoProvider}
+                    onRealismError={onRealismError}
+                    onPhotoCredits={setPhotoCredits}
                     discoveryId={
                       showIntroduction ? visibleIdeas[0]?.id || null : null
                     }
@@ -332,15 +355,24 @@ export function GardenExplorer({
           {moment && (
             <output className="garden-moment-caption">
               {moment.kind === 'plant'
-                ? 'Your idea is taking root.'
-                : '+1. A little bigger.'}
+                ? quality === 'realism'
+                  ? 'Your idea is here.'
+                  : 'Your idea is taking root.'
+                : quality === 'realism'
+                  ? '+1. Your support is here.'
+                  : '+1. A little bigger.'}
             </output>
           )}
+          {quality === 'realism' && <RealismCredits credits={photoCredits} />}
           <div className="park-location">
             <h1>Waterloo Park</h1>
             <span>
               Waterloo, Ontario ·{' '}
-              {clock.mode === 'live' ? clock.clock : clock.mode + ' preview'}
+              {quality === 'realism'
+                ? 'Photographic imagery'
+                : clock.mode === 'live'
+                  ? clock.clock
+                  : clock.mode + ' preview'}
             </span>
           </div>
           <div className="garden-controls">
@@ -393,6 +425,7 @@ export function GardenExplorer({
             <span className="garden-control-divider" aria-hidden="true" />
             <button
               className="icon-button"
+              disabled={quality === 'realism'}
               aria-label={
                 clock.mode === 'live'
                   ? 'Preview daylight'
@@ -401,9 +434,11 @@ export function GardenExplorer({
                     : 'Return to live time'
               }
               title={
-                clock.mode === 'live'
-                  ? 'Live Waterloo time'
-                  : 'Preview ' + clock.mode
+                quality === 'realism'
+                  ? 'Photographic imagery has captured lighting'
+                  : clock.mode === 'live'
+                    ? 'Live Waterloo time'
+                    : 'Preview ' + clock.mode
               }
               onClick={() =>
                 clock.setMode(

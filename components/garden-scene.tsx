@@ -2,6 +2,7 @@
 /* oxlint-disable react/react-compiler -- Three.js objects and shader uniforms are intentionally mutated outside React's render cycle. */
 import {
   Suspense,
+  lazy,
   useCallback,
   useEffect,
   useMemo,
@@ -26,9 +27,15 @@ import { DetailBoundary } from '@/features/park/detail-boundary';
 import type { ParkQuality } from '@/features/park/quality-picker';
 import { LakeGeese } from '@/features/park/wildlife';
 import { parkPlotPosition } from '@/features/park/plots';
+import { RealismIdeaMarkers } from '@/features/park/realism/idea-markers';
+import type { ParkProvider } from '@/features/park/realism/provider';
+const RealismLayer = lazy(() => import('@/features/park/realism/layer'));
 type Props = {
   ideas: Idea[];
   quality: ParkQuality;
+  photoProvider: ParkProvider | null;
+  onRealismError: () => void;
+  onPhotoCredits: (value: string) => void;
   discoveryId: string | null;
   onDetailReady: () => void;
   onDetailError: () => void;
@@ -294,7 +301,22 @@ function FrameClock({ motion, active }: { motion: boolean; active: boolean }) {
 function World(props: Props & { active: boolean }) {
   const ready = useRef(false);
   const [detailReady, setDetailReady] = useState(false);
+  const [photoReady, setPhotoReady] = useState(false);
+  const [anchorHeights, setAnchorHeights] = useState<Record<string, number>>(
+    {},
+  );
+  const photoreal = props.quality === 'realism' && photoReady;
   const notifyReady = props.onDetailReady;
+  const photoLoaded = useCallback(() => {
+    setPhotoReady(true);
+    notifyReady();
+  }, [notifyReady]);
+  useEffect(() => {
+    if (props.quality !== 'realism') {
+      setPhotoReady(false);
+      setAnchorHeights({});
+    }
+  }, [props.quality]);
   const detailLoaded = useCallback(() => {
     setDetailReady(true);
     notifyReady();
@@ -310,7 +332,7 @@ function World(props: Props & { active: boolean }) {
   const { gl, scene, invalidate } = useThree();
   const light = parkLight(
     props.timestamp || Date.UTC(2026, 8, 21, 16),
-    props.timeMode,
+    props.quality === 'realism' ? 'day' : props.timeMode,
   );
   const fog = useMemo(
     () => new THREE.Fog(light.night ? '#132635' : '#b7c7bc', 45, 105),
@@ -344,7 +366,7 @@ function World(props: Props & { active: boolean }) {
         position={light.night ? [-20, 30, -12] : light.sun}
         color={light.night ? '#98bae6' : '#fff0cb'}
         intensity={light.night ? 0.65 : 2.7}
-        castShadow
+        castShadow={!photoreal}
         shadow-mapSize={detailed ? [2048, 2048] : [1024, 1024]}
         shadow-camera-left={-26}
         shadow-camera-right={26}
@@ -358,19 +380,19 @@ function World(props: Props & { active: boolean }) {
         url="/park/waterloo-park.glb"
         day={light.daylight}
         motion={props.motion}
-        visible={!detailed}
+        visible={!detailed && !photoreal}
       />
       <ParkModel
         url="/park/perimeter.glb"
         day={light.daylight}
         motion={false}
-        visible={!detailed}
+        visible={!detailed && !photoreal}
       />
       <ParkModel
         url="/park/ion-track.glb"
         day={light.daylight}
         motion={false}
-        visible={!detailed}
+        visible={!detailed && !photoreal}
       />
       {props.quality === 'high' && (
         <DetailBoundary onError={detailFailed}>
@@ -385,7 +407,22 @@ function World(props: Props & { active: boolean }) {
           </Suspense>
         </DetailBoundary>
       )}
-      <IonTrain motion={props.motion} />
+      {props.quality === 'realism' && props.photoProvider && (
+        <DetailBoundary onError={props.onRealismError}>
+          <Suspense fallback={null}>
+            <RealismLayer
+              provider={props.photoProvider}
+              ideas={props.ideas}
+              active={props.active}
+              onReady={photoLoaded}
+              onError={props.onRealismError}
+              onCredits={props.onPhotoCredits}
+              onHeights={setAnchorHeights}
+            />
+          </Suspense>
+        </DetailBoundary>
+      )}
+      {!photoreal && <IonTrain motion={props.motion} />}
       <Html
         position={landmarks.perimeter.position as [number, number, number]}
         center
@@ -397,6 +434,7 @@ function World(props: Props & { active: boolean }) {
       </Html>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
+        visible={!photoreal}
         position={[0, -0.28, 0]}
         receiveShadow
       >
@@ -406,9 +444,17 @@ function World(props: Props & { active: boolean }) {
           roughness={1}
         />
       </mesh>
-      <Forest {...props} momentReady={ready} />
+      {photoreal ? (
+        <RealismIdeaMarkers
+          {...props}
+          anchorHeights={anchorHeights}
+          momentReady={ready}
+        />
+      ) : (
+        <Forest {...props} momentReady={ready} />
+      )}
       <Fireflies enabled={light.night} motion={props.motion} />
-      <LakeGeese motion={props.motion} />
+      {!photoreal && <LakeGeese motion={props.motion} />}
       {map.landmarks.map((landmark) => (
         <Html
           key={landmark.name}
@@ -420,7 +466,10 @@ function World(props: Props & { active: boolean }) {
         </Html>
       ))}
       <CameraRig props={props} ready={ready} />
-      <FrameClock motion={props.motion} active={props.active} />
+      <FrameClock
+        motion={props.motion && (!photoreal || !!props.moment)}
+        active={props.active}
+      />
     </>
   );
 }

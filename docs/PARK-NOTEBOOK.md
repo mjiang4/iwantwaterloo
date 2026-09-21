@@ -61,7 +61,7 @@ Before release, test a physical older iPhone/Android, VoiceOver/TalkBack, a busy
 
 ## Verification
 
-- TypeScript, lint, formatting, and all 21 unit/API/asset tests pass.
+- TypeScript, lint, formatting, and all 23 unit/API/asset tests pass.
 - Compiled browser tests pass in desktop Chromium, mobile Chromium, and mobile WebKit, including posting, ownership, replies, lost-response retries, likes, sorting, and text enlargement.
 - Touch exploration was inspected in portrait and landscape on both engines.
 - Additional browser checks cover animated planting/like completion, theme selection, contribution guidance, and recovering from a failed glTF download.
@@ -83,3 +83,19 @@ Further editable notes:
 - [ ] Consider surveyed/photogrammetric landmark assets for closer views if licensed source material becomes available.
 - [ ] Measure sustained high-fidelity performance and memory on older physical phones before release; adjust foliage and reflection budgets from those measurements.
 - [ ] Decide whether a later version needs live ION data. The current train is a clearly documented simulation.
+
+## Photographic realism integration
+
+A separate opt-in Realism view streams Google Photorealistic 3D Tiles. It replaces
+the modeled landscape with captured imagery and keeps participation on independent,
+tappable idea markers. This visit's choice survives opening the form or idea list.
+No Google key is configured yet; Waterloo Park coverage and live visual quality
+remain unverified. See [setup and limitations](REALISM-SETUP.md). Chromium and
+WebKit integration tests pass using original synthetic geometry, including
+mobile rotation, posting, likes, attribution and failed-imagery recovery.
+
+- [ ] With an authorized key, inspect the actual Silver Lake shoreline, Perimeter
+      and rail corridor before calling the mode visually ready.
+- [ ] Review marker visibility against photographic foliage on physical phones.
+- [ ] Decide whether photographed scenery and the animated model deserve separate
+      names in the final public UI; they serve different experiences.
