@@ -32,6 +32,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useIdeaSupport } from '@/features/ideas/use-support';
 import { GardenWelcome, useGardenIntroduction } from './garden-welcome';
 import Link from 'next/link';
+import { Contribute } from '@/features/park/contribute';
 import { createButterflyVisit } from '@/lib/garden-discovery';
 import type {
   PlantInput,
@@ -231,7 +232,8 @@ function Garden() {
       <Tabs
         value={view}
         onValueChange={(v) => setView(String(v))}
-        className="garden-app"
+        className="garden-app park-experiment"
+        data-view={view}
       >
         <button className="skip-link" onClick={focusComposer}>
           Suggest an idea
@@ -250,6 +252,13 @@ function Garden() {
             </span>
           </Link>
           <div className="header-actions">
+            <Contribute />
+            {view === 'garden' && (
+              <Button className="park-plant" onClick={focusComposer}>
+                Plant an idea <Sprout size={17} />
+              </Button>
+            )}
+
             <IconButton
               label="About and privacy"
               onClick={() => setAboutOpen(true)}
@@ -259,15 +268,7 @@ function Garden() {
           </div>
         </header>
         <main>
-          {view === 'garden' && (
-            <section className="park-heading" aria-labelledby="park-heading">
-              <h1 id="park-heading">What would make Waterloo better?</h1>
-              <Button onClick={focusComposer}>
-                Share an idea <Sprout size={17} />
-              </Button>
-            </section>
-          )}
-          {introduction.open && (
+          {view === 'garden' && introduction.open && (
             <GardenWelcome onDismiss={introduction.dismiss} />
           )}
           {directLinkError && (
@@ -426,6 +427,8 @@ function Garden() {
               tabIndex={-1}
             >
               <GardenExplorer
+                onExplore={introduction.dismiss}
+                obscured={sheetOpen || aboutOpen}
                 mine={mine}
                 postedIdea={postedIdea}
                 onReceiptDone={() => setPostedIdea(null)}
@@ -450,13 +453,19 @@ function Garden() {
         </main>
         <footer className="site-footer">
           <div className="footer-links">
+            <a
+              className="map-credit"
+              href="https://www.openstreetmap.org/copyright"
+            >
+              © OpenStreetMap
+            </a>
             <button type="button" onClick={introduction.show}>
               How it works
             </button>
             <button type="button" onClick={() => setAboutOpen(true)}>
               Privacy
             </button>
-            <a href="https://github.com/mjiang4/iwantwaterloo">GitHub</a>
+            <Contribute footer />
           </div>
           <p>
             Help improve this project:{' '}

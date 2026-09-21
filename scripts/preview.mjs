@@ -90,7 +90,7 @@ async function start(candidate) {
       '--ip',
       '127.0.0.1',
       '--port',
-      '3001',
+      new URL(origin).port,
       '--persist-to',
       statePath,
     ],

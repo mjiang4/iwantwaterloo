@@ -37,10 +37,12 @@ try {
     quality: 65,
     fullPage: true,
   });
-  await page.getByRole('button', { name: 'Got it', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Skip introduction', exact: true })
+    .click();
   await page.reload();
   await page
-    .getByRole('button', { name: 'Share an idea', exact: true })
+    .getByRole('button', { name: 'Plant an idea', exact: true })
     .waitFor();
   assert.equal(await page.locator('.garden-welcome').count(), 0);
   assert.equal(
@@ -49,19 +51,27 @@ try {
       .getAttribute('href'),
     'https://github.com/mjiang4/iwantwaterloo',
   );
-  assert.ok(
-    (
-      await page
-        .getByRole('link', { name: 'make a pull request' })
-        .getAttribute('href')
-    ).includes('CONTRIBUTING.md'),
+  await page.getByRole('button', { name: 'Help build this park' }).click();
+  const contribute = page.getByRole('link', { name: 'Make a pull request' });
+  assert.equal(
+    await contribute.getAttribute('href'),
+    'https://github.com/mjiang4/iwantwaterloo',
   );
+  // Exercise the local reward without navigating to an external service.
+  await context.route('https://github.com/**', (route) =>
+    route.fulfill({ status: 200, body: 'Contribution test' }),
+  );
+  await contribute.click();
+  await page
+    .getByText('Thanks for helping it grow.', { exact: true })
+    .waitFor();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   console.log(
     'PASS: park landing, dismissible introduction, and contribution links',
   );
 
   await page
-    .getByRole('button', { name: 'Share an idea', exact: true })
+    .getByRole('button', { name: 'Plant an idea', exact: true })
     .click();
   await page
     .locator('#new-idea')
@@ -208,7 +218,7 @@ try {
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(site.origin);
     await page
-      .getByRole('button', { name: 'Share an idea', exact: true })
+      .getByRole('button', { name: 'Plant an idea', exact: true })
       .waitFor();
     assert.equal(
       await page.evaluate(
@@ -223,7 +233,7 @@ try {
       fullPage: true,
     });
     await page
-      .getByRole('button', { name: 'Share an idea', exact: true })
+      .getByRole('button', { name: 'Plant an idea', exact: true })
       .click();
     await page
       .locator('#new-idea')

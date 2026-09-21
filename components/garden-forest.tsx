@@ -13,10 +13,11 @@ import {
   type GardenMoment,
   seedForId,
   randomAt,
-  plotPosition,
   gardenPalette,
   clusterTargets,
 } from '@/lib/garden-visuals';
+import { ideaTheme } from '@/features/park/themes';
+import { parkPlotPosition as plotPosition } from '@/features/park/plots';
 const noRaycast = () => {};
 const growthKeys = [
   'height',
@@ -349,8 +350,8 @@ export function Forest(props: ForestProps) {
         frustumCulled={false}
         onClick={(event) => pickTree(event, true)}
       >
-        <icosahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial roughness={1} flatShading />
+        <icosahedronGeometry args={[1, 2]} />
+        <meshStandardMaterial roughness={0.88} />
       </instancedMesh>
       <instancedMesh
         name="idea-branches"
@@ -461,7 +462,7 @@ function TreeMarkers({
       clusterTargets(
         ideas.slice(0, 24).map((idea, index) => {
           const [x, z] = plotPosition(idea.plot ?? index);
-          point.set(x, markerHeight(idea) - 0.45, z).project(camera);
+          point.set(x, markerHeight(idea), z).project(camera);
           return {
             x: ((point.x + 1) * size.width) / 2,
             y: ((1 - point.y) * size.height) / 2,
@@ -548,7 +549,10 @@ function TreeMarker({
       >
         <span className="marker-face">
           {single ? (
-            <span className="marker-dot" />
+            <span
+              className="marker-dot"
+              style={{ background: ideaTheme(idea).color }}
+            />
           ) : (
             <>
               <Layers size={12} />

@@ -1,0 +1,717 @@
+/* The park is the interface. Panels sit above it; the landscape never lives in a card. */
+.park-experiment[data-view='garden'] {
+  height: 100svh;
+  min-height: 560px;
+  overflow: hidden;
+  position: relative;
+  background: #b9c8cc;
+  color: #172b30;
+}
+.park-experiment[data-view='garden'] main {
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+.park-experiment[data-view='garden'] .site-header {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 28px 36px;
+  background: linear-gradient(#eef4eeaa, transparent);
+  border: 0;
+}
+.park-experiment .park-plant {
+  border-radius: 100px;
+  padding: 13px 20px;
+  background: #123d35;
+  color: #fff;
+  box-shadow: 0 8px 30px #163d3522;
+}
+.park-experiment[data-view='garden'] .explore-section {
+  margin: 0;
+  padding: 0;
+}
+.park-experiment[data-view='garden'] .explore-toolbar {
+  position: absolute;
+  z-index: 25;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 48px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  gap: 28px;
+  padding: 7px 14px;
+  background: #f8faf4e8;
+  border: 1px solid #ffffff80;
+  border-radius: 100px;
+  box-shadow: 0 8px 40px #0d242326;
+  backdrop-filter: blur(18px);
+}
+.park-experiment[data-view='garden'] .view-tabs {
+  gap: 0;
+}
+.park-experiment[data-view='garden'] .view-tabs button {
+  padding: 12px 15px;
+  font-size: 14px;
+}
+.park-experiment[data-view='garden'] .view-tabs button[data-active] {
+  background: #dce8de;
+  border-radius: 100px;
+}
+.park-experiment[data-view='garden'] .view-panel {
+  margin: 0;
+}
+.park-experiment[data-view='garden'] .garden-stage {
+  border: 0;
+  border-radius: 0;
+  height: 100svh;
+  min-height: 560px;
+  background: radial-gradient(ellipse at 50% 20%, #f3efe3, #b9ced0);
+  box-shadow: none;
+}
+.park-experiment[data-view='garden'] .scene,
+.park-experiment[data-view='garden'] .garden-canvas {
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+.park-experiment[data-view='garden'] .garden-caption,
+.park-experiment[data-view='garden'] .garden-pagination > span {
+  display: none;
+}
+.park-experiment[data-view='garden'] .garden-controls {
+  left: auto;
+  right: 26px;
+  bottom: 112px;
+  transform: none;
+  border-radius: 100px;
+  box-shadow: 0 5px 30px #0d242320;
+  background: #f8faf4df;
+  backdrop-filter: blur(18px);
+}
+.park-experiment[data-view='garden'] .site-footer {
+  position: absolute;
+  bottom: 12px;
+  left: 24px;
+  right: 24px;
+  margin: 0;
+  padding: 0;
+  z-index: 26;
+  font-size: 12px;
+}
+.park-experiment[data-view='garden'] .site-footer p {
+  display: none;
+}
+.park-experiment[data-view='garden'] .footer-links {
+  justify-content: center;
+  gap: 24px;
+  color: #2e484b;
+}
+.park-experiment[data-view='garden'] .footer-links a,
+.park-experiment[data-view='garden'] .footer-links button {
+  font-size: 12px;
+}
+.park-experiment[data-view='garden'] .garden-welcome {
+  position: absolute;
+  z-index: 28;
+  left: 36px;
+  bottom: 130px;
+  width: 290px;
+  margin: 0;
+  padding: 20px 22px;
+  border-radius: 22px;
+  background: #f7fbf0e8;
+  border: 1px solid #fff9;
+  box-shadow: 0 12px 55px #16333425;
+  backdrop-filter: blur(14px);
+  font-size: 14px;
+  line-height: 1.55;
+  display: block;
+  animation: park-arrive 700ms ease-out;
+}
+.park-experiment[data-view='garden'] .garden-welcome button {
+  margin-top: 8px;
+  padding: 6px 0;
+  color: #345e4c;
+}
+.park-experiment[data-view='garden'] .search-wrap {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 116px;
+  z-index: 30;
+  background: #ffffffed;
+  width: min(480px, calc(100% - 36px));
+  border-radius: 20px;
+  padding: 12px;
+}
+.park-experiment[data-view='garden'] .active-filter,
+.park-experiment[data-view='garden'] .yours-note {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 108px;
+  z-index: 25;
+  background: #fff;
+  border-radius: 18px;
+  padding: 8px 14px;
+}
+.park-experiment[data-view='garden'] .garden-idea-dock {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 126px;
+  z-index: 24;
+  width: min(500px, calc(100% - 36px));
+  margin: 0;
+  background: #fffffff2;
+  border-radius: 22px;
+  padding: 14px 18px;
+  box-shadow: 0 12px 50px #16333435;
+}
+.park-experiment[data-view='garden'] .plant-receipt {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 130px;
+  z-index: 28;
+  width: min(450px, calc(100% - 40px));
+  background: #fff;
+  border-radius: 24px;
+  padding: 20px;
+}
+.park-experiment[data-view='garden'] .garden-pagination {
+  position: absolute;
+  right: 24px;
+  top: 100px;
+  z-index: 24;
+}
+.park-experiment[data-view='garden'] .garden-moment-caption {
+  bottom: 200px;
+  top: auto;
+}
+.park-experiment[data-view='garden'] .form-error {
+  position: absolute;
+  top: 110px;
+  left: 20px;
+  z-index: 50;
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+}
+@keyframes park-arrive {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (max-width: 760px) {
+  .park-experiment[data-view='garden'] .site-header {
+    padding: calc(18px + env(safe-area-inset-top)) 18px 18px;
+  }
+  .park-experiment[data-view='garden'] .brand {
+    font-size: 17px;
+  }
+  .park-experiment .park-plant {
+    font-size: 14px;
+    padding: 12px 15px;
+  }
+  .park-experiment[data-view='garden'] .header-actions > .icon-button {
+    display: none;
+  }
+  .park-experiment[data-view='garden'] .explore-toolbar {
+    bottom: calc(42px + env(safe-area-inset-bottom));
+    gap: 10px;
+    padding: 6px 8px;
+  }
+  .park-experiment[data-view='garden'] .view-tabs button {
+    padding: 10px 9px;
+  }
+  .park-experiment[data-view='garden'] .yours-toggle {
+    font-size: 14px;
+  }
+  .park-experiment[data-view='garden'] .explore-tools {
+    gap: 0;
+  }
+  .park-experiment[data-view='garden'] .garden-welcome {
+    left: 18px;
+    bottom: 172px;
+    width: 252px;
+    padding: 16px 20px;
+  }
+  .park-experiment[data-view='garden'] .garden-controls {
+    right: 18px;
+    bottom: 105px;
+    padding: 4px 8px;
+  }
+  .park-experiment[data-view='garden'] .garden-controls .icon-button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .park-experiment[data-view='garden'] .garden-idea-dock {
+    bottom: 165px;
+  }
+  .park-experiment[data-view='garden'] .site-footer {
+    bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .park-experiment[data-view='garden'],
+  .park-experiment[data-view='garden'] .garden-stage {
+    min-height: 100svh;
+  }
+  .park-experiment[data-view='garden'] .site-header {
+    padding: 12px 20px;
+  }
+  .park-experiment[data-view='garden'] .garden-welcome {
+    left: 18px;
+    bottom: 95px;
+    width: 230px;
+    padding: 12px 16px;
+  }
+  .park-experiment[data-view='garden'] .garden-controls {
+    right: 18px;
+    bottom: 94px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .park-experiment * {
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.park-location {
+  position: absolute;
+  top: 104px;
+  left: 36px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #f1f5ee;
+  text-shadow: 0 1px 14px #0e2424;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+}
+.park-location span + span {
+  font-size: 14px;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+.park-landmark {
+  color: #e8efe8cc;
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  text-shadow: 0 1px 7px #132c25;
+  pointer-events: none;
+}
+.park-themes {
+  position: absolute;
+  top: 100px;
+  right: 36px;
+  z-index: 24;
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 100px;
+  background: #142d2d8f;
+  backdrop-filter: blur(12px);
+}
+.park-themes button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #e2ebe6;
+  font-size: 14px;
+  padding: 9px 12px;
+  border-radius: 30px;
+  min-height: 42px;
+}
+.park-themes button[aria-pressed='true'] {
+  background: #eff5ed;
+  color: #17382c;
+}
+.park-themes i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.park-experiment[data-view='ideas'] .park-themes {
+  display: none;
+}
+.park-experiment .park-empty-lens {
+  position: absolute;
+  top: 160px;
+  right: 36px;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.park-experiment .garden-welcome .tour-skip {
+  position: absolute;
+  right: 12px;
+  top: 8px;
+  padding: 7px;
+  margin: 0;
+  min-width: 44px;
+  min-height: 44px;
+}
+.park-experiment .garden-welcome .tour-next {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+}
+.tour-dots {
+  display: flex;
+  gap: 5px;
+  margin: 0 0 15px;
+}
+.tour-dots i {
+  height: 3px;
+  width: 18px;
+  border-radius: 3px;
+  background: #b9cbbd;
+}
+.tour-dots i[data-active='true'] {
+  background: #315a49;
+}
+.park-experiment .garden-welcome p {
+  margin: 5px 0 0;
+}
+.park-experiment .plant-marker .marker-face {
+  width: 24px;
+  height: 24px;
+  background: #f5fff0df;
+  box-shadow:
+    0 0 0 5px #fff2,
+    0 3px 14px #0d3c2955;
+  border: 1px solid #fff;
+}
+.park-experiment .plant-marker.selected .marker-face {
+  box-shadow:
+    0 0 0 7px #d0eddf55,
+    0 0 26px #cbecd1;
+}
+.park-experiment .plant-marker .marker-dot {
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 0 1px #466c4566;
+}
+.park-experiment .plant-tooltip {
+  max-width: 230px;
+  white-space: normal;
+  font-size: 14px;
+  line-height: 1.4;
+  border-radius: 14px;
+  background: #f9fcf7;
+  color: #1b332c;
+  box-shadow: 0 8px 28px #0d242330;
+  padding: 11px 14px;
+}
+.park-experiment[data-view='garden'] .site-header .brand,
+.park-experiment[data-view='garden'] .brand-muted {
+  color: #142e28;
+}
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .site-header {
+  background: linear-gradient(#081820aa, transparent);
+}
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .brand,
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .brand-muted,
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .park-contribute-button {
+  color: #eaf3ed;
+}
+.park-experiment[data-view='garden']:has(.garden-stage[data-night='true'])
+  .footer-links {
+  color: #dde8e3;
+}
+.contribute-dialog {
+  max-width: 390px;
+}
+.contribute-option {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #edf3ed;
+  color: #204335;
+}
+.contribute-thanks {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 18px 0;
+  color: #365643;
+  overflow: hidden;
+  min-height: 70px;
+}
+.contribute-cascade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-around;
+}
+.contribute-cascade i {
+  width: 4px;
+  height: 34px;
+  background: linear-gradient(transparent, #83d4bd, #bdb2e5, transparent);
+  border-radius: 100px;
+  animation: contribute-fall 1.5s ease-out both;
+}
+@keyframes contribute-fall {
+  0% {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(90px);
+    opacity: 0;
+  }
+}
+@media (max-width: 760px) {
+  .park-location {
+    top: 94px;
+    left: 20px;
+  }
+  .park-themes {
+    left: 18px;
+    right: 18px;
+    top: auto;
+    bottom: calc(101px + env(safe-area-inset-bottom));
+    overflow: auto;
+    gap: 0;
+    scrollbar-width: none;
+    justify-content: flex-start;
+  }
+  .park-themes button {
+    padding: 7px 10px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .park-experiment[data-view='garden'] .garden-controls {
+    bottom: auto;
+    top: 150px;
+    right: 18px;
+    flex-direction: column;
+    padding: 5px;
+  }
+  .park-experiment[data-view='garden']
+    .garden-controls
+    .garden-control-divider {
+    width: 20px;
+    height: 1px;
+    margin: 3px auto;
+  }
+  .park-experiment[data-view='garden']
+    .garden-controls
+    .icon-button:nth-child(-n + 2) {
+    display: none;
+  }
+  .park-experiment[data-view='garden'] .garden-welcome {
+    bottom: 172px;
+  }
+  .park-landmark {
+    font-size: 12px;
+  }
+  .park-experiment .park-empty-lens {
+    top: 150px;
+    left: 18px;
+    right: auto;
+  }
+  .park-experiment[data-view='garden'] .map-credit {
+    position: fixed;
+    left: 12px;
+    bottom: 155px;
+    font-size: 12px;
+    opacity: 0.7;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .park-themes {
+    top: 70px;
+    bottom: auto;
+    left: auto;
+    right: 18px;
+  }
+  .park-themes button {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+  .park-location {
+    top: 75px;
+    left: 20px;
+  }
+  .park-experiment[data-view='garden'] .garden-welcome {
+    bottom: 100px;
+  }
+  .park-experiment[data-view='garden'] .garden-idea-dock {
+    left: auto;
+    transform: none;
+    right: 20px;
+    bottom: 110px;
+    width: 320px;
+  }
+}
+
+/* A tree selection takes precedence over the optional tour. */
+.park-experiment:has(.garden-welcome) .garden-idea-dock {
+  visibility: hidden;
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .park-experiment[data-view='garden'] .garden-controls {
+    top: auto;
+    bottom: 100px;
+  }
+  .park-experiment[data-view='garden'] .garden-idea-dock {
+    max-height: calc(100svh - 175px);
+    overflow: auto;
+  }
+  .park-experiment[data-view='garden'] .plant-receipt {
+    bottom: 95px;
+    padding: 14px;
+    max-height: calc(100svh - 170px);
+    overflow: auto;
+  }
+}
+
+.park-experiment[data-view='garden']
+  .garden-stage
+  .garden-controls
+  .icon-button {
+  color: #29483b;
+}
+.park-experiment[data-view='garden']
+  .garden-stage
+  .garden-controls
+  .icon-button:hover {
+  background: #dce8de;
+}
+.park-experiment .cluster-marker .marker-face {
+  width: 40px;
+  height: 40px;
+}
+
+/* One optional theme control leaves the small-screen canvas open. */
+.park-themes {
+  padding: 0;
+  overflow: visible;
+}
+.park-theme-trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.park-theme-menu {
+  width: 205px;
+  border-radius: 18px;
+  background: #f7faf5;
+  padding: 7px;
+}
+.park-theme-menu button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  border-radius: 12px;
+  padding: 8px 12px;
+  color: #253e32;
+  font-size: 15px;
+  text-align: left;
+}
+.park-theme-menu button:hover,
+.park-theme-menu button[aria-pressed='true'] {
+  background: #e5eee3;
+}
+.park-theme-menu i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.park-theme-menu svg {
+  margin-left: auto;
+}
+@media (max-width: 760px) {
+  .park-themes {
+    left: auto;
+    right: 18px;
+    top: 94px;
+    bottom: auto;
+  }
+  .park-themes button {
+    padding: 9px 12px;
+    min-height: 44px;
+  }
+  .park-experiment[data-view='garden'] .footer-links {
+    gap: 12px;
+  }
+  .park-experiment[data-view='garden'] .map-credit {
+    position: static;
+    font-size: 12px;
+    opacity: 1;
+  }
+  .park-experiment[data-view='garden'] .garden-welcome {
+    bottom: 125px;
+  }
+  .park-experiment[data-view='garden'] .garden-idea-dock {
+    bottom: 122px;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .park-experiment[data-view='garden'] .garden-controls {
+    left: 18px;
+    right: auto;
+    top: 115px;
+    bottom: auto;
+    flex-direction: row;
+  }
+  .park-experiment:has(.garden-welcome) .garden-controls {
+    display: none;
+  }
+  .park-experiment[data-view='garden'] .garden-idea-dock {
+    bottom: 110px;
+  }
+}
+
+/* Footer targets have their own row below navigation, including safe-area space. */
+.park-experiment[data-view='garden'] .explore-toolbar {
+  bottom: calc(64px + env(safe-area-inset-bottom));
+}
+@media (max-width: 760px) {
+  .park-experiment[data-view='garden'] .site-footer {
+    left: 12px;
+    right: 12px;
+  }
+  .park-experiment[data-view='garden'] .footer-links {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .park-experiment[data-view='garden'] .footer-links a,
+  .park-experiment[data-view='garden'] .footer-links button {
+    padding-inline: 2px;
+    white-space: nowrap;
+  }
+  .park-experiment[data-view='garden'] .garden-idea-dock {
+    bottom: 145px;
+  }
+}

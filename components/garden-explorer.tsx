@@ -37,9 +37,12 @@ import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import type { ButterflyVisit } from '@/lib/garden-discovery';
 import { PlantReceipt } from './idea-share';
 const GardenScene = lazy(() => import('./garden-scene'));
+import { ideaTheme } from '@/features/park/themes';
+import { ThemePicker } from '@/features/park/theme-picker';
+import { useParkTime } from '@/features/park/use-park-time';
 import type { GardenPage } from '@/features/ideas/model';
 class SceneBoundary extends Component<
-  { children: ReactNode; onFailure: () => void },
+  { children: ReactNode; fallback: ReactNode; onFailure: () => void },
   { failed: boolean }
 > {
   state = { failed: false };
@@ -50,13 +53,7 @@ class SceneBoundary extends Component<
     this.props.onFailure();
   }
   render() {
-    return this.state.failed ? (
-      <div className="scene-fallback">
-        3D unavailable. Every idea is in the list.
-      </div>
-    ) : (
-      this.props.children
-    );
+    return this.state.failed ? this.props.fallback : this.props.children;
   }
 }
 export function GardenExplorer({
@@ -75,6 +72,8 @@ export function GardenExplorer({
   butterflyVisit,
   onPlanted,
   onRead,
+  onExplore,
+  obscured,
   onSupport,
   pending,
   onList,
@@ -94,6 +93,8 @@ export function GardenExplorer({
   butterflyVisit: RefObject<ButterflyVisit>;
   onPlanted: () => void;
   onRead: (idea: Idea) => void;
+  onExplore: () => void;
+  obscured: boolean;
   onSupport: (idea: Idea) => void;
   pending: Set<string>;
   onList: () => void;
@@ -107,35 +108,21 @@ export function GardenExplorer({
     [failed, setFailed] = useState(false),
     [reducedMotion, setReducedMotion] = useState(false),
     [preferencesReady, setPreferencesReady] = useState(false),
-    [night, setNight] = useState(false),
     [inspectedId, setInspectedId] = useState<string | null>(
       focusIdea?.id || null,
     ),
     [framedId, setFramedId] = useState<string | null>(focusIdea?.id || null),
     [nearby, setNearby] = useState<string[]>([]);
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem('garden-appearance') || '{}',
-      );
-      setNight(saved.night === true);
-    } catch {}
-  }, []);
-  function saveAppearance(nextNight: boolean) {
-    setNight(nextNight);
-    try {
-      localStorage.setItem(
-        'garden-appearance',
-        JSON.stringify({ night: nextNight }),
-      );
-    } catch {}
-  }
+  const [theme, setTheme] = useState('all');
+  const clock = useParkTime();
+  const night = clock.night;
   useEffect(() => {
     setPage(0);
     setNearby([]);
   }, [tag, query, connection]);
   useEffect(() => {
     if (focusIdea) {
+      setTheme('all');
       setPage(Math.floor((focusIdea.plot ?? 0) / GROVE_SIZE));
       setInspectedId(focusIdea.id);
       setFramedId(focusIdea.id);
@@ -167,6 +154,10 @@ export function GardenExplorer({
   });
   const data = result.data,
     ideas = data?.ideas || [];
+  const visibleIdeas =
+    theme === 'all' || moment
+      ? ideas
+      : ideas.filter((i) => ideaTheme(i).id === theme);
   const inspected = ideas.find((idea) => idea.id === inspectedId);
   const pages = data?.grovePages || [0],
     pageIndex = pages.indexOf(page);
@@ -193,6 +184,13 @@ export function GardenExplorer({
   }
   return (
     <section className="garden-explorer" aria-label="Idea trees">
+      <ThemePicker
+        value={theme}
+        onChange={(id) => {
+          setTheme(id);
+          setInspectedId(null);
+        }}
+      />
       <div className="garden-caption">
         <p>Ideas plant trees. Likes help them grow.</p>
         <span>
@@ -216,7 +214,14 @@ export function GardenExplorer({
           data-celebrating={moment?.kind || undefined}
         >
           <div className="scene">
-            <SceneBoundary onFailure={onFailure}>
+            <SceneBoundary
+              onFailure={onFailure}
+              fallback={
+                <div className="scene-fallback">
+                  <Button onClick={onList}>View ideas</Button>
+                </div>
+              }
+            >
               <Suspense
                 fallback={<div className="scene-fallback">Loading garden…</div>}
               >
@@ -228,20 +233,28 @@ export function GardenExplorer({
                   </div>
                 ) : (
                   <GardenScene
-                    ideas={ideas}
+                    ideas={visibleIdeas}
                     selected={inspected?.id || focusIdea?.id || null}
-                    onSelect={setInspectedId}
+                    onSelect={(id) => {
+                      onExplore();
+                      setInspectedId(id);
+                    }}
                     focusId={framedId}
                     moment={moment}
                     onMomentComplete={onMomentComplete}
-                    motion={motion}
+                    motion={motion && !obscured && nearby.length === 0}
                     night={night}
+                    timestamp={clock.timestamp}
+                    timeMode={clock.mode}
                     plantingId={plantingId}
                     highlightId={highlightId}
                     onHighlighted={onHighlighted}
                     butterflyVisit={butterflyVisit}
                     onPlanted={onPlanted}
-                    onCluster={setNearby}
+                    onCluster={(ids) => {
+                      onExplore();
+                      setNearby(ids);
+                    }}
                     zoom={zoom}
                     reset={reset}
                     onFailure={onFailure}
@@ -250,6 +263,13 @@ export function GardenExplorer({
               </Suspense>
             </SceneBoundary>
           </div>
+          {theme !== 'all' &&
+            visibleIdeas.length === 0 &&
+            !result.isPending && (
+              <output className="park-empty-lens">
+                No matching ideas in this grove.
+              </output>
+            )}
           {moment && (
             <output className="garden-moment-caption">
               {moment.kind === 'plant'
@@ -257,6 +277,12 @@ export function GardenExplorer({
                 : '+1. A little bigger.'}
             </output>
           )}
+          <div className="park-location">
+            <span>WATERLOO PARK</span>
+            <span>
+              {clock.mode === 'live' ? clock.clock : clock.mode + ' preview'}
+            </span>
+          </div>
           <div className="garden-controls">
             <button
               className="icon-button"
@@ -307,9 +333,27 @@ export function GardenExplorer({
             <span className="garden-control-divider" aria-hidden="true" />
             <button
               className="icon-button"
-              aria-label={night ? 'Switch to day' : 'Switch to night'}
-              title={night ? 'Switch to day' : 'Switch to night'}
-              onClick={() => saveAppearance(!night)}
+              aria-label={
+                clock.mode === 'live'
+                  ? 'Preview daylight'
+                  : clock.mode === 'day'
+                    ? 'Preview night'
+                    : 'Return to live time'
+              }
+              title={
+                clock.mode === 'live'
+                  ? 'Live Waterloo time'
+                  : 'Preview ' + clock.mode
+              }
+              onClick={() =>
+                clock.setMode(
+                  clock.mode === 'live'
+                    ? 'day'
+                    : clock.mode === 'day'
+                      ? 'night'
+                      : 'live',
+                )
+              }
             >
               {night ? <Moon size={17} /> : <Sun size={17} />}
             </button>
@@ -354,9 +398,7 @@ export function GardenExplorer({
       )}
       <div className="garden-pagination">
         <span>
-          {data && (pages.length > 1 || page > 0)
-            ? `Grove ${page + 1}`
-            : 'New trees fill the open spaces.'}
+          {data && (pages.length > 1 || page > 0) ? `Grove ${page + 1}` : ''}
         </span>
         {data && pages.length > 1 && (
           <div>

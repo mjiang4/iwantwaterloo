@@ -23,6 +23,8 @@ React 19 and Vinext provide the interface and server routes. TanStack Query mana
 | `scripts/`                                         | Local preview and maintainer staging                                           |
 | `tests/`                                           | Unit, isolated API, and compiled browser checks                                |
 
+The `codex/waterloo-park` experiment adds `features/park/` for time, theme browsing and wildlife, `styles/park.css` for the immersive interface, and an OSM/Blender asset pipeline in `scripts/park/` and `assets/park/`. See [the park notebook](PARK-NOTEBOOK.md) for constraints and source attribution.
+
 ## From an idea to a tree
 
 1. The composer holds a tab-local draft. Optional attribution is one string; it is not a verified identity.
