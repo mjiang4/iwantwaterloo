@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Vector3 } from 'three';
+import { Vector3, Matrix4 } from 'three';
+import { TileBoundingVolume } from '3d-tiles-renderer/src/three/renderer/math/TileBoundingVolume.js';
+import {
+  ParkExtentPlugin,
+  parkClippingPlanes,
+} from '../features/park/realism/extent.ts';
 import { parkFrame } from '../features/park/realism/frame.ts';
 import { parseParkProvider } from '../features/park/realism/provider.ts';
 
@@ -71,4 +76,42 @@ void test('hosted imagery settings expose only the browser key, never other runt
   assert.equal(result.response.headers.get('cache-control'), 'no-store');
   assert.deepEqual(result.data, { googleMapsKey: mapsKey, elevation: 300 });
   assert.ok(!result.text.includes(app.secret));
+});
+
+void test('park mask keeps ancestors and local tiles, rejects distant tiles without prefetching', () => {
+  const frame = parkFrame(43.4672, -80.5325, 300);
+  const plugin = new ParkExtentPlugin(frame.localToEarth);
+  function check(x, z, radius) {
+    const center = new Vector3(x * 30, 0, z * 30).applyMatrix4(
+      frame.localToEarth,
+    );
+    const volume = new TileBoundingVolume();
+    volume.setSphereData(center.x, center.y, center.z, radius, new Matrix4());
+    const target = { inView: true };
+    const changed = plugin.calculateTileViewError(
+      { engineData: { boundingVolume: volume } },
+      target,
+    );
+    return { changed, ...target };
+  }
+  assert.deepEqual(check(10, 4, 5), { changed: false, inView: true });
+  assert.deepEqual(check(0, 0, 100000), { changed: false, inView: true });
+  for (const [x, z] of [
+    [40, 0],
+    [-40, 0],
+    [0, 35],
+    [0, -35],
+  ])
+    assert.deepEqual(check(x, z, 10), { changed: true, inView: false });
+  assert.deepEqual(
+    check(21.1, 0, 10),
+    { changed: false, inView: true },
+    'boundary-spanning tiles still load',
+  );
+  const planes = parkClippingPlanes();
+  assert.ok(planes.every((p) => p.distanceToPoint(new Vector3(10, 0, 4)) > 0));
+  assert.ok(
+    planes.some((p) => p.distanceToPoint(new Vector3(40, 0, 0)) < 0),
+    'spanning geometry is clipped at the boundary',
+  );
 });

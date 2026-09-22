@@ -1,17 +1,15 @@
 """Build the Waterloo Park glTF from a checked-in OSM extract. Run with Blender.
-Coordinates are real; foliage, building heights without tags, and surfaces are stylized.
+Coordinates are mapped; building heights without tags and surfaces are stylized.
 """
 
 import json
 import math
-import random
 
 import bpy
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = json.loads((ROOT / "assets/park/osm.json").read_text())
-random.seed(2461)
 SCALE = 30
 CENTER = (43.4672, -80.5325)
 
@@ -35,14 +33,6 @@ def inside(p, poly):
     return yes
 
 
-def distance(p, a, b):
-    dx, dy = b[0] - a[0], b[1] - a[1]
-    t = max(
-        0, min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy or 1))
-    )
-    return math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)
-
-
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.object.delete(use_global=False)
 
@@ -64,14 +54,10 @@ mats = {
         "sand": (0.66, 0.61, 0.43),
         "path": (0.63, 0.61, 0.52),
         "wood": (0.30, 0.22, 0.13),
-        "bark": (0.19, 0.14, 0.09),
         "water": (0.08, 0.30, 0.36),
         "roof": (0.24, 0.28, 0.26),
         "building": (0.66, 0.62, 0.52),
         "rail": (0.33, 0.35, 0.31),
-        "leaf0": (0.16, 0.32, 0.15),
-        "leaf1": (0.25, 0.40, 0.17),
-        "leaf2": (0.31, 0.47, 0.23),
     }.items()
 }
 
@@ -142,29 +128,21 @@ park = next(p for e, p in features if e["id"] == 216873421)
 # A shallow, beveled park edge gives the map readable relief without pretending to survey elevation.
 prism("Park earth", park, -0.25, "sand")
 polygon("Waterloo Park", park, 0.10, "lawn")
-lakes = []
-paths = []
-buildings = []
-woods = []
+pedestrian_areas = []
 landmarks = []
-retained = []
 for e, p in features:
     t = e.get("tags", {})
     center = (sum(x for x, y in p) / len(p), sum(y for x, y in p) / len(p))
     if not any(inside(q, park) for q in p) and not inside(center, park):
         continue
     name = t.get("name", str(e["id"]))
-    retained.append(e)
     if t.get("natural") == "water":
-        lakes.append(p)
         polygon(name, p, 0.13, "water")
         ribbon("shore", p, 0.12, 0.115, "sand")
         if t.get("name") == "Silver Lake":
             landmarks.append(
                 {"name": "Silver Lake", "position": [center[0], 0.2, -center[1]]}
             )
-    elif t.get("natural") == "wood":
-        woods.append(p)
     elif t.get("natural") == "sand":
         polygon("sand", p, 0.112, "sand")
     elif t.get("building"):
@@ -179,7 +157,6 @@ for e, p in features:
         h = min(2, max(0.16, h))
         prism(name, p, h, "building")
         polygon(name + " roof", p, h + 0.115, "roof")
-        buildings.append(p)
         if t.get("name") in [
             "Park Inn Concession",
             "First School House in Waterloo",
@@ -196,7 +173,6 @@ for e, p in features:
     elif t.get("railway") in ["rail", "light_rail"]:
         ribbon("rail corridor", p, 0.19, 0.12, "rail")
         ribbon("rails", p, 0.036, 0.135, "sand")
-        paths.append(p)
     elif t.get("highway") in [
         "footway",
         "path",
@@ -205,12 +181,20 @@ for e, p in features:
         "steps",
         "service",
     ]:
-        width = 0.16 if t.get("highway") != "service" else 0.23
-        ribbon(name, p, width, 0.12, "wood" if t.get("bridge") == "yes" else "path")
-        paths.append(p)
+        surface = (
+            "wood"
+            if t.get("surface") == "wood" or t.get("bridge") in ["yes", "boardwalk"]
+            else "path"
+        )
+        if t.get("area") == "yes" and p[0] == p[-1]:
+            # Mapped plazas and boardwalk decks are surfaces, not centreline loops.
+            polygon(name, p, 0.145, surface)
+            pedestrian_areas.append(e["id"])
+        else:
+            width = 0.16 if t.get("highway") != "service" else 0.23
+            ribbon(name, p, width, 0.12, surface)
     elif t.get("waterway") == "stream":
         ribbon(name, p, 0.16, 0.115, "water")
-        paths.append(p)
     elif t.get("leisure") in ["pitch", "playground"]:
         polygon(
             name,
@@ -220,84 +204,9 @@ for e, p in features:
         )
 
 
-# Real map coordinates retained in a compact derived database under ODbL.
-# Sculpted foliage is intentionally not a tree census. Clearings are left beside paths for ideas.
-def valid(p, margin=0.3):
-    return (
-        inside(p, park)
-        and not any(inside(p, q) for q in lakes + buildings)
-        and not any(
-            distance(p, a, b) < margin for line in paths for a, b in zip(line, line[1:])
-        )
-    )
-
-
-points = []
-for _ in range(12000):
-    p = (
-        random.uniform(min(x for x, y in park), max(x for x, y in park)),
-        random.uniform(min(y for x, y in park), max(y for x, y in park)),
-    )
-    if not valid(p, 0.20):
-        continue
-    woodland = any(inside(p, poly) for poly in woods)
-    if not woodland and random.random() > 0.12:
-        continue
-    if any(math.dist(p, q) < (0.38 if woodland else 0.7) for q in points):
-        continue
-    points.append(p)
-    if len(points) >= 440:
-        break
-for i, (x, y) in enumerate(points):
-    height = random.uniform(0.40, 0.85)
-    r = random.uniform(0.19, 0.31)
-    bpy.ops.mesh.primitive_cone_add(
-        vertices=6,
-        radius1=0.027,
-        radius2=0.012,
-        depth=height,
-        location=(x, y, 0.1 + height / 2),
-    )
-    bpy.context.object.data.materials.append(mats["bark"])
-    for j in range(3):
-        bpy.ops.mesh.primitive_ico_sphere_add(
-            subdivisions=1,
-            radius=1,
-            location=(
-                x + random.uniform(-r * 0.5, r * 0.5),
-                y + random.uniform(-r * 0.5, r * 0.5),
-                0.1 + height * (0.65 + j * 0.13),
-            ),
-        )
-        ob = bpy.context.object
-        ob.scale = (r, r, height * 0.30)
-        ob.data.materials.append(mats["leaf" + str(i % 3)])
-        for face in ob.data.polygons:
-            face.use_smooth = True
-# 24 stable idea plots in readable clearings near the eastern paths/lake. No existing idea locations are mutated.
-plots = []
-candidates = []
-for _ in range(20000):
-    p = (random.uniform(1, 17), random.uniform(-5, 8))
-    if not valid(p, 0.27):
-        continue
-    if (
-        min(
-            (distance(p, a, b) for line in paths for a, b in zip(line, line[1:])),
-            default=999,
-        )
-        > 1.6
-    ):
-        continue
-    if any(math.dist(p, q) < 0.65 for q in points):
-        continue
-    candidates.append(p)
-# Spread along the lake and north meadow; stable spatial slots persist independently of sort/likes.
-for p in sorted(candidates, key=lambda p: math.hypot(p[0] - 9, p[1] - 1)):
-    if all(math.dist(p, q) > 1.6 for q in plots):
-        plots.append(p)
-    if len(plots) == 24:
-        break
+# Idea plots are persistent spatial slots. Rebuilding scenery must never move them.
+# The park starts empty: all rendered trees belong to community ideas.
+plots = json.loads((ROOT / "assets/park/map.json").read_text())["plots"]
 assert len(plots) == 24
 metadata = {
     "center": CENTER,
@@ -306,9 +215,10 @@ metadata = {
     "license": "https://www.openstreetmap.org/copyright",
     "source": "https://www.openstreetmap.org/way/216873421",
     "retrievedAt": DATA["osm3s"]["timestamp_osm_base"],
-    "plots": [[round(x, 4), round(-y, 4)] for x, y in plots],
+    "plots": plots,
     "landmarks": landmarks,
-    "decorativeTreeCount": len(points),
+    "decorativeTreeCount": 0,
+    "pedestrianAreas": pedestrian_areas,
 }
 (ROOT / "assets/park/map.json").write_text(json.dumps(metadata, indent=2))
 # Join geometry by material to bound draw calls. Keep geometry without lighting/cameras.
@@ -339,7 +249,7 @@ print(
     json.dumps(
         {
             "plots": len(plots),
-            "trees": len(points),
+            "trees": 0,
             "landmarks": landmarks,
             "bytes": (ROOT / "public/park/waterloo-park.glb").stat().st_size,
         }

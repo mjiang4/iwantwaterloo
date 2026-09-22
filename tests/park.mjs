@@ -43,6 +43,19 @@ void test('shipped park stays within the geometry budget and keeps the lake faci
   assert.ok(file.length < 2_000_000, 'base landscape must stay below 2 MB');
   const jsonSize = file.readUInt32LE(12);
   const model = JSON.parse(file.subarray(20, 20 + jsonSize).toString());
+  assert.ok(
+    model.nodes.every((n) => !/^(bark|leaf|fine-leaf)/.test(n.name || '')),
+    'empty park has no decorative forest',
+  );
+  const map = JSON.parse(
+    await readFile(new URL('../assets/park/map.json', import.meta.url)),
+  );
+  assert.equal(map.decorativeTreeCount, 0);
+  for (const id of [865153056, 1165595580, 1165979047])
+    assert.ok(
+      map.pedestrianAreas.includes(id),
+      'mapped boardwalks and plaza become filled surfaces',
+    );
   assert.ok(model.meshes.reduce((n, m) => n + m.primitives.length, 0) <= 16);
   const mesh = model.meshes[model.nodes.find((n) => n.name === 'water').mesh];
   const accessor = model.accessors[mesh.primitives[0].attributes.NORMAL];
@@ -95,6 +108,12 @@ void test('optional detail is compressed and bounded; base landmarks remain ligh
   assert.ok(detail.length < 6_000_000);
   const gltf = JSON.parse(detail.subarray(20, 20 + detail.readUInt32LE(12)));
   assert.ok(gltf.extensionsRequired.includes('KHR_draco_mesh_compression'));
+  assert.ok(
+    gltf.nodes.every(
+      (n) => !/^(bark|leaf|detailed-fine-leaf)/.test(n.name || ''),
+    ),
+    'detail mode also starts without trees',
+  );
   const primitives = gltf.meshes.flatMap((mesh) => mesh.primitives);
   assert.ok(primitives.length <= 32);
   assert.ok(

@@ -5,7 +5,7 @@ export const fixtureCredit = 'Original integration fixture <b>not imagery</b>';
 export const fixtureKey = 'test_browser_key_1234567890';
 export function photographicFixture() {
   const positions = new Float32Array([
-    -1200, 0, -1200, -1200, 0, 1200, 1200, 0, 1200, 1200, 0, -1200,
+    -1200, 60, -1200, -1200, 60, 1200, 1200, 60, 1200, 1200, 60, -1200,
   ]);
   const normals = new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]);
   const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
@@ -47,8 +47,8 @@ export function photographicFixture() {
         componentType: 5126,
         count: 4,
         type: 'VEC3',
-        min: [-1200, 0, -1200],
-        max: [1200, 0, 1200],
+        min: [-1200, 60, -1200],
+        max: [1200, 60, 1200],
       },
       { bufferView: 1, componentType: 5126, count: 4, type: 'VEC3' },
       { bufferView: 2, componentType: 5123, count: 6, type: 'SCALAR' },
@@ -72,12 +72,12 @@ export function photographicFixture() {
   const transform = parkFrame(43.4672, -80.5325, 300).localToEarth.multiply(
     new Matrix4().makeRotationX(-Math.PI / 2),
   );
-  const root = {
+  let root = {
     asset: { version: '1.1', gltfUpAxis: 'Y' },
     geometricError: 1,
     root: {
       transform: transform.toArray(),
-      boundingVolume: { box: [0, 0, 0, 1200, 0, 0, 0, 1200, 0, 0, 0, 20] },
+      boundingVolume: { box: [0, 0, 0, 1200, 0, 0, 0, 1200, 0, 0, 0, 100] },
       geometricError: 0.5,
       refine: 'REPLACE',
       content: {
@@ -85,5 +85,42 @@ export function photographicFixture() {
       },
     },
   };
-  return { root, glb };
+  const local = root.root;
+  root.root = {
+    boundingVolume: { sphere: [0, 0, 0, 7000000] },
+    geometricError: 100000,
+    refine: 'REPLACE',
+    children: [
+      local,
+      {
+        transform: transform.toArray(),
+        boundingVolume: { box: [4500, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0, 100] },
+        geometricError: 1,
+        content: {
+          uri: 'https://tile.googleapis.com/v1/3dtiles/outside.glb?session=fixture',
+        },
+      },
+    ],
+  };
+  // Google can require hundreds of tiny metadata tilesets before any geometry.
+  // Retaining this chain catches cache limits that stall before the first mesh.
+  const metadata = [];
+  for (let i = 0; i < 280; i++) {
+    metadata.push(root);
+    root = {
+      asset: { version: '1.1' },
+      geometricError: 100000,
+      root: {
+        boundingVolume: { sphere: [0, 0, 0, 7000000] },
+        geometricError: 100000,
+        content: {
+          uri:
+            'https://tile.googleapis.com/v1/3dtiles/metadata/' +
+            i +
+            '.json?session=fixture',
+        },
+      },
+    };
+  }
+  return { root, glb, metadata };
 }

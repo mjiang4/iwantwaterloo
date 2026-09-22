@@ -20,6 +20,7 @@ import { parkPlotPosition } from '@/features/park/plots';
 import type { Idea } from '@/lib/garden';
 import type { ParkProvider } from './provider';
 import { parkFrame } from './frame';
+import { ParkExtentPlugin, parkClippingPlanes } from './extent';
 
 type Props = {
   provider: ParkProvider;
@@ -40,6 +41,7 @@ export default function RealismLayer(props: Props) {
     fine: boolean;
     ready: boolean;
     credits: string;
+    detailStep: number;
   } | null>(null);
   const latest = useRef(props);
   useEffect(() => {
@@ -75,19 +77,31 @@ export default function RealismLayer(props: Props) {
     tiles.registerPlugin(
       new GLTFExtensionsPlugin({ dracoLoader: draco, autoDispose: false }),
     );
-    tiles.errorTarget = mobile ? 18 : 8;
+    const frame = parkFrame(map.center[0], map.center[1], elevation);
+    tiles.registerPlugin(new ParkExtentPlugin(frame.localToEarth));
+    const clippingPlanes = parkClippingPlanes();
+    const previousClipping = gl.localClippingEnabled;
+    gl.localClippingEnabled = true;
+    const anisotropy = Math.min(
+      mobile ? 4 : 8,
+      gl.capabilities.getMaxAnisotropy(),
+    );
+    // Reach a usable park first, then refine the already visible tiles in place.
+    tiles.errorTarget = 32;
     tiles.loadSiblings = false;
+    // Ancestor fallback implicitly fetches all siblings, defeating the area mask.
+    tiles.loadAncestors = false;
     tiles.lruCache.maxBytesSize = (mobile ? 128 : 256) * 1024 * 1024;
     tiles.lruCache.minBytesSize = tiles.lruCache.maxBytesSize * 0.7;
-    tiles.lruCache.maxSize = 256;
-    tiles.lruCache.minSize = 160;
+    // Google traverses many small JSON tilesets before reaching any meshes.
+    // A 256-item limit deadlocks that traversal even with GPU memory available.
+    tiles.lruCache.maxSize = mobile ? 2048 : 4096;
+    tiles.lruCache.minSize = mobile ? 1024 : 2048;
     tiles.downloadQueue.maxJobsPerOrigin = mobile ? 4 : 8;
     tiles.parseQueue.maxJobs = 2;
     tiles.setCamera(camera);
     tiles.group.matrixAutoUpdate = false;
-    tiles.group.matrix.copy(
-      parkFrame(map.center[0], map.center[1], elevation).earthToPark,
-    );
+    tiles.group.matrix.copy(frame.earthToPark);
     host.add(tiles.group);
     host.updateMatrixWorld(true);
     const state = {
@@ -96,6 +110,7 @@ export default function RealismLayer(props: Props) {
       fine: false,
       ready: false,
       credits: '',
+      detailStep: 0,
     };
     runtime.current = state;
     let disposed = false;
@@ -123,9 +138,14 @@ export default function RealismLayer(props: Props) {
         object.receiveShadow = false;
         // Preserve captured photographic lighting, including baked shadows.
         const unlit = (original: MeshStandardMaterial | MeshBasicMaterial) => {
+          if (original.map) {
+            original.map.anisotropy = anisotropy;
+            original.map.needsUpdate = true;
+          }
           if (original instanceof MeshBasicMaterial) {
             original.toneMapped = false;
             original.fog = false;
+            original.clippingPlanes = clippingPlanes;
             return original;
           }
           const material = new MeshBasicMaterial({
@@ -137,6 +157,7 @@ export default function RealismLayer(props: Props) {
             opacity: original.opacity,
             alphaTest: original.alphaTest,
             alphaMap: original.alphaMap,
+            clippingPlanes,
             toneMapped: false,
             fog: false,
           });
@@ -162,6 +183,7 @@ export default function RealismLayer(props: Props) {
       clearTimeout(timeout);
       runtime.current = null;
       host.remove(tiles.group);
+      gl.localClippingEnabled = previousClipping;
       tiles.dispose();
       materials.forEach((owned) =>
         owned.forEach((material) => material.dispose()),
@@ -170,6 +192,7 @@ export default function RealismLayer(props: Props) {
       draco.dispose();
     };
   }, [googleMapsKey, elevation, camera, gl, invalidate, mobile]);
+  const refinementTargets = mobile ? [32, 12, 6] : [32, 12, 6, 3];
   useFrame(() => {
     const state = runtime.current;
     if (!state || !props.active) return;
@@ -177,6 +200,21 @@ export default function RealismLayer(props: Props) {
     tiles.setResolutionFromRenderer(camera, gl);
     tiles.group.updateMatrixWorld(true);
     tiles.update();
+    // The pinned renderer exposes cachedBytes but omits it from its declarations.
+    const cache = tiles.lruCache;
+    const bytes =
+      'cachedBytes' in cache && typeof cache.cachedBytes === 'number'
+        ? cache.cachedBytes
+        : Infinity;
+    if (
+      state.ready &&
+      state.detailStep < refinementTargets.length - 1 &&
+      tiles.loadProgress === 1 &&
+      bytes < cache.maxBytesSize * 0.72
+    ) {
+      tiles.errorTarget = refinementTargets[++state.detailStep];
+      invalidate();
+    }
     if (!state.dirty) return;
     state.dirty = false;
     const credits = tiles
@@ -203,13 +241,13 @@ export default function RealismLayer(props: Props) {
       const [x, z] = parkPlotPosition(idea.plot ?? 0);
       ray.ray.origin.set(x, 100, z);
       const hit = ray.intersectObject(tiles.group, true)[0];
-      if (hit && Math.abs(hit.point.y) < 12)
-        heights[idea.id] = hit.point.y + 0.4;
+      if (hit && Math.abs(hit.point.y) < 12) heights[idea.id] = hit.point.y;
     }
     if (Object.keys(heights).length) {
       latest.current.onHeights(heights);
       if (!state.ready) {
         state.ready = true;
+        invalidate();
         latest.current.onReady();
       }
     }

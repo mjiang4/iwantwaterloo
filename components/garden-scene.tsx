@@ -27,7 +27,7 @@ import { DetailBoundary } from '@/features/park/detail-boundary';
 import type { ParkQuality } from '@/features/park/quality-picker';
 import { LakeGeese } from '@/features/park/wildlife';
 import { parkPlotPosition } from '@/features/park/plots';
-import { RealismIdeaMarkers } from '@/features/park/realism/idea-markers';
+import PARK_EXTENT from '@/features/park/bounds.json';
 import type { ParkProvider } from '@/features/park/realism/provider';
 const RealismLayer = lazy(() => import('@/features/park/realism/layer'));
 type Props = {
@@ -155,9 +155,11 @@ function Fireflies({ enabled, motion }: { enabled: boolean; motion: boolean }) {
 function CameraRig({
   props,
   ready,
+  heights,
 }: {
   props: Props;
   ready: RefObject<boolean>;
+  heights?: Record<string, number>;
 }) {
   const controls = useRef<OrbitControlsImpl>(null);
   const { camera, size, invalidate } = useThree();
@@ -169,19 +171,41 @@ function CameraRig({
     (idea) => idea.id === (props.moment?.id || props.focusId),
   )?.plot;
   const arrivalPlot = props.ideas[0]?.plot;
+  const focusKey =
+    props.moment?.id || props.focusId || props.ideas[0]?.id || 'arrival';
+  const surfaces = useRef(heights);
+  const surfaceReady = heights !== undefined;
   useEffect(() => {
+    surfaces.current = heights;
+  }, [heights]);
+  useEffect(() => {
+    // Sample on navigation. Tile refinement must not interrupt dragging or growth.
+    const surface = surfaces.current?.[focusKey] ?? 0;
     const focused = focusedPlot !== undefined;
     const arrival = parkPlotPosition(arrivalPlot ?? 0);
     const pi = landmarks.perimeter.position;
     const position = focused
       ? parkPlotPosition(focusedPlot)
       : [(arrival[0] + pi[0]) / 2, (arrival[1] + pi[2]) / 2];
-    target.current.set(position[0], focused ? 0.9 : 0.5, position[1]);
+    target.current.set(
+      position[0],
+      surface + (focused ? 0.9 : 0.5),
+      position[1],
+    );
     let distance = focused ? 10 : 20;
     const placeCamera = () =>
       destination.current.set(
         position[0] + (distance * (focused ? 0.23 : -0.65)) / props.zoom,
-        (distance * (focused ? 0.82 : props.night ? 0.4 : 0.52)) / props.zoom,
+        surface +
+          (distance *
+            (focused
+              ? 0.82
+              : props.quality === 'realism'
+                ? 0.62
+                : props.night
+                  ? 0.4
+                  : 0.52)) /
+            props.zoom,
         position[1] + (distance * (focused ? 0.9 : -0.7)) / props.zoom,
       );
     placeCamera();
@@ -220,6 +244,9 @@ function CameraRig({
     arrivalPlot,
     focusedPlot,
     props.night,
+    props.quality,
+    surfaceReady,
+    focusKey,
     props.focusId,
     props.moment?.serial,
     props.moment?.id,
@@ -250,10 +277,10 @@ function CameraRig({
       makeDefault
       enableDamping={props.motion}
       dampingFactor={0.12}
-      minDistance={5}
-      maxDistance={65}
+      minDistance={props.quality === 'realism' ? 8 : 5}
+      maxDistance={props.quality === 'realism' ? 44 : 65}
       minPolarAngle={0.22}
-      maxPolarAngle={1.46}
+      maxPolarAngle={props.quality === 'realism' ? 1.22 : 1.46}
       enableRotate={!props.moment}
       enablePan={!props.moment}
       enableZoom={!props.moment}
@@ -267,13 +294,13 @@ function CameraRig({
         if (controls.current) {
           controls.current.target.x = THREE.MathUtils.clamp(
             controls.current.target.x,
-            -18,
-            19,
+            PARK_EXTENT.west + 3,
+            PARK_EXTENT.east - 3,
           );
           controls.current.target.z = THREE.MathUtils.clamp(
             controls.current.target.z,
-            -12,
-            15,
+            PARK_EXTENT.north + 3,
+            PARK_EXTENT.south - 3,
           );
         }
       }}
@@ -444,15 +471,11 @@ function World(props: Props & { active: boolean }) {
           roughness={1}
         />
       </mesh>
-      {photoreal ? (
-        <RealismIdeaMarkers
-          {...props}
-          anchorHeights={anchorHeights}
-          momentReady={ready}
-        />
-      ) : (
-        <Forest {...props} momentReady={ready} />
-      )}
+      <Forest
+        {...props}
+        anchorHeights={photoreal ? anchorHeights : undefined}
+        momentReady={ready}
+      />
       <Fireflies enabled={light.night} motion={props.motion} />
       {!photoreal && <LakeGeese motion={props.motion} />}
       {map.landmarks.map((landmark) => (
@@ -465,7 +488,11 @@ function World(props: Props & { active: boolean }) {
           <span className="park-landmark">{landmark.name}</span>
         </Html>
       ))}
-      <CameraRig props={props} ready={ready} />
+      <CameraRig
+        props={props}
+        ready={ready}
+        heights={photoreal ? anchorHeights : undefined}
+      />
       <FrameClock
         motion={props.motion && (!photoreal || !!props.moment)}
         active={props.active}
@@ -476,6 +503,12 @@ function World(props: Props & { active: boolean }) {
 export default function GardenScene(props: Props) {
   const [active, setActive] = useState(true);
   const [low, setLow] = useState(false);
+  const [mobile] = useState(
+    () =>
+      typeof window === 'undefined' ||
+      matchMedia('(pointer: coarse)').matches ||
+      innerWidth < 761,
+  );
   useEffect(() => {
     const update = () => setActive(!document.hidden);
     document.addEventListener('visibilitychange', update);
@@ -491,7 +524,7 @@ export default function GardenScene(props: Props) {
     >
       <Canvas
         camera={{ position: [18, 30, 35], fov: 45, near: 0.1, far: 200 }}
-        dpr={low ? 1 : [1, 1.5]}
+        dpr={low ? 1 : [1, props.quality === 'realism' && !mobile ? 2 : 1.5]}
         shadows={{ type: THREE.PCFSoftShadowMap }}
         gl={{ antialias: true, powerPreference: 'low-power' }}
         frameloop={active ? 'demand' : 'never'}

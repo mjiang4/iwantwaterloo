@@ -122,7 +122,7 @@ export function Forest(props: ForestProps) {
     }
     dirty.current = true;
     invalidate();
-  }, [rows, motion, props.moment, invalidate]);
+  }, [rows, motion, props.moment, props.anchorHeights, invalidate]);
   useFrame((_, delta) => {
     if (props.motion) time.current += Math.min(delta, 0.05);
     if (refs.current.some((m) => !m)) return;
@@ -168,6 +168,7 @@ export function Forest(props: ForestProps) {
     }
     if (rebuild) counts.fill(0);
     else counts[1] = 0;
+    let ground = 0;
     function put(
       batch: number,
       x: number,
@@ -182,7 +183,7 @@ export function Forest(props: ForestProps) {
       tint?: string,
     ) {
       const mesh = refs.current[batch]!;
-      object.position.set(x, y, z);
+      object.position.set(x, y + ground, z);
       object.scale.set(sx, sy, sz);
       object.rotation.set(rx, ry, rz);
       object.updateMatrix();
@@ -197,6 +198,7 @@ export function Forest(props: ForestProps) {
     } of rows) {
       const state = states.current.get(idea.id);
       if (!state) continue;
+      ground = (props.anchorHeights?.[idea.id] ?? 0.16) - 0.16;
       const pulse =
         props.moment?.id === idea.id &&
         props.moment.kind === 'like' &&
@@ -316,7 +318,11 @@ export function Forest(props: ForestProps) {
       halo.current.visible =
         !!row && props.motion && props.momentReady.current && t >= 0 && t < 1;
       if (row) {
-        halo.current.position.set(row.pos[0], 0.17, row.pos[1]);
+        halo.current.position.set(
+          row.pos[0],
+          (props.anchorHeights?.[row.idea.id] ?? 0.16) + 0.01,
+          row.pos[1],
+        );
         halo.current.scale.setScalar(0.3 + t * 1.3);
         haloMaterial.current.opacity = (1 - t) * 0.4;
       }
@@ -473,7 +479,11 @@ export function TreeMarkers({
         ideas.slice(0, 24).map((idea, index) => {
           const [x, z] = plotPosition(idea.plot ?? index);
           point
-            .set(x, anchorHeights?.[idea.id] ?? markerHeight(idea), z)
+            .set(
+              x,
+              (anchorHeights?.[idea.id] ?? 0.16) - 0.16 + markerHeight(idea),
+              z,
+            )
             .project(camera);
           return {
             x: ((point.x + 1) * size.width) / 2,
@@ -496,7 +506,7 @@ export function TreeMarkers({
           position.add(
             new THREE.Vector3(
               x,
-              anchorHeights?.[idea.id] ?? markerHeight(idea),
+              (anchorHeights?.[idea.id] ?? 0.16) - 0.16 + markerHeight(idea),
               z,
             ),
           );

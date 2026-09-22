@@ -297,93 +297,7 @@ for i in range(0, len(rail), 3):
     rod("rail-steel", (x + 0.22, y, 0.43), (x, y, 0.4), 0.005)
 track = flush("ion-track-")
 export("ion-track.glb", track)
-# Build fine foliage from each connected crown in the low-detail Blender mesh.
-# Shared mesh buffers avoid creating tens of thousands of Blender objects.
-for color in range(5):
-    mats["fine-leaf-" + str(color)] = material(
-        "fine-leaf-" + str(color),
-        [
-            (0.09, 0.21, 0.055),
-            (0.15, 0.28, 0.065),
-            (0.20, 0.32, 0.08),
-            (0.26, 0.37, 0.12),
-            (0.32, 0.40, 0.15),
-        ][color],
-    )
-for ob in base:
-    if not ob.name.startswith("leaf"):
-        continue
-    mesh = ob.data
-    adj = [[] for _ in mesh.vertices]
-    for edge in mesh.edges:
-        a, b = edge.vertices
-        adj[a].append(b)
-        adj[b].append(a)
-    visited = set()
-    for i in range(len(adj)):
-        if i in visited:
-            continue
-        stack = [i]
-        component = []
-        visited.add(i)
-        while stack:
-            j = stack.pop()
-            component.append(ob.matrix_world @ mesh.vertices[j].co)
-            for k in adj[j]:
-                if k not in visited:
-                    visited.add(k)
-                    stack.append(k)
-        center = sum(component, Vector()) / len(component)
-        radius = [
-            max(abs(p[axis] - center[axis]) for p in component) for axis in range(3)
-        ]
-        for leaf in range(90):
-            az = random.random() * math.tau
-            z = random.uniform(-1, 1)
-            rr = (1 - z * z) ** 0.5
-            size = random.uniform(0.030, 0.055)
-            scale = random.uniform(0.65, 1.10)
-            c = center + Vector(
-                (
-                    math.cos(az) * rr * radius[0] * scale,
-                    math.sin(az) * rr * radius[1] * scale,
-                    z * radius[2] * scale,
-                )
-            )
-            u = Vector((math.cos(az), math.sin(az), random.uniform(-0.7, 0.7))) * size
-            v = (
-                Vector(
-                    (-math.sin(az) * 0.5, math.cos(az) * 0.5, random.uniform(-0.4, 0.4))
-                )
-                * size
-            )
-            face(
-                "fine-leaf-" + str(random.randrange(5)),
-                [
-                    tuple(c - u),
-                    tuple(c - v),
-                    tuple(c + u),
-                    tuple(c + v),
-                    tuple(c + Vector((0, 0, 0.009))),
-                ],
-                [[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]],
-            )
-        # Visible internal twigs provide structure through the fine leaf silhouette.
-        for j in range(3):
-            tip = center + Vector(
-                (
-                    random.uniform(-1, 1) * radius[0],
-                    random.uniform(-1, 1) * radius[1],
-                    radius[2] * 0.7,
-                )
-            )
-            rod(
-                "timber-detail",
-                tuple(center - Vector((0, 0, radius[2] * 0.7))),
-                tuple(tip),
-                0.006,
-            )
-fine = flush("detailed-")
+# All trees are community idea instances, never baked into the landscape.
 # Waterfront benches and warm path lights, aligned to mapped shoreline points.
 lake = next(
     e for e in DATA["elements"] if e.get("tags", {}).get("name") == "Silver Lake"
@@ -517,18 +431,14 @@ context = flush("neighbourhood-")
 features["contextBuildings"] = context_buildings
 
 high = (
-    [o for o in base if not o.name.startswith("leaf")]
+    base
     + landmark
     + track
-    + fine
     + waterfront
     + context
 )
 export("waterloo-park-detail.glb", high)
-# Save the full editable detail source, with old foliage hidden.
-for ob in base:
-    if ob.name.startswith("leaf"):
-        bpy.data.objects.remove(ob, do_unlink=True)
+# Save the full editable detail source.
 bpy.ops.wm.save_as_mainfile(
     filepath=str(ROOT / "assets/park/waterloo-park-detail.blend"), compress=True
 )

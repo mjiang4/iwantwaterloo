@@ -75,10 +75,11 @@ export function QualityPicker({
         <DialogContent className="quality-dialog">
           <DialogTitle>See the real park.</DialogTitle>
           <DialogDescription>
-            Photographic 3D imagery from Google Maps.
+            Waterloo Park and its immediate surroundings.
           </DialogDescription>
           <p>
-            Streams as you explore and uses more graphics power and battery.
+            Google’s imagery may show older paths and trees. Streaming uses more
+            data and battery.
           </p>
           {!connected && (
             <p className="quality-hint">

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium, webkit } from 'playwright';
+import map from '../../assets/park/map.json' with { type: 'json' };
+import { growthForLikes } from '../../lib/garden-visuals.ts';
 import { startTestSite } from '../helpers/test-site.mjs';
 import {
   photographicFixture,
@@ -29,6 +31,9 @@ async function installImagery(context, mode = 'success') {
       return route.fulfill({ json: fixture.root });
     assert.equal(url.searchParams.get('session'), 'fixture');
     assert.equal(url.searchParams.get('key'), fixtureKey);
+    const index = url.pathname.match(/metadata\/(\d+)\.json$/)?.[1];
+    if (index !== undefined)
+      return route.fulfill({ json: fixture.metadata[Number(index)] });
     return route.fulfill({
       contentType: 'model/gltf-binary',
       body: fixture.glb,
@@ -90,6 +95,28 @@ try {
       reducedMotion,
     });
     const requests = await installImagery(context);
+    // Observe actual instance transforms, not just a DOM success animation.
+    await context.addInitScript(() => {
+      window.treeFrames = [];
+      for (const name of ['bufferData', 'bufferSubData']) {
+        const original = WebGL2RenderingContext.prototype[name];
+        WebGL2RenderingContext.prototype[name] = function (...args) {
+          const data = args.find(
+            (v) => v instanceof Float32Array && v.length === 24 * 16,
+          );
+          if (data)
+            for (let i = 0; i < data.length; i += 16)
+              if (data[i + 12] || data[i + 14])
+                window.treeFrames.push({
+                  height: data[i + 5],
+                  y: data[i + 13],
+                  x: data[i + 12],
+                  z: data[i + 14],
+                });
+          return original.apply(this, args);
+        };
+      }
+    });
     const page = await context.newPage();
     page.setDefaultTimeout(25000);
     const errors = [];
@@ -107,6 +134,11 @@ try {
       .getByRole('button', { name: 'Enter realism', exact: true })
       .click();
     await ready(page);
+    assert.ok(
+      requests.filter((url) => url.pathname.includes('/metadata/')).length >
+        256,
+      'renderer reaches meshes through a large metadata hierarchy',
+    );
     await page
       .getByRole('button', { name: 'Data sources', exact: true })
       .click();
@@ -144,15 +176,41 @@ try {
       .fill(
         'Integration fixture: a quieter path through Waterloo Park ' + label,
       );
+    const created = page.waitForResponse(
+      (r) =>
+        r.url() === site.origin + '/api/ideas' &&
+        r.request().method() === 'POST',
+    );
     await page.getByRole('button', { name: 'Post idea', exact: true }).click();
+    const { idea } = await (await created).json();
+    const point = map.plots[idea.plot % map.plots.length];
     await page.locator('.plant-receipt').waitFor({ timeout: 30000 });
     await ready(page);
     await page
       .locator('.plant-receipt')
       .getByRole('button', { name: 'Done', exact: true })
       .click();
-    await page.locator('.garden-target').first().click();
+    await page
+      .getByRole('button', { name: 'Read idea: ' + idea.title, exact: true })
+      .click();
     await ready(page);
+    const readFrames = () =>
+      page.evaluate(
+        ([x, z]) =>
+          window.treeFrames.filter(
+            (f) => Math.abs(f.x - x) < 0.001 && Math.abs(f.z - z) < 0.001,
+          ),
+        point,
+      );
+    const planted = (await readFrames()).at(-1);
+    assert.ok(planted?.height > 0, 'a submitted idea renders an actual tree');
+    assert.ok(
+      Math.abs(planted.y - planted.height / 2 - 2) < 0.01,
+      'tree roots touch the elevated photographic surface',
+    );
+    await page.evaluate(() => {
+      window.treeFrames = [];
+    });
     const support = page.locator('.garden-idea-dock .support-button');
     await support.click();
     await page.waitForFunction(
@@ -164,6 +222,31 @@ try {
     await page
       .locator('[data-celebrating]')
       .waitFor({ state: 'hidden', timeout: 30000 });
+    const expectedHeight =
+      (planted.height * growthForLikes(1).height) / growthForLikes(0).height;
+    await page.waitForFunction(
+      ({ point: [x, z], expectedHeight }) => {
+        const f = window.treeFrames.findLast(
+          (f) => Math.abs(f.x - x) < 0.001 && Math.abs(f.z - z) < 0.001,
+        );
+        return f && Math.abs(f.height - expectedHeight) < 0.002;
+      },
+      { point, expectedHeight },
+    );
+    const grown = await readFrames();
+    assert.ok(
+      grown.at(-1).height > planted.height,
+      'each like leaves the actual tree larger',
+    );
+    if (reducedMotion !== 'reduce')
+      assert.ok(
+        Math.max(...grown.map((f) => f.height)) > grown.at(-1).height * 1.08,
+        'growth visibly overshoots before settling',
+      );
+    assert.ok(
+      !requests.some((url) => url.pathname.endsWith('outside.glb')),
+      'outside-city tiles are never downloaded',
+    );
     const title = await page.locator('.garden-idea-dock').innerText();
     await page.screenshot({
       path:

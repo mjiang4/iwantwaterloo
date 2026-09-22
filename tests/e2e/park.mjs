@@ -14,7 +14,7 @@ async function checkQuality(page, requests, label) {
   await page
     .getByRole('button', { name: 'Choose realism or high fidelity' })
     .click();
-  await page.getByText(/more graphics power and battery/).waitFor();
+  await page.getByText(/more data and battery/).waitFor();
   await page.getByRole('button', { name: 'Keep it light' }).click();
   assert.equal(requests.length, 0, 'dismissing the warning downloads nothing');
   await page

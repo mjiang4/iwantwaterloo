@@ -19,7 +19,7 @@ export function RealismCredits({ credits }: { credits: string }) {
             {credits || 'Google Maps imagery is loading.'}
           </DialogDescription>
           <p>
-            Idea markers are community contributions. Their placement uses ©
+            Idea trees are community contributions. Their placement uses ©
             OpenStreetMap contributors.
           </p>
           <p>

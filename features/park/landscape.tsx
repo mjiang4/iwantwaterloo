@@ -77,10 +77,6 @@ export function ParkModel({
             );
         };
       }
-      if (object.name.includes('fine-leaf')) {
-        material.side = THREE.DoubleSide;
-        material.roughness = 1;
-      }
     });
     return { scene: copy, materials, surface };
   }, [scene, water, detailed]);

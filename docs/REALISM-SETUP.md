@@ -57,9 +57,8 @@ tests use original synthetic geometry and intercepted requests, not Google
 imagery. They verify the rendering integration, not Waterloo's photographic
 appearance or performance on physical phones.
 
-Google lists Canada as covered, but detailed Waterloo Park coverage has not
-been verified. With an authorized key, check Silver Lake, Perimeter Institute,
-the railway corridor and surrounding buildings at close range. If detailed
+Waterloo Park imagery is available, but capture freshness and sharpness vary.
+Check Silver Lake, Perimeter Institute and the railway corridor at close range. If detailed
 terrain cannot load, the app returns to light mode. Image quality and capture
 age depend on the available data; this is not guaranteed to match every Google
 Earth view.
@@ -67,23 +66,53 @@ Earth view.
 The reference height is approximately **300 metres above the WGS84 ellipsoid**,
 not mean sea level. Verify the camera's height and the independently mapped
 landmark labels against the live tiles; adjust this one reference value if
-necessary. Idea markers sample the visible surface only for their current
+necessary. Community trees sample the visible surface only for their current
 rendering positions. No sampled heights are stored or exported.
 
 The photographed scene has captured lighting and stationary objects. Real-time
 sun/night previews and the simulated moving ION remain features of the modeled
-park. Likes animate a separate idea marker in Realism; they cannot change trees
-inside a photograph.
+park. Submissions and likes animate the same six instanced tree batches in every mode;
+Realism offsets trees, flowers and touch targets to the streamed surface.
+Photographed trees remain part of the background imagery and cannot become
+individual editable trees. The modeled park starts with **zero decorative trees**.
+
+## Park boundary and waterfront
+
+`features/park/bounds.json` bounds the park plus roughly 60 metres of immediate
+context, including Perimeter and the ION corridor. `ParkExtentPlugin` rejects
+out-of-area tile branches while retaining intersecting ancestors. Four material
+clipping planes trim boundary-spanning tiles. Inside the boundary, the camera
+still controls refinement; the plugin does not prefetch the entire rectangle.
+Sibling loading and ancestor fallback are disabled together: the latter otherwise
+forces sibling downloads in this renderer version. Fast pans may briefly expose
+unloaded tiles; the lightweight park remains visible during initial loading.
+Camera travel and zoom are bounded separately.
+
+The photographic waterfront appears to predate the redevelopment. The city’s
+[2022 capital report](https://www.waterloo.ca/media/x2npn4nh/capital-report-2022.pdf)
+records the new boardwalks and a December 2022 north-shore opening, with final
+landscaping in spring 2023. The September 2026 OSM extract already contains the
+new pedestrian areas. Blender now fills these plaza/boardwalk polygons instead
+of drawing their boundaries as narrow paths. This corrects the **modeled** park;
+it does not change Google's capture. Do not claim photographic paths are current.
+
+Existing idea plots are retained verbatim when regenerating assets. Landscape
+changes do not reseed ideas or change their stored spatial slots.
 
 ## Performance and data handling
 
 - The tile renderer is lazy loaded only after opt-in; no tiles are bundled,
   prefetched, exported, placed in service-worker storage, or saved to a database.
 - Mobile budgets: 4 concurrent downloads per origin, 2 decode jobs, 2 Draco
-  workers, 128 MiB target tile cache, screen-space error target 18. Desktop uses
-  8 downloads, 256 MiB and error target 8. Cache limits are eviction targets,
-  not a hard ceiling on total browser/GPU memory.
-- DPR remains capped at 1.5. A settled photographic view renders on demand.
+  workers, 128 MiB target tile cache. Desktop uses 8 downloads and 256 MiB.
+  Start at screen-space error 32, then refine to 12, 6 and (desktop) 3 when
+  pending work settles and the cache is below 72% of its byte budget. Cache limits are eviction targets,
+  not a hard ceiling on total browser/GPU memory. Metadata/mesh entry caps are
+  2,048 mobile and 4,096 desktop: Google may require hundreds of tiny JSON
+  tilesets before reaching a mesh, so a 256-entry cap can block loading entirely.
+- Texture anisotropy is capped at 4× on mobile and 8× on desktop (or hardware limits).
+- DPR is capped at 1.5 on mobile, 2 on desktop in Realism, and 1 on limited GPUs.
+  A settled photographic view renders on demand.
   Controls and short feedback animations request frames. Hidden tabs stop tile
   updates; switching to light mode disposes the tile renderer and its decoder.
 - Google Maps attribution stays visible. **Data sources** displays the full
