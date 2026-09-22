@@ -1,6 +1,6 @@
 # Architecture
 
-Current development structure, September 18, 2026. Deployment is separate from the contents of a branch.
+Current development structure, September 21, 2026. Deployment is separate from the contents of a branch.
 
 ## Stack and boundaries
 
@@ -37,7 +37,7 @@ Comments follow the same retry principle and retain their drafts across closing 
 
 ## State ownership
 
-- **D1:** ideas, likes, replies, reports, abuse counters, and isolated preview controls.
+- **D1:** ideas, immutable revisions, credited contributions, organizer responses, likes, replies, reports, abuse counters, and isolated preview controls.
 - **TanStack Query:** fetched lists, groves, shared ideas, and comments.
 - **React:** open panels, selected ideas, pending actions, and short animation events.
 - **sessionStorage:** unfinished idea/reply drafts and retry receipts.
@@ -61,3 +61,7 @@ API tests run actual handlers in disposable Miniflare Workers. Browser tests use
 Garden placement still uses legacy SQLite rowids plus a reserved offset. Titles from older records are interpreted through a compatibility heuristic. Replacing either needs a data migration that preserves existing behavior; these are recorded separately in the backlog.
 
 Reports are stored, but production moderation is an operator responsibility until a protected interface is implemented. See [operations](OPERATIONS.md). A successful report means it was saved, not that a review has happened.
+
+## Participation
+
+The current idea projection overlays the latest immutable revision on the original. Revisions credit existing contributions; authenticated organizer responses remain distinct from author updates. See [participation](PARTICIPATION.md) for the data model, weekly review workflow, discovery rules, and production authorization boundary.

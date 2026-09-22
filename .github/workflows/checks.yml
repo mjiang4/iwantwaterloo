@@ -18,10 +18,11 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: node tests/e2e/check.mjs
         env:
           WATERLOO_TEST_BROWSERS: chromium
+      - run: node tests/e2e/participation.mjs
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

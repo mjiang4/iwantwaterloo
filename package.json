@@ -19,7 +19,7 @@
     "test": "node --experimental-strip-types --test --test-concurrency=1 tests/*.mjs",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
     "format:check": "oxfmt --check",
-    "test:browser": "npm run build && node tests/e2e/check.mjs && node tests/e2e/park.mjs && node tests/e2e/realism.mjs"
+    "test:browser": "npm run build && node tests/e2e/check.mjs && node tests/e2e/park.mjs && node tests/e2e/realism.mjs && node tests/e2e/participation.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

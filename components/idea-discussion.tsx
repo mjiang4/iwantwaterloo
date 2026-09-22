@@ -2,21 +2,33 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { Flag, MessageCircle, Reply, Send } from 'lucide-react';
+import { Flag, MessageCircle, Reply, Send, Flower2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useReplyDraft } from '@/features/ideas/use-reply-draft';
 import { WritingExample } from './writing-example';
 import { requestJSON } from '@/lib/client';
+import {
+  CONTRIBUTION_KINDS,
+  questionFor,
+  type ContributionKind,
+} from '@/lib/participation';
 import type { GardenComment, Idea } from '@/lib/garden';
 
 type CommentsPage = { comments: GardenComment[]; nextPage: number | null };
 
-export function IdeaDiscussion({ idea }: { idea: Idea }) {
+export function IdeaDiscussion({
+  idea,
+  onCredit,
+}: {
+  idea: Idea;
+  onCredit?: (comment: GardenComment) => void;
+}) {
+  const replyInput = useRef<HTMLTextAreaElement>(null);
   const client = useQueryClient();
   const { draft, setDraft, ready, prepare, clear } = useReplyDraft(idea.id);
-  const { body, name, parent: replyingTo } = draft;
+  const { body, name, parent: replyingTo, kind } = draft;
   const setBody = (body: string) =>
     setDraft((current) => ({ ...current, body }));
   const setName = (name: string) =>
@@ -64,16 +76,25 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
         parentId: replyingTo?.id || '',
         body: body.trim(),
         displayName: name.trim(),
+        kind,
       };
       await requestJSON('/api/comments', {
         method: 'POST',
-        body: JSON.stringify({ ...input, submissionKey: prepare(input) }),
+        body: JSON.stringify({
+          ...input,
+          source:
+            new URLSearchParams(location.search).get('via') === 'share'
+              ? 'share'
+              : 'garden',
+          submissionKey: prepare(input),
+        }),
       });
       clear();
-      setMessage('Your reply joined the conversation.');
+      setMessage('Your contribution is part of this idea.');
       await client.invalidateQueries({ queryKey: ['comments', idea.id] });
       void client.invalidateQueries({ queryKey: ['ideas'] });
       void client.invalidateQueries({ queryKey: ['garden'] });
+      void client.invalidateQueries({ queryKey: ['idea', idea.id] });
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : 'Couldn’t add your reply.',
@@ -103,9 +124,84 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
 
   return (
     <section className="discussion" aria-labelledby="discussion-heading">
+      <div className="open-question">
+        <span>Help shape this</span>
+        <h3>{questionFor(idea)}</h3>
+      </div>
+      <form className="reply-form" onSubmit={submit}>
+        {replyingTo && (
+          <div className="replying-banner">
+            <span>Replying to {replyingTo.displayName || 'a neighbour'}</span>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setReplyingTo(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {!replyingTo && (
+          <div className="contribution-kinds" aria-label="How you can help">
+            {CONTRIBUTION_KINDS.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                aria-pressed={kind === item.id}
+                disabled={saving}
+                onClick={() =>
+                  setDraft((current) => ({
+                    ...current,
+                    kind: item.id as ContributionKind,
+                  }))
+                }
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <Textarea
+          ref={replyInput}
+          disabled={saving || !ready}
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          minLength={2}
+          maxLength={1000}
+          placeholder={
+            replyingTo
+              ? 'Add to their contribution…'
+              : CONTRIBUTION_KINDS.find((item) => item.id === kind)?.prompt
+          }
+          aria-label="Your reply"
+        />
+        <WritingExample reply />
+        <div className="reply-footer">
+          <Input
+            disabled={saving || !ready}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            maxLength={60}
+            placeholder="About you"
+            aria-label="About you (optional, shown with your reply)"
+          />
+          <Button
+            type="submit"
+            disabled={saving || !ready || body.trim().length < 2}
+          >
+            {saving ? 'Adding…' : replyingTo ? 'Add reply' : 'Add contribution'}
+            <Send size={14} />
+          </Button>
+        </div>
+      </form>
+      {message && (
+        <output className="discussion-message" aria-live="polite">
+          {message}
+        </output>
+      )}
       <div className="discussion-heading">
         <h3 id="discussion-heading">
-          <MessageCircle size={17} /> Conversation
+          <MessageCircle size={17} /> Contributions
         </h3>
         <span>{comments.length || idea.commentCount || 0}</span>
       </div>
@@ -140,6 +236,7 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
         {comments.map((comment) => (
           <article
             key={comment.id}
+            id={`contribution-${comment.id}`}
             className={`comment ${comment.parentId ? 'is-reply' : ''}`}
           >
             {comment.parentId && (
@@ -157,10 +254,39 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
               </time>
             </div>
             <p>{comment.body}</p>
+            {comment.kind && comment.kind !== 'detail' && (
+              <span className="contribution-kind">
+                {
+                  CONTRIBUTION_KINDS.find((item) => item.id === comment.kind)
+                    ?.label
+                }
+              </span>
+            )}
+            {Boolean(comment.incorporated) && (
+              <span className="credited-badge">
+                <Flower2 size={14} />
+                Included in an update
+              </span>
+            )}
             <div className="comment-actions">
-              <button disabled={saving} onClick={() => setReplyingTo(comment)}>
+              <button
+                disabled={saving}
+                onClick={() => {
+                  setReplyingTo(comment);
+                  replyInput.current?.focus();
+                }}
+              >
                 <Reply size={13} /> Reply
               </button>
+              {idea.owned &&
+                !comment.byAuthor &&
+                !comment.incorporated &&
+                onCredit && (
+                  <button onClick={() => onCredit(comment)}>
+                    <Flower2 size={14} />
+                    Use in an update
+                  </button>
+                )}
               <button onClick={() => void report(comment.id)}>
                 <Flag size={12} /> Report
               </button>
@@ -178,48 +304,6 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
           {result.isFetchingNextPage ? 'Loading…' : 'More replies'}
         </Button>
       )}
-      <form className="reply-form" onSubmit={submit}>
-        {replyingTo && (
-          <div className="replying-banner">
-            <span>Replying to {replyingTo.displayName || 'a neighbour'}</span>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => setReplyingTo(null)}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-        <Textarea
-          disabled={saving || !ready}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          minLength={2}
-          maxLength={1000}
-          placeholder={'What would make this idea work better?'}
-          aria-label="Your reply"
-        />
-        <WritingExample reply />
-        <div className="reply-footer">
-          <Input
-            disabled={saving || !ready}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={60}
-            placeholder="About you"
-            aria-label="About you (optional, shown with your reply)"
-          />
-          <Button
-            type="submit"
-            disabled={saving || !ready || body.trim().length < 2}
-          >
-            {saving ? 'Adding…' : 'Add reply'}
-            <Send size={14} />
-          </Button>
-        </div>
-      </form>
-      {message && <output className="discussion-message">{message}</output>}
     </section>
   );
 }

@@ -11,7 +11,14 @@ import {
   connectionSQL,
 } from '@/lib/server';
 import { GROVE_SIZE } from '@/lib/garden';
-import { IDEA_SELECT, ideaFromRow } from '@/server/idea-records';
+import {
+  IDEA_SELECT,
+  IDEA_FROM,
+  PROGRESS_SQL,
+  EXTERNAL_INPUT_SQL,
+  findIdea,
+  ideaFromRow,
+} from '@/server/idea-records';
 import { limitWrites } from '@/lib/rate-limit';
 export async function GET(request: Request) {
   const { id } = identity(request);
@@ -65,19 +72,26 @@ export async function GET(request: Request) {
       .split(/\s+/)
       .filter(Boolean)) {
       where.push(
-        `lower(i.title || ' ' || i.description || ' ' || i.place || ' ' || ${tagsSQL}) LIKE ? ESCAPE '\\'`,
+        `lower(coalesce(u.title,i.title) || ' ' || coalesce(u.description,i.description) || ' ' || i.place || ' ' || ${tagsSQL}) LIKE ? ESCAPE '\\'`,
       );
       args.push('%' + term.replace(/[\\%_]/g, '\\$&') + '%');
     }
+    if (!garden && sort === 'needs-input') where.push(`NOT ${PROGRESS_SQL}`);
+    if (!garden && sort === 'progress') where.push(PROGRESS_SQL);
+    const lane = `CASE WHEN ${PROGRESS_SQL} THEN 2 WHEN ${EXTERNAL_INPUT_SQL} THEN 1 ELSE 0 END`;
+    const day = Math.floor(Date.now() / 86400000) % 32;
+    const fairOrder = `row_number() OVER (PARTITION BY ${lane} ORDER BY CASE WHEN ${lane}=0 THEN i.created_at END DESC, substr(replace(i.id,'-',''),${day + 1}) || substr(replace(i.id,'-',''),1,${day}),i.id), (${lane}+${day}) % 3, i.id`;
     const clause = where.join(' AND '),
       order =
-        sort === 'watered'
-          ? 'waters DESC, i.created_at DESC, i.id'
-          : sort === 'random'
-            ? // UUIDs supply random bits. Rotating them gives a stable shuffled order
-              // across pages and refreshes, without ORDER BY random() duplicating rows.
-              `substr(replace(i.id,'-',''),${(seed % 32) + 1}) || substr(replace(i.id,'-',''),1,${seed % 32}) ${seed < 32 ? 'ASC' : 'DESC'}, i.id`
-            : 'i.created_at DESC, i.id';
+        sort === 'discover'
+          ? fairOrder
+          : sort === 'watered'
+            ? 'waters DESC, i.created_at DESC, i.id'
+            : sort === 'random'
+              ? // UUIDs supply random bits. Rotating them gives a stable shuffled order
+                // across pages and refreshes, without ORDER BY random() duplicating rows.
+                `substr(replace(i.id,'-',''),${(seed % 32) + 1}) || substr(replace(i.id,'-',''),1,${seed % 32}) ${seed < 32 ? 'ASC' : 'DESC'}, i.id`
+              : 'i.created_at DESC, i.id';
     const pageClause = garden
       ? ' AND i.rowid + 5 >= ? AND i.rowid + 5 < ?'
       : '';
@@ -92,7 +106,7 @@ export async function GET(request: Request) {
         .bind(id, ...args, ...pageArgs),
       db
         .prepare(
-          `SELECT count(*) AS total,group_concat(DISTINCT cast((i.rowid + 5) / ${GROVE_SIZE} AS integer)) AS grovePages FROM ideas i WHERE ${clause}`,
+          `SELECT count(*) AS total,group_concat(DISTINCT cast((i.rowid + 5) / ${GROVE_SIZE} AS integer)) AS grovePages ${IDEA_FROM} WHERE ${clause}`,
         )
         .bind(...args),
     ]);
@@ -130,32 +144,35 @@ export async function POST(request: Request) {
     const { submissionKey, ...fields } = data;
     async function previous() {
       if (!submissionKey) return null;
-      const row = await db
-        .prepare(IDEA_SELECT + ' WHERE submission_key=?')
-        .bind(id, submissionKey)
-        .first<Record<string, unknown>>();
-      if (!row) return null;
+      const original = await db
+        .prepare('SELECT * FROM ideas WHERE submission_key=?')
+        .bind(submissionKey)
+        .first();
+      if (!original) return null;
       if (
-        row.title !== fields.title ||
-        row.description !== fields.description ||
-        row.category !== fields.category ||
-        row.place !== fields.place ||
-        row.connection !== fields.connection ||
-        row.displayName !== fields.displayName ||
-        row.tags !== JSON.stringify(fields.tags)
+        original.visitor_id !== id ||
+        original.title !== fields.title ||
+        original.description !== fields.description ||
+        original.question !== fields.question ||
+        original.category !== fields.category ||
+        original.place !== fields.place ||
+        original.connection !== fields.connection ||
+        original.display_name !== fields.displayName ||
+        original.tags !== JSON.stringify(fields.tags)
       )
         throw new InputError(
           'This submission changed. Edit the idea and try again.',
           409,
         );
-      return ideaFromRow(row);
+      return findIdea(String(original.id), id);
     }
+
     const saved = await previous();
     if (saved) return response(request, id, { idea: saved });
     await limitWrites(request, id, 'ideas');
     const result = await db
       .prepare(
-        'INSERT INTO ideas (id,title,description,category,tags,place,connection,display_name,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO ideas (id,title,description,category,tags,place,connection,display_name,question,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         ideaId,
@@ -166,6 +183,7 @@ export async function POST(request: Request) {
         fields.place,
         fields.connection,
         fields.displayName,
+        fields.question,
         now,
         id,
         submissionKey,
@@ -195,6 +213,10 @@ export async function POST(request: Request) {
           waters: 0,
           watered: false,
           commentCount: 0,
+          owned: true,
+          version: 0,
+          creditedCount: 0,
+          reviewCount: 0,
           example: false,
         },
       },

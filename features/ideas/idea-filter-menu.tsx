@@ -87,7 +87,10 @@ export function IdeaFilterMenu({
                 );
             }}
             items={[
+              { value: 'discover', label: 'Discover' },
               { value: 'newest', label: 'New' },
+              { value: 'needs-input', label: 'Needs input' },
+              { value: 'progress', label: 'Taking shape' },
               { value: 'watered', label: 'Most liked' },
               { value: 'random', label: 'Random' },
             ]}

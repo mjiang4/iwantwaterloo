@@ -3,6 +3,7 @@ import type { Idea } from '@/lib/garden';
 export type PlantInput = {
   title: string;
   description: string;
+  question?: string;
   category?: string;
   tags?: string[];
   place: string;

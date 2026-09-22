@@ -1,3 +1,4 @@
+import { DEFAULT_QUESTION } from './participation';
 import { env } from 'cloudflare:workers';
 import {
   CATEGORIES,
@@ -111,7 +112,10 @@ export function validateIdea(raw: unknown) {
     category = field('category', 30),
     place = field('place', 90),
     connection = field('connection', 60),
-    displayName = field('displayName', 60);
+    displayName = field('displayName', 60),
+    question = field('question', 180) || DEFAULT_QUESTION;
+  if (question.length < 5)
+    throw new InputError('Ask a short question, at least 5 characters.');
   if (category && !CATEGORIES.some((c) => c.id === category))
     throw new InputError('Choose a valid tag.');
   if (
@@ -144,6 +148,7 @@ export function validateIdea(raw: unknown) {
   return {
     title,
     description,
+    question,
     submissionKey: submissionKey || null,
     category: (category || categoryForTags(tags)) as Category,
     tags,

@@ -7,7 +7,7 @@ export function useIdeaFilters() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [connection, setConnection] = useState('all');
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState('discover');
   const [shuffle, setShuffle] = useState(0);
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 200);
@@ -19,10 +19,10 @@ export function useIdeaFilters() {
     setQuery('');
     setDebouncedQuery('');
     setConnection('all');
-    setSort('newest');
+    setSort('discover');
   }, []);
   const filtered =
-    mine || tag !== 'all' || connection !== 'all' || sort !== 'newest';
+    mine || tag !== 'all' || connection !== 'all' || sort !== 'discover';
   return {
     mine,
     setMine,

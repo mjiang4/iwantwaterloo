@@ -4,11 +4,12 @@ import { SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ideaTags, ideaBody, hasDerivedTitle, type Idea } from '@/lib/garden';
 import { requestJSON as api } from '@/lib/client';
 import { IdeaShare } from '@/components/idea-share';
-import { IdeaDiscussion } from '@/components/idea-discussion';
+import { IdeaParticipation } from './idea-participation';
+import { useCurrentIdea } from './use-current-idea';
 import { SupportButton } from './idea-card';
 
 export function IdeaDetails({
-  idea,
+  idea: initial,
   onTag,
   onSupport,
   pending,
@@ -20,6 +21,7 @@ export function IdeaDetails({
   pending: boolean;
   error: string;
 }) {
+  const { idea } = useCurrentIdea(initial);
   const [reportMessage, setReportMessage] = useState('');
   return (
     <div className="idea-detail">
@@ -67,7 +69,7 @@ export function IdeaDetails({
           {error}
         </p>
       )}
-      <IdeaDiscussion key={idea.id} idea={idea} />
+      <IdeaParticipation key={idea.id} idea={idea} />
       <button
         type="button"
         className="report-idea"

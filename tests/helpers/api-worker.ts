@@ -1,3 +1,5 @@
+import * as activity from '../../app/api/activity/route';
+import * as reviews from '../../app/api/admin/reviews/route';
 import * as parkProvider from '../../app/api/park-provider/route';
 import * as ideas from '../../app/api/ideas/route';
 import * as comments from '../../app/api/comments/route';
@@ -12,6 +14,8 @@ import * as scenario from '../../app/api/admin/scenario/route';
 type Handler = (request: Request) => Response | Promise<Response>;
 const routes: Record<string, Partial<Record<string, Handler>>> = {
   '/api/ideas': ideas,
+  '/api/activity': activity,
+  '/api/admin/reviews': reviews,
   '/api/park-provider': parkProvider,
   '/api/comments': comments,
   '/api/support': support,

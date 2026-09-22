@@ -16,6 +16,7 @@ import {
   gardenPalette,
   clusterTargets,
 } from '@/lib/garden-visuals';
+import { milestoneFlowers } from '@/lib/participation';
 import { ideaTheme } from '@/features/park/themes';
 import { parkPlotPosition as plotPosition } from '@/features/park/plots';
 const noRaycast = () => {};
@@ -77,7 +78,10 @@ export function Forest(props: ForestProps) {
         idea,
         seed: seedForId(idea.id),
         pos: plotPosition(idea.plot ?? index),
-        target: growthForLikes(idea.waters),
+        target: {
+          ...growthForLikes(idea.waters),
+          flowers: milestoneFlowers(idea),
+        },
       })),
     [props.ideas],
   );
@@ -106,6 +110,7 @@ export function Forest(props: ForestProps) {
       if (row) {
         states.current.set(row.idea.id, {
           ...growthForLikes(props.moment.fromLikes),
+          flowers: row.target.flowers,
           planted: props.moment.kind === 'plant' && motion ? 0.025 : 1,
         });
         momentState.current = {

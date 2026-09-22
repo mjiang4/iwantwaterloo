@@ -139,14 +139,18 @@ try {
     }
     return route.continue();
   });
-  await page.getByRole('button', { name: 'Add reply', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Add contribution', exact: true })
+    .click();
   await page
     .locator('.discussion-message')
     .filter({ hasText: /Couldn’t connect|connection timed out/ })
     .waitFor({ timeout: 20000 });
-  await page.getByRole('button', { name: 'Add reply', exact: true }).click();
   await page
-    .getByText('Your reply joined the conversation.', { exact: true })
+    .getByRole('button', { name: 'Add contribution', exact: true })
+    .click();
+  await page
+    .getByText('Your contribution is part of this idea.', { exact: true })
     .waitFor();
   assert.equal(keys.length, 2);
   assert.equal(keys[0], keys[1]);

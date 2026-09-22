@@ -38,6 +38,7 @@ import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import type { ButterflyVisit } from '@/lib/garden-discovery';
 import { PlantReceipt } from './idea-share';
 const GardenScene = lazy(() => import('./garden-scene'));
+import { questionFor, progressLabel } from '@/lib/participation';
 import { ideaTheme } from '@/features/park/themes';
 import { ThemePicker } from '@/features/park/theme-picker';
 import {
@@ -84,6 +85,7 @@ export function GardenExplorer({
   onPlanted,
   onRead,
   onExplore,
+  onDiscover,
   obscured,
   showIntroduction,
   discoveryRequest,
@@ -110,6 +112,7 @@ export function GardenExplorer({
   onPlanted: () => void;
   onRead: (idea: Idea) => void;
   onExplore: () => void;
+  onDiscover: () => void;
   obscured: boolean;
   showIntroduction: boolean;
   discoveryRequest: number;
@@ -131,6 +134,7 @@ export function GardenExplorer({
     ),
     [framedId, setFramedId] = useState<string | null>(focusIdea?.id || null),
     [nearby, setNearby] = useState<string[]>([]);
+  const [discoveryIndex, setDiscoveryIndex] = useState(0);
   const [theme, setTheme] = useState('all');
   const [photoCredits, setPhotoCredits] = useState('');
   const [detailLoading, setDetailLoading] = useState(quality !== 'light');
@@ -189,19 +193,44 @@ export function GardenExplorer({
   });
   const data = result.data,
     ideas = data?.ideas || EMPTY_IDEAS;
+  const discovery = useQuery({
+    queryKey: [
+      'discovery',
+      Math.floor(discoveryIndex / 50),
+      tag,
+      query,
+      connection,
+      mine,
+    ],
+    queryFn: ({ signal }) =>
+      requestJSON<GardenPage>(
+        `/api/ideas?${new URLSearchParams({ sort: 'discover', page: String(Math.floor(discoveryIndex / 50)), tag, q: query, connection, mine: mine ? '1' : '0' })}`,
+        { signal },
+      ),
+    enabled: discoveryRequest > 0,
+    staleTime: 15000,
+  });
   useEffect(() => {
     if (
       !discoveryRequest ||
       handledDiscovery.current === discoveryRequest ||
-      !ideas.length
+      !discovery.data
     )
       return;
+    const idea = discovery.data.ideas[discoveryIndex % 50];
+    if (!idea) {
+      if (discovery.data.total) setDiscoveryIndex(0);
+      return;
+    }
     handledDiscovery.current = discoveryRequest;
-    const idea = ideas[(discoveryRequest - 1) % ideas.length];
     setTheme('all');
+    setPage(Math.floor((idea.plot ?? 0) / GROVE_SIZE));
     setInspectedId(idea.id);
     setFramedId(idea.id);
-  }, [discoveryRequest, ideas]);
+    setDiscoveryIndex(
+      (index) => (index + 1) % Math.max(1, discovery.data!.total),
+    );
+  }, [discoveryRequest, discovery.data, discoveryIndex]);
   const visibleIdeas =
     theme === 'all' || moment
       ? ideas
@@ -455,15 +484,31 @@ export function GardenExplorer({
           </div>
         </div>
       )}
-      {postedIdea && <PlantReceipt idea={postedIdea} onDone={onReceiptDone} />}
+      {postedIdea && (
+        <PlantReceipt
+          idea={postedIdea}
+          onDone={onReceiptDone}
+          onDevelop={() => {
+            onReceiptDone();
+            onRead(postedIdea);
+          }}
+        />
+      )}
       {inspected && !postedIdea && (
         <div className="garden-idea-dock" aria-label="Selected tree">
           <button
             className="garden-idea-title"
+            aria-label={`Build on this: ${inspected.title}`}
             onClick={() => onRead(inspected)}
           >
-            {inspected.title}
-            <ChevronRight size={16} />
+            <span>
+              <small>{progressLabel(inspected)}</small>
+              <strong>{inspected.title}</strong>
+              <span className="dock-question">{questionFor(inspected)}</span>
+              <span className="dock-build">
+                Build on this <ChevronRight size={15} />
+              </span>
+            </span>
           </button>
           <button
             className="support-button"
@@ -481,6 +526,15 @@ export function GardenExplorer({
           </button>
           <button
             className="icon-button"
+            aria-label="Next idea"
+            title="Next idea"
+            disabled={discovery.isFetching}
+            onClick={onDiscover}
+          >
+            <ChevronRight size={18} />
+          </button>
+          <button
+            className="icon-button"
             aria-label="Deselect tree"
             onClick={() => {
               setInspectedId(null);
@@ -491,7 +545,22 @@ export function GardenExplorer({
           </button>
         </div>
       )}
+      {discovery.isError && (
+        <div className="discovery-error" role="alert">
+          Couldn’t find the next idea.{' '}
+          <button onClick={() => void discovery.refetch()}>Retry</button>
+        </div>
+      )}
       <div className="garden-pagination">
+        {!!data?.total && !inspected && !postedIdea && (
+          <button
+            className="find-idea"
+            disabled={discovery.isFetching}
+            onClick={onDiscover}
+          >
+            Find an idea <ChevronRight size={15} />
+          </button>
+        )}
         <span>
           {data && (pages.length > 1 || page > 0) ? `Grove ${page + 1}` : ''}
         </span>

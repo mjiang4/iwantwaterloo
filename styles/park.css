@@ -986,3 +986,39 @@
     animation: none;
   }
 }
+
+/* Discovery gets its own space below the existing theme and quality controls. */
+.park-experiment[data-view='garden'] .garden-pagination {
+  top: 204px;
+  right: 36px;
+}
+@media (max-width: 760px) {
+  .park-experiment[data-view='garden'] .garden-pagination {
+    top: 220px;
+    left: 18px;
+    right: auto;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .park-experiment[data-view='garden'] .garden-pagination {
+    top: 196px;
+    left: 18px;
+    right: auto;
+  }
+  .park-experiment[data-view='garden'] .garden-idea-dock {
+    padding: 10px 12px;
+    max-height: calc(100svh - 268px);
+  }
+  .garden-idea-title small {
+    display: none;
+  }
+  .garden-idea-title strong {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .garden-idea-title .dock-question {
+    -webkit-line-clamp: 1;
+  }
+}

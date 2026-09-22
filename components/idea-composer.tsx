@@ -8,6 +8,7 @@ import { ideaTitle, type Idea } from '@/lib/garden';
 import { WritingExample } from './writing-example';
 import { submissionFor, type Submission } from '@/lib/submission';
 import { readSignature, saveSignature } from '@/lib/signature';
+import { DEFAULT_QUESTION } from '@/lib/participation';
 import type { PlantInput } from '@/features/ideas/model';
 
 export function IdeaComposer({
@@ -18,6 +19,7 @@ export function IdeaComposer({
   onGarden: (idea?: Idea) => void;
 }) {
   const [text, setText] = useState('');
+  const [question, setQuestion] = useState(DEFAULT_QUESTION);
   const [displayName, setDisplayName] = useState('');
   const [remember, setRemember] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -42,6 +44,8 @@ export function IdeaComposer({
       );
       if (draft && typeof draft.text === 'string') {
         setText(draft.text.slice(0, 1400));
+        if (typeof draft.question === 'string')
+          setQuestion(draft.question.slice(0, 180));
         setDisplayName(
           typeof draft.displayName === 'string'
             ? draft.displayName.slice(0, 60)
@@ -66,12 +70,13 @@ export function IdeaComposer({
           'waterloo-idea-draft',
           JSON.stringify({
             text,
+            question,
             displayName,
             submission: submission.current,
           }),
         );
     } catch {}
-  }, [draftReady, text, displayName, shared]);
+  }, [draftReady, text, question, displayName, shared]);
   useEffect(() => {
     if (draftReady) saveSignature(remember ? displayName : '');
   }, [draftReady, remember, displayName]);
@@ -90,6 +95,7 @@ export function IdeaComposer({
     try {
       const input = {
         title: ideaTitle(text),
+        question,
         description: text.trim(),
         tags: [],
         place: '',
@@ -104,6 +110,7 @@ export function IdeaComposer({
           'waterloo-idea-draft',
           JSON.stringify({
             text,
+            question,
             displayName,
             submission: submission.current,
           }),
@@ -116,6 +123,7 @@ export function IdeaComposer({
       submission.current = null;
       setShared(idea);
       setText('');
+      setQuestion(DEFAULT_QUESTION);
       if (!remember) setDisplayName('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn’t share. Try again.');
@@ -192,6 +200,19 @@ export function IdeaComposer({
               aria-describedby={`idea-guidance${error ? ' compose-error' : ''}`}
             />
             <WritingExample />
+            <details className="composer-question">
+              <summary>Ask people a question</summary>
+              <label htmlFor="idea-question" className="sr-only">
+                Your open question
+              </label>
+              <Input
+                id="idea-question"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                maxLength={180}
+                disabled={saving}
+              />
+            </details>
             <div className="signature-field">
               <label htmlFor="idea-signature">
                 About you <span className="sr-only">(optional)</span>

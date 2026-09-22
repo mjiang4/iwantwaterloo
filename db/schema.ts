@@ -12,6 +12,9 @@ export const ideas = sqliteTable(
     id: text('id').primaryKey(),
     title: text('title').notNull(),
     description: text('description').notNull(),
+    question: text('question')
+      .notNull()
+      .default('What would make this work well in Waterloo?'),
     category: text('category').notNull(),
     tags: text('tags').notNull().default('[]'),
     place: text('place').notNull().default(''),
@@ -34,6 +37,8 @@ export const comments = sqliteTable(
     ideaId: text('idea_id').notNull(),
     parentId: text('parent_id'),
     body: text('body').notNull(),
+    kind: text('kind').notNull().default('detail'),
+    source: text('source').notNull().default('garden'),
     displayName: text('display_name'),
     createdAt: integer('created_at').notNull(),
     visitorId: text('visitor_id').notNull(),
@@ -116,4 +121,46 @@ export const previewChecks = sqliteTable(
     results: text('results').notNull().default('[]'),
   },
   (t) => [index('idx_preview_checks_status_created').on(t.status, t.createdAt)],
+);
+
+// Originals remain in ideas; append-only revisions preserve authorship and credit.
+export const ideaUpdates = sqliteTable(
+  'idea_updates',
+  {
+    id: text('id').primaryKey(),
+    ideaId: text('idea_id')
+      .notNull()
+      .references(() => ideas.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    question: text('question').notNull(),
+    note: text('note').notNull(),
+    credits: text('credits').notNull().default('[]'),
+    visitorId: text('visitor_id').notNull(),
+    submissionKey: text('submission_key').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('idx_idea_updates_version').on(t.ideaId, t.version),
+    uniqueIndex('idx_idea_updates_submission').on(t.submissionKey),
+  ],
+);
+export const organizerReviews = sqliteTable(
+  'organizer_reviews',
+  {
+    id: text('id').primaryKey(),
+    ideaId: text('idea_id')
+      .notNull()
+      .references(() => ideas.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    status: text('status').notNull(),
+    submissionKey: text('submission_key').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('idx_organizer_reviews_submission').on(t.submissionKey),
+    index('idx_organizer_reviews_idea_created').on(t.ideaId, t.createdAt),
+    index('idx_organizer_reviews_created').on(t.createdAt),
+  ],
 );

@@ -1,5 +1,6 @@
 const publicWrites = new Set([
   '/api/ideas',
+  '/api/activity',
   '/api/comments',
   '/api/support',
   '/api/reports',

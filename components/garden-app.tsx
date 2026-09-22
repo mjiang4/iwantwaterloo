@@ -456,6 +456,10 @@ function Garden() {
                 photoProvider={parkView.provider}
                 onQualityChange={changeParkQuality}
                 onExplore={introduction.dismiss}
+                onDiscover={() => {
+                  introduction.dismiss();
+                  setDiscoveryRequest((request) => request + 1);
+                }}
                 showIntroduction={introduction.open}
                 discoveryRequest={discoveryRequest}
                 obscured={sheetOpen || aboutOpen}
@@ -495,6 +499,9 @@ function Garden() {
             <button type="button" onClick={() => setAboutOpen(true)}>
               Privacy
             </button>
+            <Link prefetch={false} href="/updates">
+              Updates
+            </Link>
             <Contribute footer />
           </div>
           <p>
@@ -563,9 +570,13 @@ function Garden() {
             <p>
               Ideas, replies, names, tags and optional details are public. Names
               are self-entered and not verified. Avoid sharing private contact
-              details. No account is needed. A browser cookie remembers support;
-              drafts stay in this tab. Temporary hashed network identifiers help
-              limit spam.
+              details. No account is needed. A browser cookie remembers support
+              and lets you update your ideas; drafts stay in this tab. Temporary
+              hashed network identifiers help limit spam. We count contributions
+              arriving through shared links, credited contributions, and
+              returning authors without storing browsing history. Earlier idea
+              versions remain visible. Clearing cookies removes access to your
+              author controls.
             </p>
             <p>
               Support counts are not a representative poll. This is an

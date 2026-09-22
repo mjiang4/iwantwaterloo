@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { env } from 'cloudflare:workers';
 import { findIdea } from '@/server/idea-records';
-import { ideaBody, hasDerivedTitle } from '@/lib/garden';
+import { questionFor } from '@/lib/participation';
 import { SharedIdeaActions } from '@/components/shared-idea-actions';
 export const dynamic = 'force-dynamic';
 const getIdea = cache(async (id: string) => {
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? env.PREVIEW_ORIGIN
       : 'https://iwantwaterloo.com';
   const url = new URL(`/ideas/${idea.id}`, base).href;
-  const description = idea.description.slice(0, 200);
+  const description = `${questionFor(idea)} Help shape this idea.`;
   return {
     title: `${idea.title} · I want Waterloo`,
     description,
@@ -44,24 +44,6 @@ export default async function IdeaPage({ params }: Props) {
         i want / waterloo
       </Link>
       <article>
-        <h1 className={hasDerivedTitle(idea) ? 'sr-only' : undefined}>
-          {idea.title}
-        </h1>
-        {Boolean(ideaBody(idea)) && (
-          <p
-            className={`shared-idea-body${hasDerivedTitle(idea) ? ' full-idea' : ''}`}
-          >
-            {ideaBody(idea)}
-          </p>
-        )}
-        {idea.displayName && (
-          <p className="idea-signature">{idea.displayName}</p>
-        )}
-        {!!idea.tags?.length && (
-          <p className="shared-tags">
-            {idea.tags.map((tag) => `#${tag}`).join(' ')}
-          </p>
-        )}
         <SharedIdeaActions idea={idea} />
       </article>
       <Link

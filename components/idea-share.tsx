@@ -2,8 +2,13 @@
 import { useRef, useState } from 'react';
 import { Share2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { questionFor } from '@/lib/participation';
 import type { Idea } from '@/lib/garden';
-export function IdeaShare({ idea }: { idea: Pick<Idea, 'id' | 'title'> }) {
+export function IdeaShare({
+  idea,
+}: {
+  idea: Pick<Idea, 'id' | 'title' | 'question'>;
+}) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -13,12 +18,16 @@ export function IdeaShare({ idea }: { idea: Pick<Idea, 'id' | 'title'> }) {
     setBusy(true);
     setMessage('');
     const url = new URL(
-      `/ideas/${encodeURIComponent(idea.id)}`,
+      `/ideas/${encodeURIComponent(idea.id)}?via=share`,
       location.origin,
     ).href;
     try {
       if (navigator.share)
-        await navigator.share({ title: idea.title, text: idea.title, url });
+        await navigator.share({
+          title: idea.title,
+          text: `${idea.title}\n${questionFor(idea)}\nHelp shape this idea.`,
+          url,
+        });
       else {
         await navigator.clipboard.writeText(url);
         setMessage('Link copied');
@@ -48,19 +57,26 @@ export function IdeaShare({ idea }: { idea: Pick<Idea, 'id' | 'title'> }) {
 export function PlantReceipt({
   idea,
   onDone,
+  onDevelop,
 }: {
   idea: Idea;
   onDone: () => void;
+  onDevelop?: () => void;
 }) {
   return (
     <section className="plant-receipt" aria-label="Your posted idea">
       <output className="receipt-status">Your idea is in the garden.</output>
-      <p className="receipt-text">{idea.description}</p>
+      <p className="receipt-text">{questionFor(idea)}</p>
       {idea.displayName && (
         <p className="receipt-signature">{idea.displayName}</p>
       )}
       <div className="receipt-actions">
         <IdeaShare idea={idea} />
+        {onDevelop && (
+          <Button variant="ghost" onClick={onDevelop}>
+            Shape your idea
+          </Button>
+        )}
         <Button variant="ghost" onClick={onDone}>
           Done
         </Button>

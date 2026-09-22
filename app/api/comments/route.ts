@@ -7,6 +7,7 @@ import {
   readBody,
   response,
 } from '@/lib/server';
+import { CONTRIBUTION_KINDS } from '@/lib/participation';
 import { limitWrites } from '@/lib/rate-limit';
 
 function text(value: unknown, name: string, max: number, min = 0) {
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
     if (!idea) throw new InputError('Idea not found.', 404);
     const rows = await db
       .prepare(
-        "SELECT id,idea_id AS ideaId,parent_id AS parentId,body,coalesce(display_name,'') AS displayName,created_at AS createdAt FROM comments WHERE idea_id=? AND moderation_state='visible' ORDER BY created_at,id LIMIT 21 OFFSET ?",
+        "SELECT c.id,c.idea_id AS ideaId,c.parent_id AS parentId,c.kind,c.body,coalesce(c.display_name,'') AS displayName,c.created_at AS createdAt,EXISTS(SELECT 1 FROM idea_updates u,json_each(u.credits) credit WHERE u.idea_id=c.idea_id AND credit.value=c.id) AS incorporated,c.visitor_id=(SELECT visitor_id FROM ideas WHERE id=c.idea_id) AS byAuthor FROM comments c WHERE c.idea_id=? AND moderation_state='visible' ORDER BY created_at,id LIMIT 21 OFFSET ?",
       )
       .bind(ideaId, page * 20)
       .all();
@@ -64,6 +65,10 @@ export async function POST(request: Request) {
     const parentId = text(value.parentId, 'Reply', 36);
     const body = text(value.body, 'Reply', 1000, 2);
     const displayName = text(value.displayName, 'Name', 60);
+    const kind = text(value.kind, 'Contribution', 20) || 'detail';
+    const source = value.source === 'share' ? 'share' : 'garden';
+    if (!CONTRIBUTION_KINDS.some((item) => item.id === kind))
+      throw new InputError('Choose a contribution type.');
     const submissionKey = text(value.submissionKey, 'Submission', 36, 36);
     if (
       !/^[a-f0-9-]{36}$/.test(ideaId) ||
@@ -75,15 +80,16 @@ export async function POST(request: Request) {
     async function findPrevious() {
       const previous = await db
         .prepare(
-          "SELECT id,idea_id AS ideaId,parent_id AS parentId,body,coalesce(display_name,'') AS displayName,created_at AS createdAt FROM comments WHERE submission_key=?",
+          "SELECT id,idea_id AS ideaId,parent_id AS parentId,kind,body,coalesce(display_name,'') AS displayName,created_at AS createdAt FROM comments WHERE submission_key=? AND visitor_id=?",
         )
-        .bind(submissionKey)
+        .bind(submissionKey, id)
         .first();
       if (previous) {
         if (
           previous.ideaId !== ideaId ||
           previous.parentId !== (parentId || null) ||
           previous.body !== body ||
+          previous.kind !== kind ||
           previous.displayName !== displayName
         )
           throw new InputError(
@@ -116,7 +122,7 @@ export async function POST(request: Request) {
     const now = Date.now();
     const inserted = await db
       .prepare(
-        'INSERT INTO comments (id,idea_id,parent_id,body,display_name,created_at,visitor_id,submission_key) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO comments (id,idea_id,parent_id,body,display_name,created_at,visitor_id,submission_key,kind,source) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         commentId,
@@ -127,11 +133,14 @@ export async function POST(request: Request) {
         now,
         id,
         submissionKey,
+        kind,
+        source,
       )
       .run();
     if (!inserted.meta.changes) {
       const saved = await findPrevious();
-      if (!saved) throw new Error('Comment retry could not be recovered');
+      if (!saved)
+        throw new InputError('Please retry with a new submission.', 409);
       return response(request, id, { comment: saved });
     }
     return response(
@@ -143,6 +152,7 @@ export async function POST(request: Request) {
           ideaId,
           parentId: parentId || null,
           body,
+          kind,
           displayName,
           createdAt: now,
         },

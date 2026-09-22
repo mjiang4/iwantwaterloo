@@ -28,7 +28,7 @@ function patchSupport(client: QueryClient, id: string, fields: SupportState) {
   client.setQueriesData<GardenPage>({ queryKey: ['garden'] }, (data) =>
     data ? { ...data, ideas: patch(data.ideas) } : data,
   );
-  client.setQueryData<{ ideas: Idea[] }>(['shared-idea', id], (data) =>
+  client.setQueryData<{ ideas: Idea[] }>(['idea', id], (data) =>
     data ? { ...data, ideas: patch(data.ideas) } : data,
   );
 }
@@ -57,7 +57,7 @@ export function useIdeaSupport({
       };
       try {
         await Promise.all(
-          ['ideas', 'garden', 'shared-idea'].map((key) =>
+          ['ideas', 'garden', 'idea', 'discovery'].map((key) =>
             client.cancelQueries({ queryKey: [key] }),
           ),
         );
@@ -83,7 +83,7 @@ export function useIdeaSupport({
         locks.current.delete(idea.id);
         setPending(new Set(locks.current));
         void Promise.all(
-          ['ideas', 'garden', 'shared-idea'].map((key) =>
+          ['ideas', 'garden', 'idea', 'discovery'].map((key) =>
             client.invalidateQueries({ queryKey: [key] }),
           ),
         );

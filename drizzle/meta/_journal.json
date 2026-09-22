@@ -36,6 +36,13 @@
       "when": 1789340397584,
       "tag": "0004_preview_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790035746307,
+      "tag": "0006_participation",
+      "breakpoints": true
     }
   ]
 }

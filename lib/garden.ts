@@ -77,11 +77,20 @@ export type Idea = {
   plot?: number;
   displayName?: string;
   commentCount?: number;
+  question?: string;
+  owned?: boolean;
+  version?: number;
+  creditedCount?: number;
+  reviewCount?: number;
+  reviewStatus?: string;
 };
 export type GardenComment = {
   id: string;
   ideaId: string;
   parentId: string | null;
+  kind?: import('./participation').ContributionKind;
+  incorporated?: boolean;
+  byAuthor?: boolean;
   body: string;
   displayName: string;
   createdAt: number;
@@ -112,7 +121,7 @@ export function filterIdeas(
         ),
     )
     .sort((a, b) =>
-      sort === 'random'
+      ['random', 'discover', 'needs-input', 'progress'].includes(sort)
         ? 0
         : Number(a.example) - Number(b.example) ||
           (sort === 'watered' ? b.waters - a.waters : 0) ||
