@@ -5,7 +5,7 @@ import { InputError } from '@/lib/server';
 export async function limitWrites(
   request: Request,
   visitorId: string,
-  scope: 'ideas' | 'support' | 'comments' | 'reports',
+  scope: 'ideas' | 'support' | 'comments' | 'reports' | 'feedback',
   now = Date.now(),
 ) {
   const secret =
@@ -31,8 +31,18 @@ export async function limitWrites(
   const key = Array.from(new Uint8Array(signature), (x) =>
     x.toString(16).padStart(2, '0'),
   ).join('');
-  const duration = scope === 'ideas' || scope === 'comments' ? 600000 : 60000,
-    maximum = scope === 'ideas' ? 120 : scope === 'comments' ? 80 : 300;
+  const duration =
+      scope === 'ideas' || scope === 'comments' || scope === 'feedback'
+        ? 600000
+        : 60000,
+    maximum =
+      scope === 'feedback'
+        ? 5
+        : scope === 'ideas'
+          ? 120
+          : scope === 'comments'
+            ? 80
+            : 300;
   const db = database();
   const results = await db.batch([
     db.prepare('DELETE FROM rate_limits WHERE expires_at<=?').bind(now),

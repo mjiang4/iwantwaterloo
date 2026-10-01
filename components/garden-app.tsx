@@ -463,8 +463,9 @@ function Garden() {
               How it works
             </button>
             <button type="button" onClick={() => setAboutOpen(true)}>
-              Privacy
+              About
             </button>
+            <Link href="/feedback">Feedback</Link>
             <a href="https://github.com/mjiang4/iwantwaterloo">GitHub</a>
           </div>
           <p>
@@ -544,20 +545,21 @@ function Garden() {
         </Sheet>
         <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
           <DialogContent className="about-dialog">
-            <DialogTitle>Waterloo Ideas</DialogTitle>
+            <DialogTitle>I Want Waterloo</DialogTitle>
             <DialogDescription>
-              Share suggestions for Waterloo. Everyone is welcome.
+              Share your ideas for making Waterloo a better place.
             </DialogDescription>
             <p>
-              Ideas, replies, names, tags and optional details are public. Names
-              are self-entered and not verified. Avoid sharing private contact
-              details. No account is needed. A browser cookie remembers support;
-              drafts stay in this tab. Temporary hashed network identifiers help
-              limit spam.
-            </p>
-            <p>
-              Support counts are not a representative poll. This is an
-              independent project, not a City of Waterloo service.
+              I Want Waterloo is an independent, open-source project built by{' '}
+              <a href="https://linkedin.com/in/jerrymjiang">Jerry Jiang</a> to
+              improve Waterloo by collecting ideas and solutions from residents
+              and visitors alike. You can help us improve by simply submitting
+              your ideas, <Link href="/feedback">giving us feedback</Link>, or
+              just{' '}
+              <a href="https://github.com/mjiang4/iwantwaterloo">
+                submitting a PR
+              </a>
+              !
             </p>
             <Button onClick={() => setAboutOpen(false)}>Got it</Button>
           </DialogContent>

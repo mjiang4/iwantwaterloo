@@ -3,6 +3,7 @@ const publicWrites = new Set([
   '/api/comments',
   '/api/support',
   '/api/reports',
+  '/api/feedback',
 ]);
 let visitorReady: Promise<void> | null = null;
 

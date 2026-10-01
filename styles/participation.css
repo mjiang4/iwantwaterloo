@@ -196,3 +196,46 @@
   outline-offset: 3px;
   border-radius: 4px;
 }
+
+.feedback-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+}
+.feedback-page h1 {
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  line-height: 1.2;
+  margin: 28px 0;
+}
+.feedback-form {
+  display: grid;
+  gap: 14px;
+}
+.feedback-form textarea {
+  min-height: 180px;
+  font-size: 1rem;
+  padding: 14px;
+}
+.feedback-form p,
+.feedback-success p {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #5f7256;
+}
+.feedback-form > button {
+  justify-self: start;
+  min-height: 44px;
+}
+.feedback-success h2 {
+  font-size: 1.3rem;
+  margin-bottom: 12px;
+}
+.feedback-success a,
+.about-dialog p a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.feedback-success a {
+  display: inline-block;
+  padding: 14px 0;
+}

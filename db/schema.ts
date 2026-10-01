@@ -117,3 +117,21 @@ export const previewChecks = sqliteTable(
   },
   (t) => [index('idx_preview_checks_status_created').on(t.status, t.createdAt)],
 );
+
+// Website feedback is separate from community ideas and read by the issue-sync task.
+export const websiteFeedback = sqliteTable(
+  'website_feedback',
+  {
+    id: text('id').primaryKey(),
+    body: text('body').notNull(),
+    visitorId: text('visitor_id').notNull(),
+    submissionKey: text('submission_key').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('idx_feedback_visitor_submission').on(
+      t.visitorId,
+      t.submissionKey,
+    ),
+  ],
+);
