@@ -1,3 +1,4 @@
+import { isIdeaPlace } from '@/lib/idea-places';
 import { database } from '@/db/raw';
 import {
   identity,
@@ -44,6 +45,12 @@ export async function GET(request: Request) {
     if (exactId) {
       where.push('i.id = ?');
       args.push(exactId.slice(0, 64));
+    }
+    const place = url.searchParams.get('place') || 'all';
+    if (place !== 'all') {
+      if (!isIdeaPlace(place)) throw new InputError('Choose a city.');
+      where.push("COALESCE(NULLIF(i.place, ''), 'Waterloo') = ?");
+      args.push(place);
     }
     if (category !== 'all') {
       where.push('i.category = ?');

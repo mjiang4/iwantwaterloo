@@ -5,6 +5,7 @@ import type { IdeasPage } from './model';
 import type { IdeaFilters } from './use-idea-filters';
 
 export function useIdeas({
+  place,
   tag,
   debouncedQuery: query,
   connection,
@@ -13,12 +14,13 @@ export function useIdeas({
   mine,
 }: IdeaFilters) {
   return useInfiniteQuery({
-    queryKey: ['ideas', tag, query, connection, sort, shuffle, mine],
+    queryKey: ['ideas', tag, query, connection, sort, shuffle, mine, place],
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) =>
       requestJSON<IdeasPage>(
         '/api/ideas?' +
           new URLSearchParams({
+            place,
             tag,
             q: query,
             connection,
@@ -36,7 +38,8 @@ export function useIdeas({
       previousQuery.queryKey[1] === tag &&
       previousQuery.queryKey[2] === query &&
       previousQuery.queryKey[3] === connection &&
-      previousQuery.queryKey[6] === mine
+      previousQuery.queryKey[6] === mine &&
+      previousQuery.queryKey[7] === place
         ? previous
         : undefined,
     staleTime: 15000,
