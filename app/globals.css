@@ -2244,11 +2244,40 @@ main {
   outline: none;
 }
 
-.garden-controls .garden-back {
-  width: auto;
-  padding: 0 9px;
-  gap: 5px;
-  font-size: var(--text-small);
+.garden-return,
+.idea-return {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: #254d3b;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.garden-return {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  background: #fffffff2;
+  border: 1px solid #dce2d4;
+  box-shadow: 0 2px 8px #233b2010;
+}
+.idea-return {
+  align-self: flex-start;
+  flex-shrink: 0;
+  margin-right: 44px;
+}
+.garden-return:hover,
+.idea-return:hover {
+  background: #edf3e7;
+}
+.garden-return:focus-visible,
+.idea-return:focus-visible {
+  outline: 2px solid #254d3b;
+  outline-offset: 3px;
 }
 
 /* A continuous composer with a single optional public signature. */

@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Minus,
@@ -78,6 +79,7 @@ export function GardenExplorer({
   onSupport,
   pending,
   onList,
+  onBack,
 }: {
   mine: boolean;
   postedIdea: Idea | null;
@@ -97,6 +99,7 @@ export function GardenExplorer({
   onSupport: (idea: Idea) => void;
   pending: Set<string>;
   onList: () => void;
+  onBack: () => void;
 }) {
   const [page, setPage] = useState(
       Math.floor((focusIdea?.plot ?? 0) / GROVE_SIZE),
@@ -183,6 +186,14 @@ export function GardenExplorer({
     setFailed(true);
     if (moment) onMomentComplete(moment.serial);
   }, [moment, onMomentComplete]);
+  function returnToGarden() {
+    setInspectedId(null);
+    setFramedId(null);
+    setNearby([]);
+    setZoom(1);
+    setReset((n) => n + 1);
+    onBack();
+  }
   function toggleMotion() {
     setMotion((v) => {
       try {
@@ -215,6 +226,17 @@ export function GardenExplorer({
           data-motion={motion}
           data-celebrating={moment?.kind || undefined}
         >
+          {(framedId || inspectedId || postedIdea) && (
+            <button
+              type="button"
+              className="garden-return"
+              aria-label="Back to garden"
+              onClick={returnToGarden}
+            >
+              <ArrowLeft size={20} aria-hidden="true" />
+              <span>Back</span>
+            </button>
+          )}
           <div className="scene">
             <SceneBoundary onFailure={onFailure}>
               <Suspense
@@ -229,7 +251,7 @@ export function GardenExplorer({
                 ) : (
                   <GardenScene
                     ideas={ideas}
-                    selected={inspected?.id || focusIdea?.id || null}
+                    selected={inspected?.id || null}
                     onSelect={setInspectedId}
                     focusId={framedId}
                     moment={moment}
@@ -277,17 +299,12 @@ export function GardenExplorer({
               <Minus size={16} />
             </button>
             <button
-              className={`icon-button ${framedId ? 'garden-back' : ''}`}
-              aria-label={framedId ? 'Back to garden' : 'Reset view'}
-              title={framedId ? 'Back to garden' : 'Reset view'}
-              onClick={() => {
-                setFramedId(null);
-                setZoom(1);
-                setReset((n) => n + 1);
-              }}
+              className="icon-button"
+              aria-label="Reset view"
+              title="Reset view"
+              onClick={returnToGarden}
             >
               <RotateCcw size={16} />
-              {framedId && <span>Garden</span>}
             </button>
             <button
               className="icon-button"
@@ -343,10 +360,7 @@ export function GardenExplorer({
           <button
             className="icon-button"
             aria-label="Deselect tree"
-            onClick={() => {
-              setInspectedId(null);
-              setFramedId(null);
-            }}
+            onClick={returnToGarden}
           >
             <X size={16} />
           </button>

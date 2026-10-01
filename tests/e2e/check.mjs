@@ -86,8 +86,33 @@ try {
   ).json();
   assert.equal(mine.ideas[0].id, ideaId);
   console.log('PASS: posting reveals the garden and retains browser ownership');
+  await page
+    .getByRole('button', { name: 'Back to garden', exact: true })
+    .click();
+  assert.equal(await page.locator('.plant-receipt').count(), 0);
+  assert.equal(await page.locator('.garden-idea-dock').count(), 0);
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Back to garden', exact: true })
+      .count(),
+    0,
+  );
 
   await page.getByRole('tab', { name: /^Ideas/ }).click();
+  await page.locator('.idea-open').first().click();
+  await page
+    .getByRole('button', { name: 'Back to trees', exact: true })
+    .click();
+  await page.locator('.idea-sheet').waitFor({ state: 'hidden' });
+  assert.equal(new URL(page.url()).searchParams.has('idea'), false);
+  assert.equal(
+    await page
+      .getByRole('tab', { name: 'Garden', exact: true })
+      .getAttribute('aria-selected'),
+    'true',
+  );
+  await page.getByRole('tab', { name: /^Ideas/ }).click();
+
   await page.route('**/api/comments?**', (route) => route.abort());
   await page.locator('.idea-open').first().click();
   await page.locator('.discussion-error').waitFor();

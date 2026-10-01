@@ -8,7 +8,7 @@ import {
   QueryClientProvider,
   useQueryClient,
 } from '@tanstack/react-query';
-import { Info, Search, Sprout, X } from 'lucide-react';
+import { ArrowLeft, Info, Search, Sprout, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -42,6 +42,7 @@ import { requestJSON as api } from '@/lib/client';
 function Garden() {
   const client = useQueryClient();
   const [view, setView] = useState('garden');
+  const [gardenRevision, setGardenRevision] = useState(0);
   const filters = useIdeaFilters();
   const {
     mine,
@@ -426,6 +427,7 @@ function Garden() {
               tabIndex={-1}
             >
               <GardenExplorer
+                key={gardenRevision}
                 mine={mine}
                 postedIdea={postedIdea}
                 onReceiptDone={() => setPostedIdea(null)}
@@ -444,6 +446,13 @@ function Garden() {
                 onSupport={support}
                 pending={pending}
                 onList={() => setView('ideas')}
+                onBack={() => {
+                  setGardenFocus(null);
+                  setMoment(null);
+                  setPostedIdea(null);
+                  setPlantingId(null);
+                  setTreeHighlightId(null);
+                }}
               />
             </TabsContent>
           </div>
@@ -495,6 +504,24 @@ function Garden() {
                   : document.getElementById('new-idea')
             }
           >
+            <button
+              type="button"
+              className="idea-return"
+              onClick={() => {
+                setSheetOpen(false);
+                setGardenFocus(null);
+                setGardenRevision((n) => n + 1);
+                setPostedIdea(null);
+                setMoment(null);
+                setView('garden');
+                const url = new URL(window.location.href);
+                url.searchParams.delete('idea');
+                history.replaceState(null, '', url);
+              }}
+            >
+              <ArrowLeft size={20} aria-hidden="true" />
+              <span>Back to trees</span>
+            </button>
             {selected && (
               <IdeaDetails
                 key={selected.id}
