@@ -553,9 +553,11 @@ function Garden() {
               I Want Waterloo is an independent, open-source project built by{' '}
               <a href="https://linkedin.com/in/jerrymjiang">Jerry Jiang</a> to
               improve Waterloo by collecting ideas and solutions from residents
-              and visitors alike. You can help us improve by simply submitting
-              your ideas, <Link href="/feedback">giving us feedback</Link>, or
-              just{' '}
+              and visitors alike.
+            </p>
+            <p>
+              You can help us improve by simply submitting your ideas,{' '}
+              <Link href="/feedback">giving us feedback</Link>, or just{' '}
               <a href="https://github.com/mjiang4/iwantwaterloo">
                 submitting a PR
               </a>
