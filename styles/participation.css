@@ -45,8 +45,8 @@
 }
 .signature-field {
   display: block;
-  margin: 0 17px 8px;
-  padding: 4px 0 6px;
+  margin: 0 17px 4px;
+  padding: 0 0 2px;
 }
 .signature-field > label {
   display: flex;
@@ -54,7 +54,7 @@
   align-items: center;
   margin: 0 0 6px;
   font-size: var(--text-small);
-  color: #4e6247;
+  color: #354832;
 }
 .signature-field input[data-slot='input'] {
   border: 0;
@@ -75,7 +75,7 @@
 }
 .signature-field input[data-slot='input']::placeholder {
   font-size: 0.9375rem;
-  color: #65775d;
+  color: #757575;
   opacity: 1;
 }
 .signature-field .remember-signature {
@@ -179,8 +179,10 @@
 }
 
 .browse-suggestions {
-  display: block;
-  margin: 0 17px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 4px 0;
   min-height: 44px;
   padding: 10px 0;
   color: #53694b;

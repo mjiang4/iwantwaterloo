@@ -220,9 +220,9 @@ main {
   color: #798674;
 }
 .compose-shell {
-  border: 1px solid #dde3d8;
+  border: 1px solid #dddcd0;
   border-radius: 21px;
-  background: #fff;
+  background: #fdfbf5;
   box-shadow:
     0 2px 4px #23321d03,
     0 12px 34px #23321d04;
@@ -249,9 +249,9 @@ main {
   line-height: 1.6;
   letter-spacing: -0.012em;
   resize: vertical;
-  min-height: 130px;
+  min-height: 104px;
   max-height: 310px;
-  padding: 20px 18px 18px;
+  padding: 14px 18px 10px;
   border: 0;
   outline: 0 !important;
   box-shadow: none !important;
@@ -340,8 +340,10 @@ main {
   color: #466640;
 }
 .share-button[data-slot='button'] {
-  height: 41px;
-  min-height: 41px;
+  background: #254d3b;
+  color: #fffdf6;
+  height: 44px;
+  min-height: 44px;
   padding: 0 14px;
   border-radius: 11px;
   font-size: 0.875rem;
@@ -354,8 +356,8 @@ main {
     opacity 0.18s;
 }
 .share-button:disabled {
-  background: #eaf0e5;
-  color: #8b9c80;
+  background: #e7e9df;
+  color: #65705f;
   opacity: 1;
 }
 .share-button:not(:disabled):active {
@@ -1155,7 +1157,7 @@ main {
   .idea-input[data-slot='textarea'] {
     font-size: 1rem !important;
     padding: 15px 13px;
-    min-height: 122px;
+    min-height: 100px;
     max-height: 260px;
   }
   .compose-actions {

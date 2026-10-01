@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState, useEffect, type SyntheticEvent } from 'react';
-import { ArrowUp, X, TreeDeciduous, Sprout } from 'lucide-react';
+import { ArrowRight, X, TreeDeciduous, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -175,7 +175,7 @@ export function IdeaComposer({
               minLength={5}
               maxLength={1400}
               required
-              placeholder="Share your ideas. Be as detailed as you can!"
+              placeholder="I want Waterloo to…"
               rows={3}
               disabled={saving || !draftReady}
               onKeyDown={(e) => {
@@ -190,22 +190,15 @@ export function IdeaComposer({
               }}
               aria-describedby={`idea-guidance${error ? ' compose-error' : ''}`}
             />
-            <button
-              type="button"
-              className="browse-suggestions"
-              onClick={() => onGarden()}
-            >
-              See what others suggest
-            </button>
             <div className="signature-field">
               <label htmlFor="idea-signature">
-                About you <span className="sr-only">(optional)</span>
+                Name <span className="sr-only">(optional)</span>
               </label>
               <Input
                 id="idea-signature"
                 maxLength={60}
                 value={displayName}
-                placeholder="Alex, Waterloo resident"
+                placeholder="Alex, longtime local"
                 autoComplete="off"
                 disabled={saving || !draftReady}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -229,8 +222,8 @@ export function IdeaComposer({
                 disabled={saving || text.trim().length < 5}
                 aria-busy={saving}
               >
-                {saving ? 'Posting…' : 'Post idea'}
-                {!saving && <ArrowUp size={17} />}
+                {!saving && <Sprout size={18} aria-hidden="true" />}
+                {saving ? 'Planting…' : 'Plant your idea'}
               </Button>
             </div>
             <div className="honeypot" aria-hidden="true">
@@ -245,6 +238,15 @@ export function IdeaComposer({
           </form>
         )}
       </div>
+      {!shared && (
+        <button
+          type="button"
+          className="browse-suggestions"
+          onClick={() => onGarden()}
+        >
+          See what others suggest <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      )}
       {!shared && (
         <div className="compose-footnote">
           <button className="tree-context" onClick={() => onGarden()}>

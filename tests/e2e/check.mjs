@@ -70,7 +70,9 @@ try {
   const savedResponse = page.waitForResponse(
     (r) => r.url().endsWith('/api/ideas') && r.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Post idea', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Plant your idea', exact: true })
+    .click();
   const saved = await (await savedResponse).json();
   assert.ok(saved.idea?.id, JSON.stringify(saved));
   const ideaId = saved.idea.id;
@@ -263,7 +265,9 @@ try {
       path: path.join(artifacts, engine + '-mobile-compose.png'),
       fullPage: true,
     });
-    await page.getByRole('button', { name: 'Post idea', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Plant your idea', exact: true })
+      .click();
     await page.locator('.plant-receipt').waitFor();
     assert.equal(
       await page.evaluate(
