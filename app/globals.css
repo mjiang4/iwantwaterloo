@@ -2461,3 +2461,47 @@ main {
   margin-top: 0;
   color: #29332a;
 }
+
+.idea-place-picker {
+  margin: 8px 18px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #465942;
+  font-size: 0.9375rem;
+}
+.idea-place-picker select {
+  min-height: 44px;
+  max-width: 75%;
+  padding: 8px 12px;
+  border: 1px solid #dedfd5;
+  border-radius: 10px;
+  background: #fffefa;
+  color: #294930;
+  font: inherit;
+  font-size: 16px;
+}
+.idea-place-picker select:focus-visible {
+  outline: 2px solid #294930;
+  outline-offset: 3px;
+}
+.short-idea-prompt {
+  margin: 12px 18px;
+  padding: 16px 0 0;
+  border-top: 1px solid #dedfd5;
+  color: #294930;
+  font-size: 1rem;
+}
+.short-idea-hint {
+  margin-top: 4px;
+  color: #64725e;
+  font-size: 0.9375rem;
+}
+.short-idea-prompt > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}

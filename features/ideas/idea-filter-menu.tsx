@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/popover';
 import { Choice } from '@/components/choice';
 import { TagSearch } from '@/components/tag-picker';
+import { IDEA_PLACES } from '@/lib/idea-places';
 import { CONNECTIONS } from '@/lib/garden';
 import type { IdeaFilters } from './use-idea-filters';
 
@@ -60,6 +61,17 @@ export function IdeaFilterMenu({
         </PopoverTrigger>
         <PopoverContent className="filter-popover" align="end">
           <PopoverTitle className="popover-heading">Filter ideas</PopoverTitle>
+          <label htmlFor="filter-place">Where</label>
+          <Choice
+            id="filter-place"
+            label="Filter city"
+            value={filters.place}
+            onChange={filters.setPlace}
+            items={[
+              { value: 'all', label: 'Everywhere' },
+              ...IDEA_PLACES.map((place) => ({ value: place, label: place })),
+            ]}
+          />
           <label htmlFor="filter-tag-search">Tags</label>
           <TagSearch id="filter-tag-search" onChoose={setTag} />
           {tag !== 'all' && (

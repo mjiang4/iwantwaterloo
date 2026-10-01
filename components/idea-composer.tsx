@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ideaTitle, type Idea } from '@/lib/garden';
 import { submissionFor, type Submission } from '@/lib/submission';
 import { readSignature, saveSignature } from '@/lib/signature';
+import { IDEA_PLACES, isIdeaPlace, type IdeaPlace } from '@/lib/idea-places';
 import type { PlantInput } from '@/features/ideas/model';
 
 export function IdeaComposer({
@@ -16,11 +17,17 @@ export function IdeaComposer({
   onShare: (input: PlantInput) => Promise<Idea>;
   onGarden: (idea?: Idea) => void;
 }) {
+  const [place, setPlace] = useState<IdeaPlace>('Waterloo');
   const [text, setText] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [remember, setRemember] = useState(false);
   const [focused, setFocused] = useState(false);
   const [error, setError] = useState('');
+  const [confirmShort, setConfirmShort] = useState(false);
+  const detailPrompt = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirmShort) detailPrompt.current?.focus();
+  }, [confirmShort]);
   const [saving, setSaving] = useState(false);
   const [shared, setShared] = useState<Idea | null>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -41,6 +48,7 @@ export function IdeaComposer({
       );
       if (draft && typeof draft.text === 'string') {
         setText(draft.text.slice(0, 1400));
+        if (isIdeaPlace(draft.place)) setPlace(draft.place);
         setDisplayName(
           typeof draft.displayName === 'string'
             ? draft.displayName.slice(0, 60)
@@ -65,12 +73,13 @@ export function IdeaComposer({
           'waterloo-idea-draft',
           JSON.stringify({
             text,
+            place,
             displayName,
             submission: submission.current,
           }),
         );
     } catch {}
-  }, [draftReady, text, displayName, shared]);
+  }, [draftReady, text, place, displayName, shared]);
   useEffect(() => {
     if (draftReady) saveSignature(remember ? displayName : '');
   }, [draftReady, remember, displayName]);
@@ -83,6 +92,16 @@ export function IdeaComposer({
       textarea.current?.focus();
       return;
     }
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const postAnyway =
+      submitter instanceof HTMLButtonElement &&
+      submitter.value === 'post-anyway';
+    if (text.trim().length < 40 && !postAnyway) {
+      setConfirmShort(true);
+      detailPrompt.current?.focus();
+      return;
+    }
+    setConfirmShort(false);
     submitting.current = true;
     setSaving(true);
     setError('');
@@ -91,7 +110,7 @@ export function IdeaComposer({
         title: ideaTitle(text),
         description: text.trim(),
         tags: [],
-        place: '',
+        place,
         connection: '',
         displayName,
         consent: true,
@@ -103,6 +122,7 @@ export function IdeaComposer({
           'waterloo-idea-draft',
           JSON.stringify({
             text,
+            place,
             displayName,
             submission: submission.current,
           }),
@@ -170,12 +190,13 @@ export function IdeaComposer({
               value={text}
               onChange={(e) => {
                 setText(e.target.value);
+                setConfirmShort(false);
                 if (error) setError('');
               }}
               minLength={5}
               maxLength={1400}
               required
-              placeholder="I want Waterloo to…"
+              placeholder={`I want ${place} to…`}
               rows={3}
               disabled={saving || !draftReady}
               onKeyDown={(e) => {
@@ -215,17 +236,65 @@ export function IdeaComposer({
                 </label>
               )}
             </div>
-            <div className="compose-actions compose-post-action">
-              <Button
-                type="submit"
-                className="share-button"
-                disabled={saving || text.trim().length < 5}
-                aria-busy={saving}
+            <div className="idea-place-picker">
+              <label htmlFor="idea-place">Where</label>
+              <select
+                id="idea-place"
+                value={place}
+                disabled={saving || !draftReady}
+                onChange={(event) => {
+                  if (isIdeaPlace(event.target.value))
+                    setPlace(event.target.value);
+                }}
               >
-                {!saving && <Sprout size={18} aria-hidden="true" />}
-                {saving ? 'Planting…' : 'Plant your idea'}
-              </Button>
+                {IDEA_PLACES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </div>
+            {confirmShort && (
+              <div
+                className="short-idea-prompt"
+                role="group"
+                aria-labelledby="short-idea-heading"
+              >
+                <p id="short-idea-heading">Want to add a little more detail?</p>
+                <p className="short-idea-hint">
+                  A place or example helps others understand.
+                </p>
+                <div>
+                  <Button
+                    ref={detailPrompt}
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setConfirmShort(false);
+                      textarea.current?.focus();
+                    }}
+                  >
+                    Keep writing
+                  </Button>
+                  <Button type="submit" name="shortIdea" value="post-anyway">
+                    Post anyway
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!confirmShort && (
+              <div className="compose-actions compose-post-action">
+                <Button
+                  type="submit"
+                  className="share-button"
+                  disabled={saving || text.trim().length < 5}
+                  aria-busy={saving}
+                >
+                  {!saving && <Sprout size={18} aria-hidden="true" />}
+                  {saving ? 'Planting…' : 'Plant your idea'}
+                </Button>
+              </div>
+            )}
             <div className="honeypot" aria-hidden="true">
               <label htmlFor="garden-website">Website</label>
               <input

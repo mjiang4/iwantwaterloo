@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export function useIdeaFilters() {
+  const [place, setPlace] = useState('all');
   const [mine, setMine] = useState(false);
   const [tag, setTag] = useState('all');
   const [query, setQuery] = useState('');
@@ -15,6 +16,7 @@ export function useIdeaFilters() {
   }, [query]);
   const clearFilters = useCallback(() => {
     setMine(false);
+    setPlace('all');
     setTag('all');
     setQuery('');
     setDebouncedQuery('');
@@ -22,8 +24,14 @@ export function useIdeaFilters() {
     setSort('newest');
   }, []);
   const filtered =
-    mine || tag !== 'all' || connection !== 'all' || sort !== 'newest';
+    place !== 'all' ||
+    mine ||
+    tag !== 'all' ||
+    connection !== 'all' ||
+    sort !== 'newest';
   return {
+    place,
+    setPlace,
     mine,
     setMine,
     tag,

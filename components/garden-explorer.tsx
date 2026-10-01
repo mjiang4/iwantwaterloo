@@ -68,6 +68,7 @@ export function GardenExplorer({
   tag,
   query,
   connection,
+  place,
   focusIdea,
   moment,
   onMomentComplete,
@@ -88,6 +89,7 @@ export function GardenExplorer({
   tag: string;
   query: string;
   connection: string;
+  place: string;
   focusIdea: Idea | null;
   moment: GardenMoment | null;
   onMomentComplete: (serial: number) => void;
@@ -138,7 +140,7 @@ export function GardenExplorer({
   useEffect(() => {
     setPage(0);
     setNearby([]);
-  }, [tag, query, connection]);
+  }, [tag, query, connection, place]);
   useEffect(() => {
     if (focusIdea) {
       setPage(Math.floor((focusIdea.plot ?? 0) / GROVE_SIZE));
@@ -162,10 +164,10 @@ export function GardenExplorer({
     return () => media.removeEventListener('change', update);
   }, []);
   const result = useQuery({
-    queryKey: ['garden', page, tag, query, connection, mine],
+    queryKey: ['garden', page, tag, query, connection, mine, place],
     queryFn: ({ signal }) =>
       requestJSON<GardenPage>(
-        `/api/ideas?${new URLSearchParams({ garden: '1', mine: mine ? '1' : '0', page: String(page), tag, q: query, connection })}`,
+        `/api/ideas?${new URLSearchParams({ garden: '1', mine: mine ? '1' : '0', page: String(page), tag, q: query, connection, place })}`,
         { signal },
       ),
     refetchInterval: 15000,

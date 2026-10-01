@@ -54,6 +54,7 @@ function Garden() {
     debouncedQuery,
     setDebouncedQuery,
     connection,
+    place,
     sort,
     filtered,
     clearFilters,
@@ -433,6 +434,7 @@ function Garden() {
                 onReceiptDone={() => setPostedIdea(null)}
                 tag={tag}
                 query={debouncedQuery}
+                place={place}
                 connection={connection}
                 focusIdea={gardenFocus}
                 moment={moment}
