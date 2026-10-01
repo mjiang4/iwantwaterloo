@@ -135,3 +135,30 @@ export const websiteFeedback = sqliteTable(
     ),
   ],
 );
+
+// Production moderation is independent from isolated preview controls.
+export const gardenAdmins = sqliteTable('garden_admins', {
+  email: text('email').primaryKey(),
+  addedBy: text('added_by').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
+export const adminTokens = sqliteTable(
+  'admin_tokens',
+  {
+    hash: text('hash').primaryKey(),
+    email: text('email').notNull(),
+    kind: text('kind').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+  },
+  (t) => [
+    index('idx_admin_tokens_expiry').on(t.expiresAt),
+    index('idx_admin_tokens_email').on(t.email),
+  ],
+);
+export const adminAudit = sqliteTable('admin_audit', {
+  id: text('id').primaryKey(),
+  actor: text('actor').notNull(),
+  action: text('action').notNull(),
+  target: text('target').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
