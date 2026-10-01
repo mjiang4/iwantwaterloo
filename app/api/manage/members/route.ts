@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { database } from '@/db/raw';
 import { readBody, InputError } from '@/lib/server';
 import {
@@ -7,6 +8,8 @@ import {
   normalizeEmail,
   OWNER_EMAILS,
   audit,
+  randomToken,
+  digest,
 } from '@/server/admin-auth';
 export async function GET(request: Request) {
   try {
@@ -40,7 +43,24 @@ export async function POST(request: Request) {
           .bind(email, actor, Date.now()),
         audit(actor, 'add-admin', email),
       ]);
-    return adminJSON({ ok: true });
+    const hasPassword = await database()
+      .prepare('SELECT email FROM admin_passwords WHERE email=?')
+      .bind(email)
+      .first();
+    if (hasPassword) return adminJSON({ ok: true });
+    const token = randomToken();
+    await database()
+      .prepare(
+        "INSERT INTO admin_tokens(hash,email,kind,expires_at) VALUES (?,?,'password-setup',?)",
+      )
+      .bind(await digest(token), email, Date.now() + 86400000)
+      .run();
+    const url = new URL(
+      '/admin',
+      env.ADMIN_ORIGIN || 'https://iwantwaterloo.com',
+    );
+    url.hash = new URLSearchParams({ setup: token, email }).toString();
+    return adminJSON({ ok: true, setupUrl: url.href });
   } catch (error) {
     return adminFailure(error);
   }
@@ -57,6 +77,9 @@ export async function DELETE(request: Request) {
     await database().batch([
       database().prepare('DELETE FROM garden_admins WHERE email=?').bind(email),
       database().prepare('DELETE FROM admin_tokens WHERE email=?').bind(email),
+      database()
+        .prepare('DELETE FROM admin_passwords WHERE email=?')
+        .bind(email),
       audit(actor, 'remove-admin', email),
     ]);
     return adminJSON({ ok: true });

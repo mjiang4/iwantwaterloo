@@ -139,3 +139,18 @@ export async function loginLimit(request: Request, email: string) {
       throw new InputError('Too many requests. Try again in 15 minutes.', 429);
   }
 }
+
+export async function issueAdminSession(request: Request, email: string) {
+  const token = randomToken(),
+    db = database(),
+    now = Date.now();
+  await db.batch([
+    db.prepare('DELETE FROM admin_tokens WHERE expires_at<=?').bind(now),
+    db
+      .prepare(
+        "INSERT INTO admin_tokens(hash,email,kind,expires_at) VALUES (?,?,'session',?)",
+      )
+      .bind(await digest(token), email, now + SESSION_SECONDS * 1000),
+  ]);
+  return adminJSON({ email }, 200, sessionCookie(request, token));
+}

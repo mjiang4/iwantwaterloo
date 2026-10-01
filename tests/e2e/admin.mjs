@@ -19,12 +19,10 @@ try {
         .getByLabel('Admin email', { exact: true })
         .fill('jerry@unrepped.co');
       await page
-        .getByRole('button', { name: 'Email me a sign-in link' })
-        .click();
-      await page
-        .getByRole('alert')
-        .filter({ hasText: 'not configured' })
-        .waitFor();
+        .getByLabel('Password', { exact: true })
+        .fill('wrong test password');
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await page.getByRole('alert').filter({ hasText: 'incorrect' }).waitFor();
       await page.screenshot({
         path: `outputs/admin-checks/login-${engine.name()}.png`,
       });
