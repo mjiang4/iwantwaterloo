@@ -25,8 +25,9 @@ export async function POST(request: Request) {
     return new Response(null, { status: 404, headers });
   const db = database();
   const description = approvedContent[0][1];
+  const revisedDescription = description.replace('so that we never run out of water.', 'to make sure we never run out of good, soft water.').replace('get a pipeline, to make', 'get a pipeline to make');
   const visitor = 'b27f2587-d11c-49ea-ab29-45eedc412309';
-  const records = await db.prepare('SELECT id FROM ideas WHERE visitor_id=? AND description=?').bind(visitor, description).all<{ id: string }>();
+  const records = await db.prepare('SELECT id FROM ideas WHERE visitor_id=? AND description IN (?,?)').bind(visitor, description, revisedDescription).all<{ id: string }>();
   const ids = records.results.map(row => row.id);
   if (!ids.length) return Response.json({ removed: 0 }, { headers });
   if (ids.length > 20) return Response.json({ error: 'Too many matches; review required.' }, { status: 409, headers });
