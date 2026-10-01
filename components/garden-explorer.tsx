@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import type { GardenMoment } from '@/lib/garden-visuals';
 import { requestJSON } from '@/lib/client';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import type { ButterflyVisit } from '@/lib/garden-discovery';
 import { PlantReceipt } from './idea-share';
@@ -101,6 +102,7 @@ export function GardenExplorer({
   onList: () => void;
   onBack: () => void;
 }) {
+  const openOnTap = useMediaQuery('(max-width:760px), (pointer:coarse)');
   const [page, setPage] = useState(
       Math.floor((focusIdea?.plot ?? 0) / GROVE_SIZE),
     ),
@@ -186,6 +188,11 @@ export function GardenExplorer({
     setFailed(true);
     if (moment) onMomentComplete(moment.serial);
   }, [moment, onMomentComplete]);
+  function selectTree(id: string) {
+    setInspectedId(id);
+    const idea = ideas.find((item) => item.id === id);
+    if (openOnTap && idea) onRead(idea);
+  }
   function returnToGarden() {
     setInspectedId(null);
     setFramedId(null);
@@ -252,7 +259,7 @@ export function GardenExplorer({
                   <GardenScene
                     ideas={ideas}
                     selected={inspected?.id || null}
-                    onSelect={setInspectedId}
+                    onSelect={selectTree}
                     focusId={framedId}
                     moment={moment}
                     onMomentComplete={onMomentComplete}
@@ -413,7 +420,7 @@ export function GardenExplorer({
                   key={idea.id}
                   onClick={() => {
                     setNearby([]);
-                    setInspectedId(idea.id);
+                    selectTree(idea.id);
                   }}
                 >
                   <span>{idea.title}</span>

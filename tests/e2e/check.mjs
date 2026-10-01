@@ -275,8 +275,28 @@ try {
       ),
       true,
     );
-    await page.getByRole('tab', { name: /^Ideas/ }).click();
-    await page.locator('.idea-open').first().click();
+    await page
+      .getByRole('button', { name: 'Back to garden', exact: true })
+      .click();
+    const marker = page.locator('.garden-target').first();
+    await marker.waitFor();
+    const clustered = (await marker.getAttribute('aria-label')).startsWith(
+      'Choose',
+    );
+    await marker.tap();
+    if (clustered) await page.locator('.nearby-ideas button').first().tap();
+    await page.locator('.idea-sheet').waitFor({ state: 'visible' });
+    assert.equal(
+      await page
+        .getByRole('tab', { name: 'Garden', exact: true, includeHidden: true })
+        .getAttribute('aria-selected'),
+      'true',
+    );
+    const sheetBox = await page.locator('.idea-sheet').boundingBox();
+    assert.ok(
+      sheetBox && sheetBox.y < 844 && sheetBox.y + sheetBox.height > 0,
+      'Tapped idea must open in the viewport',
+    );
     const replyField = page.getByRole('textbox', {
       name: 'Your reply',
       exact: true,
