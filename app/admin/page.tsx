@@ -1,8 +1,10 @@
-import { env } from 'cloudflare:workers';
-import { notFound, redirect } from 'next/navigation';
+import { GardenAdmin } from '@/components/garden-admin';
 export const dynamic = 'force-dynamic';
+export const metadata = {
+  title: 'Admin · I Want Waterloo',
+  robots: { index: false, follow: false },
+  referrer: 'no-referrer' as const,
+};
 export default function AdminPage() {
-  if (env.GARDEN_ENV === 'preview') redirect('/');
-  if (import.meta.env.DEV) redirect('http://localhost:3001/');
-  notFound();
+  return <GardenAdmin />;
 }

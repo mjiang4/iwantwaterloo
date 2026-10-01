@@ -2,6 +2,9 @@
 declare namespace Cloudflare {
   interface Env {
     DB: D1Database;
+    RESEND_API_KEY?: string;
+    ADMIN_EMAIL_FROM?: string;
+    ADMIN_ORIGIN?: string;
     RATE_LIMIT_SECRET?: string;
     GARDEN_ENV?: string;
     PREVIEW_ID?: string;

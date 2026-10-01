@@ -2564,3 +2564,121 @@ main {
   gap: 8px;
   margin-top: 12px;
 }
+
+.garden-admin {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+  color: #293b2c;
+}
+.admin-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: #52694b;
+}
+.garden-admin header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 24px 0 8px;
+}
+.garden-admin h1 {
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  letter-spacing: -0.04em;
+}
+.garden-admin h2 {
+  font-size: 1.25rem;
+  margin-bottom: 12px;
+}
+.garden-admin button {
+  min-height: 44px;
+}
+.garden-admin input {
+  min-height: 44px;
+  font-size: 16px;
+}
+.admin-identity,
+.admin-meta {
+  color: #61725b;
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+.garden-admin nav {
+  display: flex;
+  gap: 8px;
+  margin: 24px 0;
+}
+.admin-login {
+  max-width: 430px;
+  padding-top: 20px;
+}
+.admin-login form {
+  display: grid;
+  gap: 16px;
+}
+.admin-login p {
+  color: #61725b;
+  margin: 12px 0;
+}
+.admin-search {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+.admin-idea {
+  margin: 16px 0;
+  padding: 20px;
+  background: #fffdf7;
+  border: 1px solid #dfe3d8;
+  border-radius: 16px;
+}
+.admin-idea-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.admin-meta {
+  margin: 12px 0;
+}
+.admin-confirm {
+  border-top: 1px solid #dfe3d8;
+  padding-top: 16px;
+}
+.admin-confirm p {
+  margin-bottom: 12px;
+}
+.admin-danger {
+  background: #8a3530 !important;
+  color: white !important;
+}
+.admin-notice,
+.admin-error {
+  padding: 14px 16px;
+  margin: 16px 0;
+  border-radius: 12px;
+  background: #eaf0e4;
+}
+.admin-error {
+  color: #8a3530;
+  background: #fbefeb;
+}
+.admin-member {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid #dfe3d8;
+  overflow-wrap: anywhere;
+}
+.admin-member small {
+  margin-left: 10px;
+  color: #61725b;
+}
+.admin-members form {
+  margin-top: 24px;
+}

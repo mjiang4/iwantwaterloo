@@ -20,7 +20,10 @@ export function rejectExternalTarget() {
 }
 
 /** No persisted files, external URLs, owner credentials, or existing databases. */
-export async function createApiHarness({ preview = false } = {}) {
+export async function createApiHarness({
+  preview = false,
+  emailDelivery = null,
+} = {}) {
   rejectExternalTarget();
   bundle ||= build({
     entryPoints: [path.join(root, 'tests/helpers/api-worker.ts')],
@@ -43,8 +46,20 @@ export async function createApiHarness({ preview = false } = {}) {
     compatibilityFlags: ['nodejs_compat'],
     d1Databases: { DB: 'test-' + randomUUID() },
     d1Persist: false,
+    outboundService: async (request) => {
+      if (!emailDelivery)
+        throw new Error('Unexpected outbound request in test');
+      return emailDelivery(request);
+    },
     bindings: {
       GARDEN_ENV: preview ? 'preview' : 'test',
+      ...(emailDelivery
+        ? {
+            RESEND_API_KEY: 'test-only-key',
+            ADMIN_EMAIL_FROM: 'Garden <admin@example.test>',
+            ADMIN_ORIGIN: 'https://garden.example.test',
+          }
+        : {}),
       RATE_LIMIT_SECRET: secret,
       ...(preview
         ? {

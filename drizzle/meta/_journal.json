@@ -43,6 +43,13 @@
       "when": 1790822594177,
       "tag": "0005_nosy_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790896716221,
+      "tag": "0006_loud_warstar",
+      "breakpoints": true
     }
   ]
 }
