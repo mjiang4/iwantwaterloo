@@ -11,9 +11,9 @@ function derive(password: string, salt: string) {
   );
 }
 export function validatePassword(value: unknown): string {
-  if (typeof value !== 'string' || value.length < 15 || value.length > 128)
+  if (typeof value !== 'string' || value.length < 8 || value.length > 128)
     throw new InputError(
-      'Use a password or passphrase with 15–128 characters.',
+      'Use a password or passphrase with 8–128 characters.',
     );
   return value;
 }

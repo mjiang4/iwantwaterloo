@@ -16,7 +16,7 @@ Bootstrap can create exactly one initial owner password, only while no passwords
 
 In **Admins**, enter an email and choose **Add**. Copy the private setup link and send it to the intended person. The link expires in 24 hours, works once, and only creates that person's password. No email is sent automatically. Use the same process to set up the second owner email. Never put invitation links in public issues or commits.
 
-Passwords must have 15–128 characters. Passwords are salted and hashed with native scrypt (N=16384, r=8, p=5; OWASP's 16 MiB profile); plaintext passwords are never persisted. Removing an admin removes their password, outstanding setup links and sessions. Password changes require the existing password and end all sessions for that account.
+Passwords must have 8–128 characters. Passwords are salted and hashed with native scrypt (N=16384, r=8, p=5; OWASP's 16 MiB profile); plaintext passwords are never persisted. Removing an admin removes their password, outstanding setup links and sessions. Password changes require the existing password and end all sessions for that account.
 
 There is no unauthenticated reset or email recovery. If all owners lose access, an authorized operator must perform a separately reviewed credential reset; the original bootstrap cannot be reused.
 
