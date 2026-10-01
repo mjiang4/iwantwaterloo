@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { ideaTitle, type Idea } from '@/lib/garden';
-import { WritingExample } from './writing-example';
 import { submissionFor, type Submission } from '@/lib/submission';
 import { readSignature, saveSignature } from '@/lib/signature';
 import type { PlantInput } from '@/features/ideas/model';
@@ -160,7 +159,7 @@ export function IdeaComposer({
               Your idea for Waterloo
             </label>
             <p id="idea-guidance" className="sr-only">
-              Share a change and why it matters.
+              Share your ideas. Be as detailed as you can!
             </p>
             <Textarea
               onFocus={() => setFocused(true)}
@@ -176,7 +175,7 @@ export function IdeaComposer({
               minLength={5}
               maxLength={1400}
               required
-              placeholder="Share a change and why it matters."
+              placeholder="Share your ideas. Be as detailed as you can!"
               rows={3}
               disabled={saving || !draftReady}
               onKeyDown={(e) => {
@@ -191,7 +190,13 @@ export function IdeaComposer({
               }}
               aria-describedby={`idea-guidance${error ? ' compose-error' : ''}`}
             />
-            <WritingExample />
+            <button
+              type="button"
+              className="browse-suggestions"
+              onClick={() => onGarden()}
+            >
+              See what others suggest
+            </button>
             <div className="signature-field">
               <label htmlFor="idea-signature">
                 About you <span className="sr-only">(optional)</span>
@@ -200,7 +205,7 @@ export function IdeaComposer({
                 id="idea-signature"
                 maxLength={60}
                 value={displayName}
-                placeholder="Alex, 19, CS student"
+                placeholder="Alex, Waterloo resident"
                 autoComplete="off"
                 disabled={saving || !draftReady}
                 onChange={(e) => setDisplayName(e.target.value)}

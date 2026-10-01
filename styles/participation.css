@@ -177,3 +177,22 @@
     margin-right: 12px;
   }
 }
+
+.browse-suggestions {
+  display: block;
+  margin: 0 17px 12px;
+  min-height: 44px;
+  padding: 10px 0;
+  color: #53694b;
+  font-size: var(--text-small);
+  cursor: pointer;
+  text-align: left;
+}
+.browse-suggestions:hover {
+  text-decoration: underline;
+}
+.browse-suggestions:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
