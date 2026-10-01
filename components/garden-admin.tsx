@@ -223,7 +223,7 @@ export function GardenAdmin() {
               type="password"
               autoComplete={link ? 'new-password' : 'current-password'}
               value={password}
-              minLength={link ? 15 : undefined}
+              minLength={link ? 8 : undefined}
               maxLength={128}
               required
               disabled={busy}
@@ -231,7 +231,7 @@ export function GardenAdmin() {
             />
             {link && (
               <>
-                <p>Use at least 15 characters. A passphrase works well.</p>
+                <p>Use at least 8 characters. A passphrase works well.</p>
                 <label htmlFor="admin-repeat">Confirm password</label>
                 <Input
                   id="admin-repeat"
@@ -504,7 +504,7 @@ export function GardenAdmin() {
                   autoComplete="new-password"
                   value={newPassword}
                   required
-                  minLength={15}
+                  minLength={8}
                   maxLength={128}
                   onChange={(e) => setNewPassword(e.target.value)}
                 />

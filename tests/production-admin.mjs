@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID, scryptSync } from 'node:crypto';
 import { createApiHarness, ideaPayload } from './helpers/api-harness.mjs';
 const owners = ['jerry@unrepped.co', 'jerry@akatos.com'];
-const password = 'A test-only password with plenty of words';
+const password = 'Test8!ab';
 const hash = (t) => createHash('sha256').update(t).digest('hex');
 const encoded = () => {
   const salt = randomBytes(16).toString('hex');
