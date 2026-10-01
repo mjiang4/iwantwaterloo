@@ -23,6 +23,7 @@ export function rejectExternalTarget() {
 export async function createApiHarness({
   preview = false,
   emailDelivery = null,
+  bootstrapHash = undefined,
 } = {}) {
   rejectExternalTarget();
   bundle ||= build({
@@ -33,7 +34,7 @@ export async function createApiHarness({
     format: 'esm',
     platform: 'neutral',
     target: 'es2022',
-    external: ['cloudflare:workers'],
+    external: ['cloudflare:workers', 'node:*'],
     define: { 'import.meta.env.DEV': 'false' },
   });
   const result = await bundle;
@@ -61,6 +62,12 @@ export async function createApiHarness({
           }
         : {}),
       RATE_LIMIT_SECRET: secret,
+      ...(bootstrapHash
+        ? {
+            ADMIN_BOOTSTRAP_HASH: bootstrapHash,
+            ADMIN_BOOTSTRAP_EXPIRES: String(Date.now() + 3600000),
+          }
+        : {}),
       ...(preview
         ? {
             PREVIEW_ID: previewId,

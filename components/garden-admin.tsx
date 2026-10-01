@@ -49,6 +49,11 @@ export function GardenAdmin() {
     [loading, setLoading] = useState(true),
     [input, setInput] = useState(''),
     [link, setLink] = useState('');
+  const [password, setPassword] = useState(''),
+    [repeat, setRepeat] = useState(''),
+    [setupUrl, setSetupUrl] = useState('');
+  const [currentPassword, setCurrentPassword] = useState(''),
+    [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false);
@@ -65,10 +70,13 @@ export function GardenAdmin() {
   }
   useEffect(() => {
     const token = new URLSearchParams(window.location.hash.slice(1)).get(
-      'token',
+      'setup',
     );
     if (token) {
       setLink(token);
+      setInput(
+        new URLSearchParams(window.location.hash.slice(1)).get('email') || '',
+      );
       history.replaceState(null, '', location.pathname);
     }
     call<{ email: string }>('session')
@@ -146,6 +154,7 @@ export function GardenAdmin() {
                 setAdmins([]);
                 setInput('');
                 setLink('');
+                setSetupUrl('');
               })
             }
           >
@@ -168,63 +177,91 @@ export function GardenAdmin() {
         <p role="status">Loading…</p>
       ) : !email ? (
         <section className="admin-login">
-          {link ? (
-            <>
-              <h2>Sign in to your garden</h2>
-              <p>Continue using the link from your email.</p>
-              <Button
-                disabled={busy}
-                onClick={() =>
-                  act(async () => {
-                    const r = await call<{ email: string }>('session', 'POST', {
-                      token: link,
-                    });
-                    setLink('');
-                    setEmail(r.email);
-                  })
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void act(async () => {
+                if (link) {
+                  if (password !== repeat)
+                    throw new Error('Passwords do not match.');
+                  await call('setup', 'POST', {
+                    email: input,
+                    token: link,
+                    password,
+                  });
+                  setLink('');
+                  setPassword('');
+                  setRepeat('');
+                  setNotice('Password set. Sign in below.');
+                } else {
+                  const result = await call<{ email: string }>(
+                    'login',
+                    'POST',
+                    { email: input, password },
+                  );
+                  setPassword('');
+                  setEmail(result.email);
+                  setInput('');
                 }
-              >
-                {busy ? 'Signing in…' : 'Sign in'}
-              </Button>
+              });
+            }}
+          >
+            {link && <h2>Choose your password</h2>}
+            <label htmlFor="admin-email">Admin email</label>
+            <Input
+              id="admin-email"
+              type="email"
+              autoComplete="username"
+              value={input}
+              required
+              disabled={busy || Boolean(link)}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            <label htmlFor="admin-password">Password</label>
+            <Input
+              id="admin-password"
+              type="password"
+              autoComplete={link ? 'new-password' : 'current-password'}
+              value={password}
+              minLength={link ? 15 : undefined}
+              maxLength={128}
+              required
+              disabled={busy}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {link && (
+              <>
+                <p>Use at least 15 characters. A passphrase works well.</p>
+                <label htmlFor="admin-repeat">Confirm password</label>
+                <Input
+                  id="admin-repeat"
+                  type="password"
+                  autoComplete="new-password"
+                  value={repeat}
+                  required
+                  disabled={busy}
+                  onChange={(e) => setRepeat(e.target.value)}
+                />
+              </>
+            )}
+            <Button type="submit" disabled={busy}>
+              {busy ? 'Please wait…' : link ? 'Set password' : 'Sign in'}
+            </Button>
+            {link && (
               <Button
+                type="button"
                 variant="ghost"
-                disabled={busy}
                 onClick={() => {
                   setLink('');
-                  setError('');
+                  setPassword('');
+                  setRepeat('');
                 }}
               >
-                Use another email
+                Back to sign in
               </Button>
-            </>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void act(async () => {
-                  const r = await call<{ message: string }>('login', 'POST', {
-                    email: input,
-                  });
-                  setNotice(r.message);
-                });
-              }}
-            >
-              <label htmlFor="admin-email">Admin email</label>
-              <Input
-                id="admin-email"
-                type="email"
-                autoComplete="email"
-                required
-                value={input}
-                disabled={busy}
-                onChange={(e) => setInput(e.target.value)}
-              />
-              <Button type="submit" disabled={busy}>
-                {busy ? 'Sending…' : 'Email me a sign-in link'}
-              </Button>
-              <p>Access is limited to approved admins.</p>
-            </form>
-          )}
+            )}
+            {!link && <p>Access is limited to approved admins.</p>}
+          </form>
         </section>
       ) : (
         <>
@@ -385,16 +422,33 @@ export function GardenAdmin() {
                     ))}
                 </div>
               ))}
+              {setupUrl && (
+                <div className="admin-notice">
+                  <p>
+                    Share this private setup link with the admin. It expires in
+                    24 hours.
+                  </p>
+                  <Input
+                    aria-label="Private password setup link"
+                    value={setupUrl}
+                    readOnly
+                    onFocus={(e) => e.target.select()}
+                  />
+                </div>
+              )}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   void act(async () => {
-                    await call('members', 'POST', { email: input });
+                    const result = await call<{ setupUrl?: string }>(
+                      'members',
+                      'POST',
+                      { email: input },
+                    );
+                    setSetupUrl(result.setupUrl || '');
                     await loadAdmins();
                     setInput('');
-                    setNotice(
-                      'Admin added. They can request a sign-in link at /admin.',
-                    );
+                    setNotice('Admin access saved.');
                   });
                 }}
               >
@@ -414,6 +468,49 @@ export function GardenAdmin() {
                     Add
                   </Button>
                 </div>
+              </form>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void act(async () => {
+                    await call('password', 'POST', {
+                      currentPassword,
+                      password: newPassword,
+                    });
+                    setEmail(null);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setSetupUrl('');
+                    setNotice('Password changed. Sign in again.');
+                  });
+                }}
+                className="admin-login"
+              >
+                <h2>Change your password</h2>
+                <label htmlFor="current-password">Current password</label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  required
+                  maxLength={128}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+                <label htmlFor="next-password">New password</label>
+                <Input
+                  id="next-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  required
+                  minLength={15}
+                  maxLength={128}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <Button type="submit" disabled={busy}>
+                  Change password
+                </Button>
               </form>
             </section>
           )}

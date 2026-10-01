@@ -1,3 +1,5 @@
+import * as manageSetup from '../../app/api/manage/setup/route';
+import * as managePassword from '../../app/api/manage/password/route';
 import * as manageLogin from '../../app/api/manage/login/route';
 import * as manageSession from '../../app/api/manage/session/route';
 import * as manageIdeas from '../../app/api/manage/ideas/route';
@@ -15,6 +17,8 @@ import * as scenario from '../../app/api/admin/scenario/route';
 
 type Handler = (request: Request) => Response | Promise<Response>;
 const routes: Record<string, Partial<Record<string, Handler>>> = {
+  '/api/manage/setup': manageSetup,
+  '/api/manage/password': managePassword,
   '/api/manage/login': manageLogin,
   '/api/manage/session': manageSession,
   '/api/manage/ideas': manageIdeas,

@@ -162,3 +162,9 @@ export const adminAudit = sqliteTable('admin_audit', {
   target: text('target').notNull(),
   createdAt: integer('created_at').notNull(),
 });
+
+export const adminPasswords = sqliteTable('admin_passwords', {
+  email: text('email').primaryKey(),
+  passwordHash: text('password_hash').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
