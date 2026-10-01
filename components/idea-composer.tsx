@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { ideaTitle, type Idea } from '@/lib/garden';
 import { submissionFor, type Submission } from '@/lib/submission';
 import { readSignature, saveSignature } from '@/lib/signature';
-import { IDEA_PLACES, isIdeaPlace, type IdeaPlace } from '@/lib/idea-places';
+import { isIdeaPlace, type IdeaPlace } from '@/lib/idea-places';
+import { IdeaPlacePicker } from './idea-place-picker';
 import type { PlantInput } from '@/features/ideas/model';
 
 export function IdeaComposer({
@@ -236,24 +237,11 @@ export function IdeaComposer({
                 </label>
               )}
             </div>
-            <div className="idea-place-picker">
-              <label htmlFor="idea-place">Where</label>
-              <select
-                id="idea-place"
-                value={place}
-                disabled={saving || !draftReady}
-                onChange={(event) => {
-                  if (isIdeaPlace(event.target.value))
-                    setPlace(event.target.value);
-                }}
-              >
-                {IDEA_PLACES.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <IdeaPlacePicker
+              value={place}
+              onChange={setPlace}
+              disabled={saving || !draftReady}
+            />
             {confirmShort && (
               <div
                 className="short-idea-prompt"
