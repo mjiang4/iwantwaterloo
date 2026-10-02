@@ -9,6 +9,8 @@ import {
 } from '@/lib/server';
 import { limitWrites } from '@/lib/rate-limit';
 
+const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+
 export async function POST(request: Request) {
   const { id } = await identity(request);
   try {
@@ -24,6 +26,8 @@ export async function POST(request: Request) {
     const reason =
       typeof value.reason === 'string' ? value.reason.trim().slice(0, 240) : '';
     const targets = [ideaId, commentId, loveId].filter(Boolean).length;
+    if ([ideaId, commentId, loveId].some((id) => id && !UUID.test(id)))
+      throw new InputError('That contribution is no longer available.', 404);
     if (!targets || !reason)
       throw new InputError('Add a short reason for the report.');
     if (targets > 1)
@@ -52,9 +56,10 @@ export async function POST(request: Request) {
     if (!target)
       throw new InputError('That contribution is no longer available.', 404);
     await limitWrites(request, id, 'reports');
+    // One open report per visitor and target: repeats are accepted but not stored.
     await db
       .prepare(
-        'INSERT INTO reports (id,idea_id,comment_id,love_id,reason,visitor_id,created_at) VALUES (?,?,?,?,?,?,?)',
+        'INSERT INTO reports (id,idea_id,comment_id,love_id,reason,visitor_id,created_at) SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM reports WHERE visitor_id=? AND idea_id IS ? AND comment_id IS ? AND love_id IS ?)',
       )
       .bind(
         crypto.randomUUID(),
@@ -64,6 +69,10 @@ export async function POST(request: Request) {
         reason,
         id,
         Date.now(),
+        id,
+        ideaId || null,
+        commentId || null,
+        loveId || null,
       )
       .run();
     return response(request, id, { reported: true }, 201);

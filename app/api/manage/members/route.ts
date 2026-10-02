@@ -43,18 +43,40 @@ export async function POST(request: Request) {
           .bind(email, actor, Date.now()),
         audit(actor, 'add-admin', email),
       ]);
-    const hasPassword = await database()
-      .prepare('SELECT email FROM admin_passwords WHERE email=?')
-      .bind(email)
-      .first();
-    if (hasPassword) return adminJSON({ ok: true });
-    const token = randomToken();
-    await database()
+    const account = await database()
       .prepare(
-        "INSERT INTO admin_tokens(hash,email,kind,expires_at) VALUES (?,?,'password-setup',?)",
+        'SELECT EXISTS(SELECT 1 FROM admin_passwords WHERE email=?1) AS hasPassword,(SELECT added_by FROM garden_admins WHERE email=?1) AS addedBy',
       )
-      .bind(await digest(token), email, Date.now() + 86400000)
-      .run();
+      .bind(email)
+      .first<{ hasPassword: number; addedBy: string | null }>();
+    if (account?.hasPassword) return adminJSON({ ok: true });
+    // A setup link creates the account's password, so whoever holds it becomes that
+    // admin. Only an owner may issue one for an owner, or for someone another admin
+    // added; otherwise any admin could claim an unclaimed owner or pending invite.
+    const actorIsOwner = OWNER_EMAILS.includes(actor);
+    if (
+      !actorIsOwner &&
+      (OWNER_EMAILS.includes(email) || account?.addedBy !== actor)
+    )
+      throw new InputError(
+        'Ask an owner to send this person a setup link.',
+        403,
+      );
+    const token = randomToken();
+    // A new link replaces any earlier one, so only the latest link works.
+    await database().batch([
+      database()
+        .prepare(
+          "DELETE FROM admin_tokens WHERE email=? AND kind='password-setup'",
+        )
+        .bind(email),
+      database()
+        .prepare(
+          "INSERT INTO admin_tokens(hash,email,kind,expires_at) VALUES (?,?,'password-setup',?)",
+        )
+        .bind(await digest(token), email, Date.now() + 86400000),
+      audit(actor, 'issue-setup-link', email),
+    ]);
     const url = new URL(
       '/admin',
       env.ADMIN_ORIGIN || 'https://iwantwaterloo.com',

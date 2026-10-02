@@ -1,9 +1,10 @@
 import { env } from 'cloudflare:workers';
 import { database } from '@/db/raw';
 import { InputError } from '@/lib/server';
-// Cloudflare supplies the connecting IP in production. Raw addresses are never stored.
+import { clientNetwork } from '@/lib/network';
+export { clientNetwork };
 function network(request: Request, visitorId: string) {
-  return request.headers.get('cf-connecting-ip') || `browser:${visitorId}`;
+  return clientNetwork(request) || `browser:${visitorId}`;
 }
 /** Opaque, non-reversible key for a rate-limit bucket. The message encodes the scope. */
 async function counterKey(message: string) {
@@ -98,7 +99,7 @@ export async function limitDistinctSupport(
  * is not yet established.
  */
 export async function limitVisitor(request: Request, now = Date.now()) {
-  const net = request.headers.get('cf-connecting-ip') || 'local';
+  const net = clientNetwork(request) || 'local';
   const key = await counterKey(`rl:visitor:${Math.floor(now / 600000)}:${net}`);
   await enforce(key, 600000, 30, now);
 }

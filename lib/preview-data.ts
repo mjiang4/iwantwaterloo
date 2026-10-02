@@ -43,6 +43,8 @@ const columns = {
     'visitor_id',
     'submission_key',
     'created_at',
+    'moderation_state',
+    'moderation_reason',
   ],
   organizer_reviews: [
     'id',
@@ -74,6 +76,7 @@ const columns = {
     'visitor_id',
     'submission_key',
     'moderation_state',
+    'moderation_reason',
   ],
   love_echoes: ['love_id', 'visitor_id', 'created_at'],
 } as const;

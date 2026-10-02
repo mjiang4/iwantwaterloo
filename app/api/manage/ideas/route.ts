@@ -1,10 +1,12 @@
 import { database } from '@/db/raw';
+import { IDEA_FROM } from '@/server/idea-records';
 import { readBody, InputError } from '@/lib/server';
 import {
   adminJSON,
   adminFailure,
   requireModerator,
   audit,
+  auditIfChanged,
 } from '@/server/admin-auth';
 export async function GET(request: Request) {
   try {
@@ -21,15 +23,17 @@ export async function GET(request: Request) {
     const pattern = '%' + q.replace(/[\\%_]/g, '\\$&') + '%';
     // Optional moderation filter so moderators can find pending items to approve.
     const state = url.searchParams.get('state') || 'visible';
-    if (state && !['visible', 'pending', 'hidden'].includes(state))
+    if (!['visible', 'pending', 'hidden'].includes(state))
       throw new InputError('Choose a valid moderation state.');
     const rows = await database()
-      .prepare(`SELECT id,title,description,display_name AS displayName,place,created_at AS createdAt,
-      moderation_state AS moderationState,
+      // The current public text (latest approved update), searchable alongside the original.
+      .prepare(`SELECT i.id,coalesce(u.title,i.title) AS title,coalesce(u.description,i.description) AS description,
+      i.display_name AS displayName,i.place,i.created_at AS createdAt,
+      i.moderation_state AS moderationState,
       (SELECT count(*) FROM comments WHERE idea_id=i.id) AS comments,
       (SELECT count(*) FROM supports WHERE idea_id=i.id) AS likes
-      FROM ideas i WHERE description LIKE ? ESCAPE '\\'${state ? ' AND moderation_state=?' : ''} ORDER BY created_at DESC,id LIMIT 51 OFFSET ?`)
-      .bind(...(state ? [pattern, state, offset] : [pattern, offset]))
+      ${IDEA_FROM} WHERE (coalesce(u.description,i.description) LIKE ? ESCAPE '\\' OR i.description LIKE ? ESCAPE '\\') AND i.moderation_state=? ORDER BY i.created_at DESC,i.id LIMIT 51 OFFSET ?`)
+      .bind(pattern, pattern, state, offset)
       .all();
     return adminJSON({
       ideas: rows.results.slice(0, 50),
@@ -84,7 +88,7 @@ export async function DELETE(request: Request) {
       db.prepare('DELETE FROM comments WHERE idea_id=?').bind(id),
       db.prepare('DELETE FROM supports WHERE idea_id=?').bind(id),
       db.prepare('DELETE FROM ideas WHERE id=?').bind(id),
-      audit(actor, 'delete-idea', id),
+      auditIfChanged(actor, 'delete-idea', id),
     ]);
     return adminJSON({ ok: true, removed: results[3].meta.changes });
   } catch (error) {
