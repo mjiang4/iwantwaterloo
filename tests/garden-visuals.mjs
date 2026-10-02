@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { GROVE_SIZE } from '../lib/garden.ts';
 import { test } from 'node:test';
 import {
   growthForLikes,
@@ -95,7 +94,7 @@ void test('five likes adds fruit on a fuller tree; fifteen adds flowers', () => 
   assert.ok(growthForLikes(30).fruitSize > growthForLikes(5).fruitSize * 1.2);
   assert.ok(growthForLikes(1000000).fruitSize <= 0.125);
   const plots = Array.from({ length: 48 }, (_, i) => plotPosition(i));
-  assert.equal(new Set(plots.map((p) => p.join(','))).size, GROVE_SIZE);
+  assert.equal(new Set(plots.map((p) => p.join(','))).size, plots.length);
   for (const [x, z] of plots)
     assert.ok(((x - 1.3) / 2.4) ** 2 + ((z - 0.1) / 1.7) ** 2 > 1);
 });

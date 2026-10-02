@@ -4,7 +4,8 @@ import { parseEnv } from 'node:util';
 import path from 'node:path';
 export const root = path.resolve(import.meta.dirname, '..');
 export const previewRoot = path.join(root, '.preview');
-export const origin = 'http://localhost:3001';
+export const origin =
+  'http://localhost:' + (process.env.WATERLOO_PREVIEW_PORT || '3001');
 export async function settings() {
   const file = path.join(root, '.env.preview');
   try {
@@ -57,6 +58,7 @@ export async function fingerprint() {
   }
   for (const dir of [
     'app',
+    'assets',
     'components',
     'features',
     'hooks',
@@ -77,6 +79,20 @@ export async function fingerprint() {
   ]) {
     hash.update(file);
     hash.update(await readFile(path.join(root, file)));
+  }
+  // Vite reads public Maps configuration at build time. A local key change rebuilds
+  // the preview without ever writing its value into the build metadata.
+  for (const file of [
+    '.env.local',
+    '.env.production',
+    '.env.production.local',
+  ]) {
+    try {
+      hash.update(file);
+      hash.update(await readFile(path.join(root, file)));
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
   }
   return hash.digest('hex');
 }

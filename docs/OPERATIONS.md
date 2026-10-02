@@ -25,6 +25,16 @@ Review the reported contribution in context; a report alone is not evidence of m
 
 For a confirmed abusive reply, the operator can change that specific comment's `moderation_state` to `hidden` using a parameterized query in authorized tooling. The public API excludes hidden replies. Idea hiding, resolution status, and a review interface remain planned; do not repurpose preview scenario/reset tools to moderate production.
 
+Loves are reported the same way (the report names the love in `love_id`). To review them:
+
+```sql
+SELECT r.id, r.created_at, r.reason, l.id AS love_id, l.body, l.display_name
+FROM reports r JOIN loves l ON l.id = r.love_id
+ORDER BY r.created_at DESC;
+```
+
+A confirmed abusive love is hidden by setting that love's `moderation_state` to `hidden` with a parameterized query in authorized tooling. Hidden loves are excluded from the list, the park, "me too" and new reports.
+
 ## Releases and recovery
 
 Run the checks and browser tests before a release. Inspect migration SQL separately. Record the deployed source commit and verify the saved version's deployment status. A code rollback does not undo database migrations.

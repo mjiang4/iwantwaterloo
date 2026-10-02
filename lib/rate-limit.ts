@@ -52,14 +52,17 @@ async function enforce(
 export async function limitWrites(
   request: Request,
   visitorId: string,
-  scope: 'ideas' | 'support' | 'comments' | 'reports' | 'feedback',
+  scope: 'ideas' | 'support' | 'comments' | 'reports' | 'loves' | 'feedback',
   now = Date.now(),
 ) {
   const key = await counterKey(
     `rl:${scope}:${Math.floor(now / 86400000)}:${network(request, visitorId)}`,
   );
   const duration =
-      scope === 'ideas' || scope === 'comments' || scope === 'feedback'
+      scope === 'ideas' ||
+      scope === 'comments' ||
+      scope === 'loves' ||
+      scope === 'feedback'
         ? 600000
         : 60000,
     maximum =
@@ -67,7 +70,7 @@ export async function limitWrites(
         ? 5
         : scope === 'ideas'
           ? 120
-          : scope === 'comments'
+          : scope === 'comments' || scope === 'loves'
             ? 80
             : 300;
   await enforce(key, duration, maximum, now);

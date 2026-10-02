@@ -10,6 +10,8 @@
     "bun.lock",
     "bun.lockb",
     "drizzle/**",
-    "components/ui/**"
+    "components/ui/**",
+    "public/draco/**",
+    "public/park/context.json"
   ]
 }

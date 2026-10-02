@@ -6,7 +6,7 @@ export function useIdeaFilters() {
   const [mine, setMine] = useState(false);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState('discover');
   const [shuffle, setShuffle] = useState(0);
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 200);
@@ -17,9 +17,9 @@ export function useIdeaFilters() {
     setPlace('all');
     setQuery('');
     setDebouncedQuery('');
-    setSort('newest');
+    setSort('discover');
   }, []);
-  const filtered = place !== 'all' || mine || sort !== 'newest';
+  const filtered = place !== 'all' || mine || sort !== 'discover';
   return {
     place,
     setPlace,

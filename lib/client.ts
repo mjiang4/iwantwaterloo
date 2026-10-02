@@ -1,8 +1,11 @@
 const publicWrites = new Set([
   '/api/ideas',
+  '/api/activity',
   '/api/comments',
   '/api/support',
   '/api/reports',
+  '/api/loves',
+  '/api/loves/echo',
   '/api/feedback',
 ]);
 import { getTurnstileToken } from '@/lib/turnstile-client';

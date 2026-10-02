@@ -1,6 +1,7 @@
 'use client';
 import { Heart, MessageCircle } from 'lucide-react';
 import { type Idea } from '@/lib/garden';
+import { questionFor, progressLabel } from '@/lib/participation';
 import { useFreshHighlight } from '@/components/use-fresh-highlight';
 export function SupportButton({
   idea,
@@ -59,13 +60,14 @@ export function IdeaCard({
     >
       <button className="idea-open" onClick={() => onRead(idea)}>
         <h3>{idea.title}</h3>
+        <span className="card-question">{questionFor(idea)}</span>
         {idea.displayName && (
           <span className="card-signature">{idea.displayName}</span>
         )}
       </button>
       <div className="idea-card-bottom">
         <span className={idea.example ? 'example-badge' : 'idea-place'}>
-          {idea.example ? 'Example' : idea.place || 'Waterloo'}
+          {idea.example ? 'Example' : progressLabel(idea)}
         </span>
         <div className="idea-card-signals">
           {Boolean(idea.commentCount) && (

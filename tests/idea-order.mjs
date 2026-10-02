@@ -44,7 +44,7 @@ void test('new, most liked and seeded random paginate without duplicates', async
   assert.notDeepEqual(await read('random', 0, 7), await read('random', 0, 8));
 });
 
-void test('thirty ideas fit in a single grove without hiding older trees', async (t) => {
+void test('thirty ideas span two park groves without hiding older trees', async (t) => {
   const app = await createApiHarness();
   t.after(() => app.dispose());
   await app.db.batch(
@@ -57,8 +57,11 @@ void test('thirty ideas fit in a single grove without hiding older trees', async
     ),
   );
   const page = (await app.request('/api/ideas?garden=1')).data;
+  // The park has 24 mapped clearings, so plots 6–23 fill the first grove.
   assert.equal(page.total, 30);
-  assert.equal(page.ideas.length, 30);
-  assert.deepEqual(page.grovePages, [0]);
-  assert.equal(new Set(page.ideas.map((i) => i.plot)).size, 30);
+  assert.equal(page.ideas.length, 18);
+  assert.deepEqual(page.grovePages, [0, 1]);
+  const next = (await app.request('/api/ideas?garden=1&page=1')).data;
+  const plots = [...page.ideas, ...next.ideas].map((i) => i.plot);
+  assert.equal(new Set(plots).size, 30, 'every tree keeps its own plot');
 });

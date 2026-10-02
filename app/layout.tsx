@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
+import '@/styles/park.css';
 const sans = DM_Sans({ variable: '--font-garden-sans', subsets: ['latin'] });
 export const metadata: Metadata = {
   metadataBase: new URL('https://iwantwaterloo.com'),

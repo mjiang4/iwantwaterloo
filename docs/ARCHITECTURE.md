@@ -1,6 +1,6 @@
 # Architecture
 
-Current production structure, October 1, 2026. Deployment is separate from the contents of a branch.
+Current structure, October 2, 2026. Deployment is separate from the contents of a branch.
 
 ## Stack and boundaries
 
@@ -23,6 +23,21 @@ React 19 and Vinext provide the interface and server routes. TanStack Query mana
 | `scripts/`                                         | Local preview and maintainer staging                                           |
 | `tests/`                                           | Unit, isolated API, and compiled browser checks                                |
 
+The `codex/waterloo-park` experiment adds `features/park/` for time, theme browsing and wildlife, `styles/park.css` for the immersive interface, and an OSM/Blender asset pipeline in `scripts/park/` and `assets/park/`. See [the park notebook](PARK-NOTEBOOK.md) for constraints and source attribution.
+
+`design/park-direction` builds on it:
+
+| Location                                                      | Responsibility                                                                                 |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `features/park/look.ts`                                       | Look presets (Golden lanterns is the default): materials, sky, fog, light, water, city palette |
+| `features/park/wordmark.tsx`, `park-menu.tsx`                 | "i [want] / waterloo" as the way to plant (love or idea); one header menu                      |
+| `features/park/declutter.ts`                                  | Keeps landmark names and love captions off idea markers and interface panels                   |
+| `features/loves/`, `app/api/loves/`, `server/love-records.ts` | Loves: contracts, queries, composer (tap or choose a place), list, reporting                   |
+| `features/park/loves.tsx`                                     | Flower drifts on real lawn, fireflies after dark, tap-to-place on grass                        |
+| `features/park/city.tsx`, `scripts/park/build_context.mjs`    | The surrounding city from OpenStreetMap: buildings, streets, street trees                      |
+
+All garden controls are positioned in one "Park HUD" block at the end of `styles/park.css`.
+
 ## From an idea to a tree
 
 1. The composer holds a tab-local draft. Optional attribution is one string; it is not a verified identity.
@@ -35,10 +50,10 @@ Comments follow the same retry principle and retain their drafts across closing 
 
 ## State ownership
 
-- **D1:** ideas, likes, replies, reports, abuse counters, and isolated preview controls.
+- **D1:** ideas, immutable revisions, credited contributions, organizer responses, likes, replies, loves and their "me too"s, reports, abuse counters, and isolated preview controls.
 - **TanStack Query:** fetched lists, groves, shared ideas, and comments.
 - **React:** open panels, selected ideas, pending actions, and short animation events.
-- **sessionStorage:** unfinished idea/reply drafts and retry receipts.
+- **sessionStorage:** unfinished idea/reply/love drafts and retry receipts.
 - **localStorage:** explicitly remembered attribution, introduction dismissal, and display preferences.
 - **Cookie:** anonymous browser ownership. “Yours” means this browser, not an account or a verified person.
 
@@ -59,6 +74,10 @@ API tests run actual handlers in disposable Miniflare Workers. Browser tests use
 Garden placement still uses legacy SQLite rowids plus a reserved offset. Titles from older records are interpreted through a compatibility heuristic. Replacing either needs a data migration that preserves existing behavior; these are recorded separately in the backlog.
 
 Reports are stored, but production moderation is an operator responsibility until a protected interface is implemented. See [operations](OPERATIONS.md). A successful report means it was saved, not that a review has happened.
+
+## Participation
+
+The current idea projection overlays the latest immutable revision on the original. Revisions credit existing contributions; authenticated organizer responses remain distinct from author updates. See [participation](PARTICIPATION.md) for the data model, weekly review workflow, discovery rules, and production authorization boundary.
 
 ## Idea query and validation boundaries
 

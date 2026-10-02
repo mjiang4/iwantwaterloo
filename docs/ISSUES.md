@@ -44,6 +44,9 @@ Verification: a fresh source checkout installs dependencies and passes type chec
 - [ ] **IW-009 · Add a protected moderation workflow.** Reports have [operator guidance](OPERATIONS.md); a production queue, resolution status, and idea hiding remain separate work. Do not reuse preview reset controls for production moderation.
 - [ ] **IW-010 · Validate on physical phones.** Check text comfort, keyboard behavior, assistive technology, and garden performance on representative devices. Browser emulation and bounded-render tests do not establish physical-device performance.
 
+- [ ] **IW-011 · Review reported loves in the moderation workflow.** Loves can be reported from the park and the list; until IW-009 lands, an operator hides them with the documented SQL ([operations](OPERATIONS.md)).
+- [ ] **IW-012 · Measure the surrounding city on physical phones.** The city adds three draws (about 60k building triangles, streets, ~2,000 street trees) and a 203 KB gzipped download after the park. Check sustained frame time and memory on an older iPhone and a midrange Android; thin the far city or street trees if needed.
+
 ## Adding an issue
 
 Describe the observed problem, who it affects, and a concrete completion condition. Keep proposed solutions separate from measured results. Record the release separately from implementation: a completed branch is not a production deployment.

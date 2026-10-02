@@ -5,16 +5,16 @@ import {
   QueryClientProvider,
   useQuery,
 } from '@tanstack/react-query';
-import type { Idea } from '@/lib/garden';
+import { ideaBody, hasDerivedTitle, type Idea } from '@/lib/garden';
 import { requestJSON } from '@/lib/client';
 import { useIdeaSupport } from '@/features/ideas/use-support';
 import { SupportButton } from '@/features/ideas/idea-card';
 import { IdeaShare } from './idea-share';
-import { IdeaDiscussion } from './idea-discussion';
+import { IdeaParticipation } from '@/features/ideas/idea-participation';
 
 function Actions({ idea }: { idea: Idea }) {
   const state = useQuery({
-    queryKey: ['shared-idea', idea.id],
+    queryKey: ['idea', idea.id],
     queryFn: ({ signal }) =>
       requestJSON<{ ideas: Idea[] }>(`/api/ideas?id=${idea.id}`, { signal }),
     refetchInterval: 20000,
@@ -23,6 +23,19 @@ function Actions({ idea }: { idea: Idea }) {
   const { support, pending, error } = useIdeaSupport();
   return (
     <>
+      <h1 className={hasDerivedTitle(current) ? 'sr-only' : undefined}>
+        {current.title}
+      </h1>
+      {Boolean(ideaBody(current)) && (
+        <p
+          className={`shared-idea-body${hasDerivedTitle(current) ? ' full-idea' : ''}`}
+        >
+          {ideaBody(current)}
+        </p>
+      )}
+      {current.displayName && (
+        <p className="idea-signature">{current.displayName}</p>
+      )}
       <div className="shared-actions">
         <SupportButton
           idea={current}
@@ -38,7 +51,7 @@ function Actions({ idea }: { idea: Idea }) {
           <button onClick={() => void state.refetch()}>Retry</button>
         </div>
       )}
-      <IdeaDiscussion key={idea.id} idea={current} />
+      <IdeaParticipation key={idea.id} idea={current} />
     </>
   );
 }

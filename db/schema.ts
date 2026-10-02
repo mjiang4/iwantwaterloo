@@ -2,6 +2,7 @@ import {
   sqliteTable,
   text,
   integer,
+  real,
   index,
   primaryKey,
   uniqueIndex,
@@ -14,6 +15,9 @@ export const ideas = sqliteTable(
     moderationState: text('moderation_state').notNull().default('visible'),
     moderationReason: text('moderation_reason'),
     description: text('description').notNull(),
+    question: text('question')
+      .notNull()
+      .default('What would make this work well in Waterloo?'),
     // Retired metadata: retained only to preserve stored data and applied migrations.
     // Public contracts and read queries must not expose these columns.
     category: text('category').notNull(),
@@ -38,6 +42,8 @@ export const comments = sqliteTable(
     ideaId: text('idea_id').notNull(),
     parentId: text('parent_id'),
     body: text('body').notNull(),
+    kind: text('kind').notNull().default('detail'),
+    source: text('source').notNull().default('garden'),
     moderationReason: text('moderation_reason'),
     displayName: text('display_name'),
     createdAt: integer('created_at').notNull(),
@@ -57,6 +63,7 @@ export const reports = sqliteTable(
     id: text('id').primaryKey(),
     ideaId: text('idea_id'),
     commentId: text('comment_id'),
+    loveId: text('love_id'),
     reason: text('reason').notNull(),
     visitorId: text('visitor_id').notNull(),
     createdAt: integer('created_at').notNull(),
@@ -64,6 +71,7 @@ export const reports = sqliteTable(
   (t) => [
     index('idx_reports_idea').on(t.ideaId),
     index('idx_reports_comment').on(t.commentId),
+    index('idx_reports_love').on(t.loveId),
   ],
 );
 export const supports = sqliteTable(
@@ -121,6 +129,81 @@ export const previewChecks = sqliteTable(
     results: text('results').notNull().default('[]'),
   },
   (t) => [index('idx_preview_checks_status_created').on(t.status, t.createdAt)],
+);
+
+// Originals remain in ideas; append-only revisions preserve authorship and credit.
+export const ideaUpdates = sqliteTable(
+  'idea_updates',
+  {
+    id: text('id').primaryKey(),
+    ideaId: text('idea_id')
+      .notNull()
+      .references(() => ideas.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    question: text('question').notNull(),
+    note: text('note').notNull(),
+    credits: text('credits').notNull().default('[]'),
+    visitorId: text('visitor_id').notNull(),
+    submissionKey: text('submission_key').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('idx_idea_updates_version').on(t.ideaId, t.version),
+    uniqueIndex('idx_idea_updates_submission').on(t.submissionKey),
+  ],
+);
+export const organizerReviews = sqliteTable(
+  'organizer_reviews',
+  {
+    id: text('id').primaryKey(),
+    ideaId: text('idea_id')
+      .notNull()
+      .references(() => ideas.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    status: text('status').notNull(),
+    submissionKey: text('submission_key').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('idx_organizer_reviews_submission').on(t.submissionKey),
+    index('idx_organizer_reviews_idea_created').on(t.ideaId, t.createdAt),
+    index('idx_organizer_reviews_created').on(t.createdAt),
+  ],
+);
+
+// Short public appreciations placed in the park; echoes are desired-state "me too".
+export const loves = sqliteTable(
+  'loves',
+  {
+    id: text('id').primaryKey(),
+    body: text('body').notNull(),
+    x: real('x').notNull(),
+    z: real('z').notNull(),
+    landmark: text('landmark'),
+    displayName: text('display_name'),
+    createdAt: integer('created_at').notNull(),
+    visitorId: text('visitor_id').notNull(),
+    submissionKey: text('submission_key'),
+    moderationState: text('moderation_state').notNull().default('visible'),
+  },
+  (t) => [
+    uniqueIndex('idx_loves_submission_key').on(t.submissionKey),
+    index('idx_loves_created').on(t.createdAt),
+    index('idx_loves_visitor_created').on(t.visitorId, t.createdAt),
+  ],
+);
+export const loveEchoes = sqliteTable(
+  'love_echoes',
+  {
+    loveId: text('love_id')
+      .notNull()
+      .references(() => loves.id, { onDelete: 'cascade' }),
+    visitorId: text('visitor_id').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.loveId, t.visitorId] })],
 );
 
 // Website feedback is separate from community ideas and read by the issue-sync task.

@@ -8,7 +8,7 @@ import {
   QueryClientProvider,
   useQueryClient,
 } from '@tanstack/react-query';
-import { ArrowLeft, Info, Search, Sprout, X } from 'lucide-react';
+import { ArrowLeft, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -24,6 +24,7 @@ import { type Idea } from '@/lib/garden';
 import { IdeaComposer } from './idea-composer';
 import { useGardenTools } from './garden-tools';
 import { GardenExplorer } from './garden-explorer';
+import type { ParkQuality } from '@/features/park/quality-picker';
 import { IdeaFilterMenu } from '@/features/ideas/idea-filter-menu';
 import { IdeaDetails } from '@/features/ideas/idea-details';
 import { IconButton } from './icon-button';
@@ -32,6 +33,10 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useIdeaSupport } from '@/features/ideas/use-support';
 import { GardenWelcome, useGardenIntroduction } from './garden-welcome';
 import Link from 'next/link';
+import { Contribute } from '@/features/park/contribute';
+import { ParkMenu } from '@/features/park/park-menu';
+import { Wordmark } from '@/features/park/wordmark';
+import { LoveList } from '@/features/loves/love-list';
 import { createButterflyVisit } from '@/lib/garden-discovery';
 import type {
   PlantInput,
@@ -42,6 +47,8 @@ import { requestJSON as api } from '@/lib/client';
 function Garden() {
   const client = useQueryClient();
   const [view, setView] = useState('garden');
+  // Preserve this visit's explicit opt-in when the form/list unmounts the canvas.
+  const [parkQuality, setParkQuality] = useState<ParkQuality>('light');
   const [gardenRevision, setGardenRevision] = useState(0);
   const filters = useIdeaFilters();
   const {
@@ -82,6 +89,11 @@ function Garden() {
   }, [searchOpen]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const introduction = useGardenIntroduction();
+  const [discoveryRequest, setDiscoveryRequest] = useState(0);
+  const [loveRequest, setLoveRequest] = useState(0);
+  const clearLoveRequest = useCallback(() => setLoveRequest(0), []);
+  // True while a love is being placed or written: the wordmark reads "i love".
+  const [loveMode, setLoveMode] = useState(false);
   const [directLinkError, setDirectLinkError] = useState('');
   const directLinkChecked = useRef(false);
   const small = useMediaQuery('(max-width:760px)');
@@ -229,44 +241,39 @@ function Garden() {
       <Tabs
         value={view}
         onValueChange={(v) => setView(String(v))}
-        className="garden-app"
+        className="garden-app park-experiment"
+        data-view={view}
       >
         <button className="skip-link" onClick={focusComposer}>
           Suggest an idea
         </button>
         <header className="site-header">
-          <Link
-            prefetch={false}
-            className="brand"
-            href="/"
-            aria-label="I want Waterloo"
-          >
-            <Sprout size={23} strokeWidth={1.8} />
-            <span>
-              i want<span className="brand-divider">/</span>
-              <span className="brand-muted">waterloo</span>
-            </span>
-          </Link>
+          <Wordmark
+            verb={loveMode ? 'love' : 'want'}
+            onLove={() => {
+              setView('garden');
+              setLoveRequest((n) => n + 1);
+            }}
+            onWant={focusComposer}
+          />
           <div className="header-actions">
-            <IconButton
-              label="About and privacy"
-              onClick={() => setAboutOpen(true)}
-            >
-              <Info size={18} />
-            </IconButton>
+            <ParkMenu
+              onHowItWorks={introduction.show}
+              onAbout={() => setAboutOpen(true)}
+            />
           </div>
         </header>
         <main>
-          {view === 'garden' && (
-            <section className="park-heading" aria-labelledby="park-heading">
-              <h1 id="park-heading">What would make Waterloo better?</h1>
-              <Button onClick={focusComposer}>
-                Share an idea <Sprout size={17} />
-              </Button>
-            </section>
-          )}
-          {introduction.open && (
-            <GardenWelcome onDismiss={introduction.dismiss} />
+          {view === 'garden' && introduction.open && (
+            <GardenWelcome
+              onDismiss={introduction.dismiss}
+              hasIdeas={total > 0}
+              onExplore={() => {
+                introduction.dismiss();
+                setDiscoveryRequest((request) => request + 1);
+              }}
+              onPlant={focusComposer}
+            />
           )}
           {directLinkError && (
             <p className="form-error" role="alert">
@@ -370,6 +377,7 @@ function Garden() {
               </p>
             )}
             <TabsContent value="ideas" className="view-panel">
+              <LoveList />
               <section
                 className="ideas-grid"
                 aria-label="Ideas for Waterloo"
@@ -423,7 +431,17 @@ function Garden() {
               tabIndex={-1}
             >
               <GardenExplorer
-                key={gardenRevision}
+                quality={parkQuality}
+                onQualityChange={setParkQuality}
+                onExplore={introduction.dismiss}
+                onDiscover={() => {
+                  introduction.dismiss();
+                  setDiscoveryRequest((request) => request + 1);
+                }}
+                showIntroduction={introduction.open}
+                discoveryRequest={discoveryRequest}
+                obscured={sheetOpen || aboutOpen}
+                resetRequest={gardenRevision}
                 mine={mine}
                 postedIdea={postedIdea}
                 onReceiptDone={() => setPostedIdea(null)}
@@ -441,6 +459,10 @@ function Garden() {
                 onSupport={support}
                 pending={pending}
                 onList={() => setView('ideas')}
+                lovePlacementRequest={loveRequest}
+                onLovePlacementStarted={clearLoveRequest}
+                onLoveModeChange={setLoveMode}
+                onPlantIdea={focusComposer}
                 onBack={() => {
                   setGardenFocus(null);
                   setMoment(null);
@@ -454,14 +476,23 @@ function Garden() {
         </main>
         <footer className="site-footer">
           <div className="footer-links">
+            <a
+              className="map-credit"
+              href="https://www.openstreetmap.org/copyright"
+            >
+              © OpenStreetMap
+            </a>
             <button type="button" onClick={introduction.show}>
               How it works
             </button>
             <button type="button" onClick={() => setAboutOpen(true)}>
               About
             </button>
+            <Link prefetch={false} href="/updates">
+              Updates
+            </Link>
             <Link href="/feedback">Feedback</Link>
-            <a href="https://github.com/mjiang4/iwantwaterloo">GitHub</a>
+            <Contribute footer />
           </div>
           <p>
             Help improve this project:{' '}
@@ -548,6 +579,17 @@ function Garden() {
                 submitting a PR
               </a>
               !
+            </p>
+            <p>
+              Ideas, loves, replies, names and optional details are public.
+              Names are self-entered and not verified. Avoid sharing private
+              contact details. No account is needed. A browser cookie remembers
+              support and lets you update your ideas; drafts stay in this tab.
+              Temporary hashed network identifiers help limit spam. We count
+              contributions arriving through shared links, credited
+              contributions, and returning authors without storing browsing
+              history. Earlier idea versions remain visible. Clearing cookies
+              removes access to your author controls.
             </p>
             <p>
               Submitted text and names are screened by OpenAI for abusive
