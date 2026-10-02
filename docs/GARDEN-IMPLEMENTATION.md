@@ -1,3 +1,15 @@
+# Current tree growth — October 2, 2026
+
+Each grove now holds up to 48 idea trees, using eight bounded instance batches. Existing idea identifiers and stored plots are preserved; plots 24–47 have their own lawn positions instead of wrapping into a second 24-tree view. No decorative trees are added.
+
+Saplings start fuller. Five likes adds three fruits attached to the canopy and a noticeable size increase; fruit caps at eight. Fifteen likes adds four flowers, growing towards twelve. At thirty likes, selection or liking triggers eight brief sparkles; nothing sparkles continuously. Reduced motion skips the sparkle and growth animation. Each like still has the existing stretch-and-settle response.
+
+Every idea has an invisible 48px target over its canopy, with no numbered badges. A tap opens its idea; only an ambiguous tap opens the idea chooser. Keyboard focus reveals a visible indicator and activates that particular idea directly.
+
+The earlier implementation notes below describe previous iterations and are retained for history.
+
+---
+
 > Historical planning document. For current code and outstanding work, see [Architecture](ARCHITECTURE.md) and [Issues](ISSUES.md).
 
 # Garden changes — local development

@@ -327,7 +327,7 @@ function World(
     if (!controls.current) return;
     const c = camera as THREE.OrthographicCamera;
     const endZoom =
-      Math.min(size.width / 15.5, size.height / 11.6) *
+      Math.min(size.width / 14.7, size.height / 9.8) *
       (focus ? 2.4 : 1) *
       props.zoom;
     const moving =

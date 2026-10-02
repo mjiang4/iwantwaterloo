@@ -19,10 +19,11 @@ export function growthForLikes(input: number) {
   // Strong early growth, with room for every later like. No 25-like cutoff.
   const maturity = 1 - 1 / Math.sqrt(1 + likes);
   return {
-    height: 0.78 + maturity * 1.35,
-    fullness: 0.32 + maturity * 0.75,
-    flowers: 12 * (1 - Math.exp(-likes / 12)),
-    branches: Math.min(2, likes / 12),
+    height: 1 + maturity * 0.95 + (likes >= 5 ? 0.15 : 0),
+    fullness: 0.55 + maturity * 0.48 + (likes >= 5 ? 0.12 : 0),
+    fruits: likes < 5 ? 0 : Math.min(8, 3 + (likes - 5) / 5),
+    flowers: likes < 15 ? 0 : 4 + 8 * (1 - Math.exp(-(likes - 15) / 18)),
+    branches: Math.min(2, likes / 10),
   };
 }
 export type GardenMoment = {
@@ -76,34 +77,47 @@ export const spots: [number, number][] = [
   [-4.8, -1.4],
   [-2.8, 4],
   [1.1, 2.1],
+  [5.6, -1.8],
+  [-2.4, 0.6],
+  [-6.0, -0.2],
+  [-1.6, -4.6],
+  [-5.6, 1.8],
+  [6.0, 0.6],
+  [0.8, 5.0],
+  [4.8, 3.0],
+  [-4.8, 3.0],
+  [4.8, -3.0],
+  [-3.2, -0.6],
+  [3.6, -3.8],
+  [2.4, 4.6],
+  [0.8, -3.0],
+  [-0.4, -5.0],
+  [-4.8, -3.0],
+  [-1.2, 1.0],
+  [-2.4, 1.8],
+  [5.6, -0.6],
+  [-0.4, 5.0],
+  [-1.2, 3.0],
+  [-1.2, -1.0],
+  [-3.6, -3.8],
+  [4.0, -1.0],
 ];
 export function plotPosition(plot: number) {
   return spots[((plot % spots.length) + spots.length) % spots.length];
 }
-// Merge intersecting 48px targets until every resulting target has breathing room.
-export function clusterTargets(
-  points: { x: number; y: number; index: number }[],
-  spacing = 52,
+// Resolve overlapping invisible touch targets only after an actual tap.
+export function hitTreeTargets(
+  targets: {
+    id: string;
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }[],
+  x: number,
+  y: number,
 ) {
-  const groups = points.map((p) => ({ x: p.x, y: p.y, indices: [p.index] }));
-  let merged = true;
-  while (merged) {
-    merged = false;
-    outer: for (let a = 0; a < groups.length; a++)
-      for (let b = a + 1; b < groups.length; b++) {
-        const g = groups[a],
-          h = groups[b];
-        if (Math.abs(g.x - h.x) < spacing && Math.abs(g.y - h.y) < spacing) {
-          const n = g.indices.length,
-            m = h.indices.length;
-          g.x = (g.x * n + h.x * m) / (n + m);
-          g.y = (g.y * n + h.y * m) / (n + m);
-          g.indices.push(...h.indices);
-          groups.splice(b, 1);
-          merged = true;
-          break outer;
-        }
-      }
-  }
-  return groups;
+  return targets
+    .filter((t) => x >= t.left && x <= t.right && y >= t.top && y <= t.bottom)
+    .map((t) => t.id);
 }

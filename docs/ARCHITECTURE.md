@@ -46,7 +46,7 @@ Public response mapping normalizes SQLite booleans and nullable names. It must n
 
 ## Rendering budget
 
-Keep growth math deterministic and independent of rendering. Each grove is bounded; trunks, foliage, branches, and flowers are instanced. Pause, reduced motion, hidden documents, and offscreen state limit animation work. Avoid adding a physics engine or full-screen effects without a measured need and mobile checks.
+Keep growth math deterministic and independent of rendering. Each grove is bounded; up to 48 trees share instanced trunks, foliage, branches, flowers, fruit, and brief interaction sparkles. Pause, reduced motion, hidden documents, and offscreen state limit animation work. Avoid adding a physics engine or full-screen effects without a measured need and mobile checks.
 
 ## Environment boundaries
 

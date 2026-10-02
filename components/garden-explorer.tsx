@@ -383,7 +383,9 @@ export function GardenExplorer({
               className="icon-button"
               aria-label="Previous grove"
               disabled={pageIndex <= 0}
-              onClick={() => setPage(pages[pageIndex - 1])}
+              onClick={() => {
+                setPage(pages[pageIndex - 1]);
+              }}
             >
               <ChevronLeft size={17} />
             </button>
@@ -391,7 +393,9 @@ export function GardenExplorer({
               className="icon-button"
               aria-label="Next grove"
               disabled={pageIndex + 1 >= pages.length}
-              onClick={() => setPage(pages[pageIndex + 1])}
+              onClick={() => {
+                setPage(pages[pageIndex + 1]);
+              }}
             >
               <ChevronRight size={17} />
             </button>

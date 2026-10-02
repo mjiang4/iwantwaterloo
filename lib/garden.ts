@@ -1,4 +1,4 @@
-export const GROVE_SIZE = 24;
+export const GROVE_SIZE = 48;
 export type Idea = {
   moderationState?: 'visible' | 'pending';
   id: string;

@@ -1767,12 +1767,6 @@ independent of tree growth. */
     background 0.15s,
     box-shadow 0.15s;
 }
-.cluster-marker .marker-face {
-  width: 28px;
-  height: 28px;
-  font-size: var(--text-small);
-  font-weight: 600;
-}
 .garden-target.selected .marker-face,
 .garden-target:hover .marker-face,
 .garden-target:focus-visible .marker-face {
@@ -2044,15 +2038,6 @@ independent of tree growth. */
   height: 5px;
   border-radius: 50%;
   background: #638b45;
-}
-.cluster-marker .marker-face {
-  display: flex;
-  gap: 3px;
-  justify-content: center;
-  width: 35px;
-  height: 25px;
-  font-size: var(--text-small);
-  border-radius: 9px;
 }
 .garden-stage[data-celebrating] .garden-controls {
   opacity: 0.35;
@@ -2523,4 +2508,17 @@ independent of tree growth. */
 .short-idea-prompt,
 .admin-confirm {
   min-width: 0;
+}
+
+/* The tree is the visible control; its generous touch target stays invisible. */
+.tree-hit-target .marker-face {
+  opacity: 0;
+}
+.tree-hit-target:focus-visible {
+  outline: 2px solid #416b48;
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+.tree-hit-target:focus-visible .marker-face {
+  opacity: 1;
 }

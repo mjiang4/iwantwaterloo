@@ -72,7 +72,7 @@ void test('validation, origin checks, like idempotency and rate limits use real 
   );
   assert.equal((await browser.request('/api/ideas?q=covered')).data.total, 1);
   const grove = await browser.request(
-    '/api/ideas?garden=1&page=' + Math.floor(saved.data.idea.plot / 24),
+    '/api/ideas?garden=1&page=' + Math.floor(saved.data.idea.plot / 48),
   );
   assert.equal(grove.data.ideas[0].plot, saved.data.idea.plot);
   for (const expected of [1, 1, 0]) {

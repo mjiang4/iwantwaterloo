@@ -43,3 +43,22 @@ void test('new, most liked and seeded random paginate without duplicates', async
   assert.deepEqual(await read('random'), await read('random'));
   assert.notDeepEqual(await read('random', 0, 7), await read('random', 0, 8));
 });
+
+void test('thirty ideas fit in a single grove without hiding older trees', async (t) => {
+  const app = await createApiHarness();
+  t.after(() => app.dispose());
+  await app.db.batch(
+    Array.from({ length: 30 }, (_, i) =>
+      app.db
+        .prepare(
+          'INSERT INTO ideas(id,title,description,category,created_at,visitor_id) VALUES (?,?,?,?,?,?)',
+        )
+        .bind(randomUUID(), 'Tree ' + i, 'Tree ' + i, 'other', i, 'fixture'),
+    ),
+  );
+  const page = (await app.request('/api/ideas?garden=1')).data;
+  assert.equal(page.total, 30);
+  assert.equal(page.ideas.length, 30);
+  assert.deepEqual(page.grovePages, [0]);
+  assert.equal(new Set(page.ideas.map((i) => i.plot)).size, 30);
+});

@@ -1,10 +1,9 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { Layers } from 'lucide-react';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import type { Idea } from '@/lib/garden';
+import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import { useFreshHighlight } from './use-fresh-highlight';
 import {
   growthForLikes,
@@ -15,13 +14,14 @@ import {
   randomAt,
   plotPosition,
   gardenPalette,
-  clusterTargets,
+  hitTreeTargets,
 } from '@/lib/garden-visuals';
 const noRaycast = () => {};
 const growthKeys = [
   'height',
   'fullness',
   'flowers',
+  'fruits',
   'branches',
   'planted',
 ] as const;
@@ -39,8 +39,8 @@ type ForestProps = {
   onSelect: (id: string) => void;
   onCluster: (ids: string[]) => void;
 };
-// Six instanced draws for the entire grove: trunks, canopies, branches, leaves,
-// petals and flower centres. Capacities are fixed; likes never allocate more meshes.
+// Eight instanced draws for the entire grove, including canopy fruit and
+// interaction-only sparkles. Fixed capacities keep geometry bounded on mobile.
 export function Forest(props: ForestProps) {
   const { onPlanted, motion } = props;
   const refs = useRef<(THREE.InstancedMesh | null)[]>([]),
@@ -50,6 +50,7 @@ export function Forest(props: ForestProps) {
         ReturnType<typeof growthForLikes> & { planted: number }
       >(),
     );
+  const sparkle = useRef({ key: '', id: '', elapsed: 2 });
   const momentState = useRef({ serial: -1, progress: -1, done: false });
   const halo = useRef<THREE.Mesh>(null),
     haloMaterial = useRef<THREE.MeshBasicMaterial>(null);
@@ -70,7 +71,7 @@ export function Forest(props: ForestProps) {
   const { invalidate } = useThree();
   const rows = useMemo(
     () =>
-      props.ideas.slice(0, 24).map((idea, index) => ({
+      props.ideas.slice(0, GROVE_SIZE).map((idea, index) => ({
         idea,
         seed: seedForId(idea.id),
         pos: plotPosition(idea.plot ?? index),
@@ -83,10 +84,28 @@ export function Forest(props: ForestProps) {
     const row = rows[Math.floor(event.instanceId / (canopies ? 3 : 1))];
     if (row) {
       event.stopPropagation();
-      props.onSelect(row.idea.id);
+      const ids = [
+        ...new Set(
+          event.intersections.flatMap((hit) => {
+            if (hit.instanceId === undefined) return [];
+            const divisor =
+              hit.object.name === 'idea-canopies'
+                ? 3
+                : hit.object.name === 'idea-trunks'
+                  ? 1
+                  : 0;
+            const candidate = divisor
+              ? rows[Math.floor(hit.instanceId / divisor)]
+              : null;
+            return candidate ? [candidate.idea.id] : [];
+          }),
+        ),
+      ];
+      if (ids.length > 1) props.onCluster(ids);
+      else props.onSelect(row.idea.id);
     }
   }
-  const batchCounts = useRef([0, 0, 0, 0, 0, 0]);
+  const batchCounts = useRef([0, 0, 0, 0, 0, 0, 0, 0]);
   const dirty = useRef(true),
     time = useRef(0);
   useEffect(() => {
@@ -112,9 +131,20 @@ export function Forest(props: ForestProps) {
         };
       }
     }
+    const sparkleKey = `${props.selected}:${props.moment?.serial ?? -1}`;
+    if (sparkle.current.key !== sparkleKey) {
+      const chosen = rows.find(
+        (r) => r.idea.id === (props.moment?.id ?? props.selected),
+      );
+      sparkle.current = {
+        key: sparkleKey,
+        id: chosen?.idea.id ?? '',
+        elapsed: motion && chosen && chosen.idea.waters >= 30 ? 0 : 2,
+      };
+    }
     dirty.current = true;
     invalidate();
-  }, [rows, motion, props.moment, invalidate]);
+  }, [rows, motion, props.moment, props.selected, invalidate]);
   useFrame((_, delta) => {
     if (props.motion) time.current += Math.min(delta, 0.05);
     if (refs.current.some((m) => !m)) return;
@@ -158,8 +188,18 @@ export function Forest(props: ForestProps) {
         else moving = true;
       }
     }
+    if (sparkle.current.elapsed < 1.2) {
+      sparkle.current.elapsed = props.motion
+        ? Math.min(1.2, sparkle.current.elapsed + Math.min(delta, 0.05))
+        : 1.2;
+      rebuild = true;
+      moving ||= sparkle.current.elapsed < 1.2;
+    }
     if (rebuild) counts.fill(0);
-    else counts[1] = 0;
+    else {
+      counts[1] = 0;
+      counts[6] = 0;
+    }
     function put(
       batch: number,
       x: number,
@@ -235,7 +275,51 @@ export function Forest(props: ForestProps) {
           crown,
         );
       }
+      for (let i = 0; i < Math.ceil(state.fruits); i++) {
+        const born = Math.min(1, Math.max(0, state.fruits - i));
+        const angle = i * 2.39996 + randomAt(seed, 70) * Math.PI * 2;
+        const vertical = -0.5 + randomAt(seed, 80 + i) * 0.8;
+        const radius = Math.sqrt(1 - vertical * vertical) * width;
+        const fruitSize = 0.095 * born * p;
+        put(
+          6,
+          x + Math.cos(angle) * radius + sway,
+          0.16 + h * (0.82 + vertical * 0.36),
+          z + Math.sin(angle) * radius,
+          fruitSize,
+          fruitSize * 1.05,
+          fruitSize,
+          0,
+          angle,
+          0,
+          ['#d76549', '#edb955', '#dd8654'][seed % 3],
+        );
+      }
       if (!rebuild) continue;
+      if (
+        sparkle.current.id === idea.id &&
+        sparkle.current.elapsed < 1.2 &&
+        props.motion
+      ) {
+        const t = sparkle.current.elapsed / 1.2;
+        for (let i = 0; i < 8; i++) {
+          const a = (i * Math.PI) / 4;
+          const size =
+            Math.sin(Math.PI * t) * (0.045 + randomAt(seed, 110 + i) * 0.04);
+          put(
+            7,
+            x + Math.cos(a) * (width + 0.12 + t * 0.18),
+            0.16 + h * (0.65 + randomAt(seed, 100 + i) * 0.55) + t * 0.2,
+            z + Math.sin(a) * (width + 0.12 + t * 0.18),
+            size * 0.55,
+            size * 1.8,
+            size * 0.55,
+            0,
+            a,
+            0,
+          );
+        }
+      }
       for (let i = 0; i < 2; i++) {
         const born = Math.min(1, Math.max(0, state.branches - i));
         if (born < 0.001) continue;
@@ -314,7 +398,7 @@ export function Forest(props: ForestProps) {
       }
     }
     refs.current.forEach((mesh, i) => {
-      if (mesh && (rebuild || i === 1)) {
+      if (mesh && (rebuild || i === 1 || i === 6)) {
         mesh.count = counts[i];
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor && rebuild)
@@ -331,7 +415,7 @@ export function Forest(props: ForestProps) {
         ref={(m) => {
           refs.current[0] = m;
         }}
-        args={[undefined, undefined, 24]}
+        args={[undefined, undefined, GROVE_SIZE]}
         castShadow
         frustumCulled={false}
         onClick={(event) => pickTree(event)}
@@ -344,7 +428,7 @@ export function Forest(props: ForestProps) {
         ref={(m) => {
           refs.current[1] = m;
         }}
-        args={[undefined, undefined, 72]}
+        args={[undefined, undefined, GROVE_SIZE * 3]}
         castShadow
         frustumCulled={false}
         onClick={(event) => pickTree(event, true)}
@@ -357,7 +441,7 @@ export function Forest(props: ForestProps) {
         ref={(m) => {
           refs.current[2] = m;
         }}
-        args={[undefined, undefined, 48]}
+        args={[undefined, undefined, GROVE_SIZE * 2]}
         frustumCulled={false}
         raycast={noRaycast}
       >
@@ -369,7 +453,7 @@ export function Forest(props: ForestProps) {
         ref={(m) => {
           refs.current[3] = m;
         }}
-        args={[undefined, undefined, 48]}
+        args={[undefined, undefined, GROVE_SIZE * 2]}
         frustumCulled={false}
         raycast={noRaycast}
       >
@@ -381,7 +465,7 @@ export function Forest(props: ForestProps) {
         ref={(m) => {
           refs.current[4] = m;
         }}
-        args={[undefined, undefined, 288]}
+        args={[undefined, undefined, GROVE_SIZE * 12]}
         frustumCulled={false}
         raycast={noRaycast}
       >
@@ -393,12 +477,36 @@ export function Forest(props: ForestProps) {
         ref={(m) => {
           refs.current[5] = m;
         }}
-        args={[undefined, undefined, 288]}
+        args={[undefined, undefined, GROVE_SIZE * 12]}
         frustumCulled={false}
         raycast={noRaycast}
       >
         <circleGeometry args={[1, 8]} />
         <meshBasicMaterial color="#a17a42" />
+      </instancedMesh>
+      <instancedMesh
+        name="idea-fruit"
+        ref={(m) => {
+          refs.current[6] = m;
+        }}
+        args={[undefined, undefined, GROVE_SIZE * 8]}
+        frustumCulled={false}
+        raycast={noRaycast}
+      >
+        <icosahedronGeometry args={[1, 1]} />
+        <meshStandardMaterial roughness={0.65} />
+      </instancedMesh>
+      <instancedMesh
+        name="idea-sparkles"
+        ref={(m) => {
+          refs.current[7] = m;
+        }}
+        args={[undefined, undefined, 8]}
+        frustumCulled={false}
+        raycast={noRaycast}
+      >
+        <octahedronGeometry args={[1, 0]} />
+        <meshBasicMaterial color="#fff3b4" toneMapped={false} />
       </instancedMesh>
       <mesh
         ref={halo}
@@ -420,7 +528,7 @@ export function Forest(props: ForestProps) {
 }
 function markerHeight(idea: Idea) {
   const base = 0.88 + randomAt(seedForId(idea.id), 0) * 0.18;
-  return 0.36 + base * growthForLikes(idea.waters).height * 1.18;
+  return 0.16 + base * growthForLikes(idea.waters).height * 0.82;
 }
 function TreeMarkers({
   ideas,
@@ -436,66 +544,22 @@ function TreeMarkers({
     const timer = setTimeout(() => setRevealedId(null), 2400);
     return () => clearTimeout(timer);
   }, [revealedId]);
-  const { camera, size } = useThree();
-  const [groups, setGroups] = useState<ReturnType<typeof clusterTargets>>([]);
-  const previous = useRef(new THREE.Matrix4()),
-    projection = useRef(new THREE.Matrix4()),
-    version = useRef(''),
-    point = useMemo(() => new THREE.Vector3(), []);
-  const key =
-    ideas.map((i) => `${i.id}:${i.plot}:${i.waters}`).join(':') +
-    size.width +
-    ':' +
-    size.height;
-  useFrame(() => {
-    if (
-      version.current === key &&
-      previous.current.equals(camera.matrixWorld) &&
-      projection.current.equals(camera.projectionMatrix)
-    )
-      return;
-    previous.current.copy(camera.matrixWorld);
-    projection.current.copy(camera.projectionMatrix);
-    version.current = key;
-    setGroups(
-      clusterTargets(
-        ideas.slice(0, 24).map((idea, index) => {
-          const [x, z] = plotPosition(idea.plot ?? index);
-          point.set(x, markerHeight(idea) - 0.45, z).project(camera);
-          return {
-            x: ((point.x + 1) * size.width) / 2,
-            y: ((1 - point.y) * size.height) / 2,
-            index,
-          };
-        }),
-      ),
-    );
-  });
   return (
     <>
-      {groups.map((group) => {
-        const members = group.indices.map((i) => ideas[i]).filter(Boolean);
-        if (!members.length) return null;
-        const position = new THREE.Vector3();
-        for (const idea of members) {
-          const index = ideas.indexOf(idea),
-            [x, z] = plotPosition(idea.plot ?? index);
-          position.add(new THREE.Vector3(x, markerHeight(idea), z));
-        }
-        position.divideScalar(members.length);
-        const active = members.some((i) => i.id === selected);
+      {ideas.slice(0, GROVE_SIZE).map((idea, index) => {
+        const [x, z] = plotPosition(idea.plot ?? index);
         return (
           <TreeMarker
-            key={members.map((i) => i.id).join(':')}
-            members={members}
-            position={position}
-            active={active}
-            fresh={members.some((i) => i.id === highlightId)}
+            key={idea.id}
+            idea={idea}
+            position={new THREE.Vector3(x, markerHeight(idea), z)}
+            active={idea.id === selected}
+            fresh={idea.id === highlightId}
             onSeen={() => {
               setRevealedId(highlightId);
               onHighlighted();
             }}
-            showCue={members.some((i) => i.id === revealedId)}
+            showCue={idea.id === revealedId}
             onSelect={onSelect}
             onCluster={onCluster}
           />
@@ -504,9 +568,8 @@ function TreeMarkers({
     </>
   );
 }
-
 function TreeMarker({
-  members,
+  idea,
   position,
   active,
   fresh,
@@ -515,7 +578,7 @@ function TreeMarker({
   onSelect,
   onCluster,
 }: {
-  members: Idea[];
+  idea: Idea;
   position: THREE.Vector3;
   active: boolean;
   fresh: boolean;
@@ -528,41 +591,56 @@ function TreeMarker({
     fresh,
     onSeen,
   );
-  const single = members.length === 1,
-    idea = members[0];
+  const press = useRef<{ x: number; y: number } | null>(null);
   return (
     <Html position={position} center zIndexRange={[20, 0]}>
       <button
         ref={cueRef}
-        className={`plant-marker garden-target ${active ? 'selected' : ''} ${single ? '' : 'cluster-marker'} ${highlighted || showCue ? 'is-fresh' : ''} ${highlighted ? 'is-arriving' : ''}`}
-        aria-label={
-          single
-            ? `Read idea: ${idea.title}`
-            : `Choose from ${members.length} nearby ideas`
-        }
+        data-tree-target={idea.id}
+        className={`plant-marker garden-target tree-hit-target ${active ? 'selected' : ''} ${highlighted || showCue ? 'is-fresh' : ''}`}
+        aria-label={`Read idea: ${idea.title}`}
+        onPointerDown={(e) => {
+          press.current = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerCancel={() => {
+          press.current = null;
+        }}
         onClick={(e) => {
           e.stopPropagation();
-          if (single) onSelect(idea.id);
-          else onCluster(members.map((i) => i.id));
+          if (e.detail === 0) {
+            onSelect(idea.id);
+            return;
+          }
+          if (
+            press.current &&
+            Math.hypot(
+              e.clientX - press.current.x,
+              e.clientY - press.current.y,
+            ) > 8
+          )
+            return;
+          const stage = e.currentTarget.closest('.garden-stage');
+          const targets = Array.from(
+            stage?.querySelectorAll<HTMLElement>('[data-tree-target]') ?? [],
+          ).map((el) => {
+            const { left, top, right, bottom } = el.getBoundingClientRect();
+            return { id: el.dataset.treeTarget!, left, top, right, bottom };
+          });
+          const ids = hitTreeTargets(targets, e.clientX, e.clientY);
+          if (ids.length > 1) onCluster(ids);
+          else onSelect(idea.id);
         }}
       >
-        <span className="marker-face">
-          {single ? (
-            <span className="marker-dot" />
-          ) : (
-            <>
-              <Layers size={12} />
-              <span>{members.length}</span>
-            </>
-          )}
+        <span className="marker-face" aria-hidden="true">
+          <span className="marker-dot" />
         </span>
         {(highlighted || showCue) && (
           <span className="fresh-tree-label" aria-hidden="true">
-            Your tree{single ? '' : ' is here'}
+            Your tree
           </span>
         )}
-        <span className="plant-tooltip">
-          {single ? idea.title : `${members.length} nearby ideas`}
+        <span className="plant-tooltip" aria-hidden="true">
+          {idea.title}
         </span>
       </button>
     </Html>

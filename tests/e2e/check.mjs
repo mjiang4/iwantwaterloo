@@ -288,11 +288,20 @@ try {
       .click();
     const marker = page.locator('.garden-target').first();
     await marker.waitFor();
-    const clustered = (await marker.getAttribute('aria-label')).startsWith(
-      'Choose',
+    await marker.scrollIntoViewIfNeeded();
+    const target = await marker.boundingBox();
+    assert.ok(target);
+    await page.touchscreen.tap(
+      target.x + target.width / 2,
+      target.y + target.height / 2,
     );
-    await marker.tap();
-    if (clustered) await page.locator('.nearby-ideas button').first().tap();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.idea-sheet') ||
+        document.querySelector('.nearby-ideas'),
+    );
+    if (await page.locator('.nearby-ideas').isVisible())
+      await page.locator('.nearby-ideas button').first().tap();
     await page.locator('.idea-sheet').waitFor({ state: 'visible' });
     assert.equal(
       await page
