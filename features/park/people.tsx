@@ -138,7 +138,14 @@ export function ParkPeople({
     [ideas],
   );
 
-  const target = enabled ? peopleTarget(people ?? 0, mode, afterDark) : 0;
+  // The count is global, but each grove page or search refetches it; keep the last
+  // known value so a page change never reads as "nobody" and sends people home.
+  const known = useRef<number | undefined>(undefined);
+  if (people !== undefined) known.current = people;
+  const target =
+    enabled && known.current !== undefined
+      ? peopleTarget(known.current, mode, afterDark)
+      : 0;
 
   /** Walk from a junction to a random junction, or to a tree (busier more often). */
   function nextWalk(walker: Walker, from: number) {
@@ -185,20 +192,36 @@ export function ParkPeople({
   // The first crowd (and any change with motion off) appears in place.
   const placed = useRef(false);
   const joinAt = useRef(0);
-  const lastPeople = useRef<number | undefined>(undefined);
-  const arrivals = useRef<Tree[]>([]);
+  const most = useRef<number | undefined>(undefined);
+  const seenNewest = useRef<{ id: string; createdAt: number } | null>(null);
+  const arrivals = useRef<(Tree | null)[]>([]);
   useEffect(() => {
-    // A new browser planted an idea: someone walks in to the newest tree.
-    const previous = lastPeople.current;
-    lastPeople.current = people;
-    if (previous === undefined || people === undefined || !newest) return;
-    const tree = treesRef.current.find((t) => t.id === newest.id);
+    // A new browser planted an idea: someone walks in. Only a count above anything
+    // seen before counts (a cached page can briefly report an older, lower number).
+    // They head to that idea's tree when it is in view: the newest tree here is
+    // newer than any seen before. Otherwise they simply join the stroll.
+    const latest = newest && { id: newest.id, createdAt: newest.createdAt };
+    const fresh =
+      latest &&
+      seenNewest.current &&
+      latest.id !== seenNewest.current.id &&
+      latest.createdAt > seenNewest.current.createdAt;
+    if (latest && (!seenNewest.current || fresh)) seenNewest.current = latest;
+    if (people === undefined) return;
+    const previous = most.current;
+    if (previous === undefined || people > previous) most.current = people;
+    if (previous === undefined || people <= previous || !enabled) return;
+    const tree = fresh
+      ? (treesRef.current.find((t) => t.id === latest.id) ?? null)
+      : null;
     for (let i = previous; i < Math.min(people, previous + 3); i++)
-      if (tree) arrivals.current.push(tree);
-  }, [people, newest]);
+      arrivals.current.push(i === previous ? tree : null);
+    arrivals.current = arrivals.current.slice(-3);
+  }, [people, newest, enabled]);
 
   function balance(now: number) {
-    if (!graph) return;
+    // Wait for both the paths and a real count, so the first crowd is the right size.
+    if (!graph || known.current === undefined) return;
     const list = walkers.current;
     if (!placed.current || !motion) {
       placed.current = true;
@@ -208,20 +231,35 @@ export function ParkPeople({
       arrivals.current = [];
       return;
     }
-    const staying = list.filter((w) => !w.leaving);
-    if (arrivals.current.length && now >= joinAt.current) {
+    let staying = list.filter((w) => !w.leaving);
+    // Someone needed while others are still heading home: they turn back first.
+    for (const walker of list) {
+      if (staying.length >= target) break;
+      if (walker.leaving) {
+        walker.leaving = false;
+        staying = [...staying, walker];
+      }
+    }
+    // Never more people than the meshes hold.
+    const room = list.length < CAPACITY;
+    if (room && arrivals.current.length && now >= joinAt.current) {
       // Arrivals always walk in; someone else heads home if that overfills the park.
-      list.push(
-        spawn(randomGate(graph, roll), arrivals.current.shift() ?? null),
-      );
+      list.push(spawn(randomGate(graph, roll), arrivals.current.shift()!));
       joinAt.current = now + 1.2;
       return;
     }
-    if (staying.length < target && now >= joinAt.current) {
+    if (room && staying.length < target && now >= joinAt.current) {
       list.push(spawn(randomGate(graph, roll), null));
       joinAt.current = now + 1.5;
     } else if (staying.length > target) {
-      for (const walker of staying.slice(target)) walker.leaving = true;
+      // The longest-strolling people without somewhere to be go home first, so a
+      // newcomer always reaches the tree they came for.
+      const order = [
+        ...staying.filter((w) => !w.goal && !w.visit),
+        ...staying.filter((w) => w.goal || w.visit),
+      ];
+      for (const walker of order.slice(0, staying.length - target))
+        walker.leaving = true;
     }
   }
 
@@ -237,7 +275,7 @@ export function ParkPeople({
     for (const walker of list) step(walker, dt);
     walkers.current = list.filter((w) => !w.gone);
     const shown = walkers.current;
-    shown.forEach((walker, i) => {
+    shown.slice(0, CAPACITY).forEach((walker, i) => {
       const bob = motion ? Math.abs(Math.sin(walker.stride)) * 0.012 : 0;
       object.position.set(walker.x, PATH_Y + 0.068 * FIGURE + bob, walker.z);
       object.rotation.set(0, walker.heading, 0);
@@ -259,7 +297,7 @@ export function ParkPeople({
       (mesh): mesh is THREE.InstancedMesh => !!mesh,
     );
     for (const mesh of meshes) {
-      mesh.count = shown.length;
+      mesh.count = Math.min(shown.length, CAPACITY);
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
@@ -355,10 +393,16 @@ export function ParkPeople({
       placed.current = false;
       invalidate();
     }
-  }, [motion, target, invalidate]);
+  }, [motion, target, graph, invalidate]);
 
   useEffect(() => {
-    if (!enabled) gl.domElement.dataset.people = '0';
+    if (!enabled) {
+      gl.domElement.dataset.people = '0';
+      arrivals.current = [];
+    }
+    return () => {
+      gl.domElement.dataset.people = '0';
+    };
   }, [enabled, gl]);
 
   if (!enabled) return null;
@@ -367,6 +411,7 @@ export function ParkPeople({
       <instancedMesh
         ref={bodies}
         args={[undefined, undefined, CAPACITY]}
+        count={0}
         frustumCulled={false}
         raycast={noRaycast}
       >
@@ -381,6 +426,7 @@ export function ParkPeople({
       <instancedMesh
         ref={heads}
         args={[undefined, undefined, CAPACITY]}
+        count={0}
         frustumCulled={false}
         raycast={noRaycast}
       >
@@ -394,6 +440,7 @@ export function ParkPeople({
       <instancedMesh
         ref={shadows}
         args={[undefined, undefined, CAPACITY]}
+        count={0}
         frustumCulled={false}
         raycast={noRaycast}
         renderOrder={1}

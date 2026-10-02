@@ -51,7 +51,12 @@ try {
       await transform.waitFor();
       await page.locator('canvas').waitFor();
       assert.equal(cityRequests, 0, 'the stripped-down park skips the city');
-      assert.equal(await people(), 0, 'no walkers in the stripped-down park');
+      // The walkers report an explicit 0 when off, so this can't pass by accident.
+      await page.waitForFunction(
+        () => document.querySelector('canvas')?.dataset.people === '0',
+        null,
+        { timeout: 30000 },
+      );
       await canvasWidthBetween(390, 390); // stripped-down renders at 1x
 
       // "Transform me" grows the full park in place and remembers the choice.
@@ -82,7 +87,13 @@ try {
         .getByRole('button', { name: 'Use lighter version', exact: true })
         .tap();
       await transform.waitFor();
-      assert.equal(await people(), 0, 'switching back sends the people home');
+      assert.equal(
+        await page.evaluate(
+          () => document.querySelector('canvas')?.dataset.people,
+        ),
+        '0',
+        'switching back sends the people home',
+      );
       assert.deepEqual(errors, []);
       console.log(
         `PASS: ${engine.name()} phones start stripped down without people, transform to a few, remember and switch back`,
