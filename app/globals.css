@@ -2522,3 +2522,29 @@ independent of tree growth. */
 .tree-hit-target:focus-visible .marker-face {
   opacity: 1;
 }
+
+/* Portalled outside the clipped canvas; Base UI flips/shifts at viewport edges. */
+.tree-tooltip-positioner {
+  z-index: 40;
+}
+.tree-tooltip {
+  display: grid;
+  gap: 6px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  max-height: var(--available-height);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  padding: 12px 15px;
+  border: 1px solid #dde4d4;
+  border-radius: 12px;
+  background: #fcfdf8;
+  box-shadow: 0 6px 24px #334c231a;
+  color: #345034;
+  font: 500 0.9375rem/1.45 var(--font-garden-sans);
+  text-align: left;
+}
+.tree-tooltip-likes {
+  font-size: 0.8125rem;
+  color: #64735d;
+}

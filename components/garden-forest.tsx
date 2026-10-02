@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import { Tooltip } from '@base-ui/react/tooltip';
 import * as THREE from 'three';
 import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import { useFreshHighlight } from './use-fresh-highlight';
@@ -22,6 +23,7 @@ const growthKeys = [
   'fullness',
   'flowers',
   'fruits',
+  'fruitSize',
   'branches',
   'planted',
 ] as const;
@@ -277,10 +279,16 @@ export function Forest(props: ForestProps) {
       }
       for (let i = 0; i < Math.ceil(state.fruits); i++) {
         const born = Math.min(1, Math.max(0, state.fruits - i));
-        const angle = i * 2.39996 + randomAt(seed, 70) * Math.PI * 2;
-        const vertical = -0.5 + randomAt(seed, 80 + i) * 0.8;
-        const radius = Math.sqrt(1 - vertical * vertical) * width;
-        const fruitSize = 0.095 * born * p;
+        // Stagger three rings on the outer crown so fruit stays above foliage
+        // from any orbit angle. Later milestones fill the higher rings.
+        const ring = Math.floor(i / 4);
+        const angle =
+          ((i % 4) * Math.PI) / 2 +
+          ring * 0.7 +
+          randomAt(seed, 70) * Math.PI * 2;
+        const vertical = -0.2 + ring * 0.43;
+        const radius = Math.sqrt(1 - vertical * vertical) * width * 1.08;
+        const fruitSize = state.fruitSize * born * p * (1 + (pulse - 1) * 0.5);
         put(
           6,
           x + Math.cos(angle) * radius + sway,
@@ -292,7 +300,7 @@ export function Forest(props: ForestProps) {
           0,
           angle,
           0,
-          ['#d76549', '#edb955', '#dd8654'][seed % 3],
+          ['#e64b32', '#f28635'][i % 2],
         );
       }
       if (!rebuild) continue;
@@ -489,12 +497,12 @@ export function Forest(props: ForestProps) {
         ref={(m) => {
           refs.current[6] = m;
         }}
-        args={[undefined, undefined, GROVE_SIZE * 8]}
+        args={[undefined, undefined, GROVE_SIZE * 12]}
         frustumCulled={false}
         raycast={noRaycast}
       >
         <icosahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial roughness={0.65} />
+        <meshStandardMaterial roughness={0.45} />
       </instancedMesh>
       <instancedMesh
         name="idea-sparkles"
@@ -594,55 +602,75 @@ function TreeMarker({
   const press = useRef<{ x: number; y: number } | null>(null);
   return (
     <Html position={position} center zIndexRange={[20, 0]}>
-      <button
-        ref={cueRef}
-        data-tree-target={idea.id}
-        className={`plant-marker garden-target tree-hit-target ${active ? 'selected' : ''} ${highlighted || showCue ? 'is-fresh' : ''}`}
-        aria-label={`Read idea: ${idea.title}`}
-        onPointerDown={(e) => {
-          press.current = { x: e.clientX, y: e.clientY };
-        }}
-        onPointerCancel={() => {
-          press.current = null;
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (e.detail === 0) {
-            onSelect(idea.id);
-            return;
-          }
-          if (
-            press.current &&
-            Math.hypot(
-              e.clientX - press.current.x,
-              e.clientY - press.current.y,
-            ) > 8
-          )
-            return;
-          const stage = e.currentTarget.closest('.garden-stage');
-          const targets = Array.from(
-            stage?.querySelectorAll<HTMLElement>('[data-tree-target]') ?? [],
-          ).map((el) => {
-            const { left, top, right, bottom } = el.getBoundingClientRect();
-            return { id: el.dataset.treeTarget!, left, top, right, bottom };
-          });
-          const ids = hitTreeTargets(targets, e.clientX, e.clientY);
-          if (ids.length > 1) onCluster(ids);
-          else onSelect(idea.id);
-        }}
-      >
-        <span className="marker-face" aria-hidden="true">
-          <span className="marker-dot" />
-        </span>
-        {(highlighted || showCue) && (
-          <span className="fresh-tree-label" aria-hidden="true">
-            Your tree
+      <Tooltip.Root>
+        <Tooltip.Trigger
+          delay={150}
+          ref={cueRef}
+          data-tree-target={idea.id}
+          className={`plant-marker garden-target tree-hit-target ${active ? 'selected' : ''} ${highlighted || showCue ? 'is-fresh' : ''}`}
+          aria-label={`Read idea: ${idea.title}`}
+          aria-describedby={`tree-tooltip-${idea.id}`}
+          onPointerDown={(e) => {
+            press.current = { x: e.clientX, y: e.clientY };
+          }}
+          onPointerCancel={() => {
+            press.current = null;
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (e.detail === 0) {
+              onSelect(idea.id);
+              return;
+            }
+            if (
+              press.current &&
+              Math.hypot(
+                e.clientX - press.current.x,
+                e.clientY - press.current.y,
+              ) > 8
+            )
+              return;
+            const stage = e.currentTarget.closest('.garden-stage');
+            const targets = Array.from(
+              stage?.querySelectorAll<HTMLElement>('[data-tree-target]') ?? [],
+            ).map((el) => {
+              const { left, top, right, bottom } = el.getBoundingClientRect();
+              return { id: el.dataset.treeTarget!, left, top, right, bottom };
+            });
+            const ids = hitTreeTargets(targets, e.clientX, e.clientY);
+            if (ids.length > 1) onCluster(ids);
+            else onSelect(idea.id);
+          }}
+        >
+          <span className="marker-face" aria-hidden="true">
+            <span className="marker-dot" />
           </span>
-        )}
-        <span className="plant-tooltip" aria-hidden="true">
-          {idea.title}
-        </span>
-      </button>
+          {(highlighted || showCue) && (
+            <span className="fresh-tree-label" aria-hidden="true">
+              Your tree
+            </span>
+          )}
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Positioner
+            side="top"
+            sideOffset={8}
+            collisionPadding={12}
+            className="tree-tooltip-positioner"
+          >
+            <Tooltip.Popup
+              className="tree-tooltip"
+              role="tooltip"
+              id={`tree-tooltip-${idea.id}`}
+            >
+              <span>{idea.title}</span>
+              <span className="tree-tooltip-likes">
+                {idea.waters} {idea.waters === 1 ? 'like' : 'likes'}
+              </span>
+            </Tooltip.Popup>
+          </Tooltip.Positioner>
+        </Tooltip.Portal>
+      </Tooltip.Root>
     </Html>
   );
 }

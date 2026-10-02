@@ -5,7 +5,10 @@ import { startTestSite } from '../helpers/test-site.mjs';
 const site = await startTestSite();
 const ideas = Array.from({ length: 30 }, (_, i) => ({
   id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
-  title: `Community idea ${i + 1}`,
+  title:
+    i === 0
+      ? 'A shared workshop where students and neighbours can build, store and create their physical projects together.'
+      : `Community idea ${i + 1}`,
   description: `A welcoming outdoor place for community idea ${i + 1}.`,
   place: 'Waterloo',
   plot: i + 6,
@@ -79,6 +82,54 @@ try {
           .evaluate((el) => getComputedStyle(el).opacity),
         '0',
       );
+      // Tooltips must escape the garden's clip, stay on screen, and dismiss.
+      if (config.name === 'desktop') {
+        const first = page.locator('[data-tree-target]').first();
+        await page.keyboard.press('Tab');
+        await first.focus();
+        const tooltip = page.getByRole('tooltip');
+        await tooltip.waitFor();
+        assert.equal(
+          await tooltip.locator('.tree-tooltip-likes').textContent(),
+          '30 likes',
+        );
+        assert.equal(
+          await tooltip.evaluate((el) => !!el.closest('.garden-stage')),
+          false,
+        );
+        await page.screenshot({ path: 'outputs/tree-growth/hover.png' });
+        for (const corner of [
+          'top-left',
+          'top-right',
+          'bottom-left',
+          'bottom-right',
+        ]) {
+          // Exercise the same portalled trigger at each screen edge.
+          await first.evaluate((el, corner) => {
+            const anchor = el.parentElement;
+            anchor.style.transform = 'none';
+            anchor.style.position = 'fixed';
+            const stage = el.closest('.garden-stage').getBoundingClientRect();
+            anchor.style.left = `${(corner.endsWith('right') ? innerWidth - 54 : 6) - stage.left}px`;
+            anchor.style.top = `${(corner.startsWith('bottom') ? innerHeight - 54 : 6) - stage.top}px`;
+          }, corner);
+          await page.waitForTimeout(150);
+          const box = await tooltip.boundingBox();
+          assert.ok(
+            box &&
+              box.x >= 0 &&
+              box.y >= 0 &&
+              box.x + box.width <= config.width &&
+              box.y + box.height <= config.height,
+            `tooltip visible at ${corner}`,
+          );
+        }
+        await page.keyboard.press('Escape');
+        await tooltip.waitFor({ state: 'hidden' });
+        // Restore normal projected positions before checking real tree taps.
+        await page.reload();
+        await page.locator('[data-tree-target]').first().waitFor();
+      }
       const overlap = await page
         .locator('[data-tree-target]')
         .evaluateAll((elements) => {
