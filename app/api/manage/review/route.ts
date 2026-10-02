@@ -1,3 +1,7 @@
+import {
+  notifyModerators,
+  pendingSubmissionCount,
+} from '@/server/moderation-notifications';
 import { database } from '@/db/raw';
 import { readBody, InputError } from '@/lib/server';
 import {
@@ -17,7 +21,9 @@ export async function GET(request: Request) {
       SELECT id,'reply' AS kind,body,display_name AS displayName,moderation_reason AS reason,created_at AS createdAt FROM comments WHERE moderation_state='pending'
       ORDER BY createdAt,id LIMIT 100`)
       .all();
-    return adminJSON({ items: rows.results });
+    const total = await pendingSubmissionCount();
+    await notifyModerators();
+    return adminJSON({ items: rows.results, total });
   } catch (error) {
     return adminFailure(error);
   }

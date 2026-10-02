@@ -2548,3 +2548,25 @@ independent of tree growth. */
   font-size: 0.8125rem;
   color: #64735d;
 }
+
+.admin-review {
+  margin: 16px 0;
+}
+.admin-review-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #dfe3d8;
+  border-radius: 12px;
+}
+.admin-review-banner output {
+  flex: 1;
+  min-width: 150px;
+  margin: 0;
+}
+.admin-review-banner.has-pending {
+  background: #fff3d6;
+  border-color: #d9b86b;
+}

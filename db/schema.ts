@@ -173,3 +173,11 @@ export const adminPasswords = sqliteTable('admin_passwords', {
   passwordHash: text('password_hash').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
+
+export const moderationNotifications = sqliteTable('moderation_notifications', {
+  id: text('id').primaryKey(),
+  notificationId: text('notification_id').notNull(),
+  pending: integer('pending').notNull(),
+  nextAllowedAt: integer('next_allowed_at').notNull(),
+  leaseUntil: integer('lease_until').notNull(),
+});

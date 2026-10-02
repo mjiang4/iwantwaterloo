@@ -1,3 +1,4 @@
+import { notifyModerators } from '@/server/moderation-notifications';
 import { screenSubmission } from '@/server/moderation';
 import { listIdeas } from '@/server/idea-list';
 import { validateIdea } from '@/server/idea-input';
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
         600,
       );
     }
+    if (screening.state === 'pending') await notifyModerators();
     return response(
       request,
       id,

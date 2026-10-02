@@ -1,3 +1,4 @@
+import { notifyModerators } from '@/server/moderation-notifications';
 import { screenSubmission } from '@/server/moderation';
 import { database } from '@/db/raw';
 import {
@@ -140,6 +141,7 @@ export async function POST(request: Request) {
       if (!saved) throw new Error('Comment retry could not be recovered');
       return response(request, id, { comment: saved });
     }
+    if (screening.state === 'pending') await notifyModerators();
     return response(
       request,
       id,

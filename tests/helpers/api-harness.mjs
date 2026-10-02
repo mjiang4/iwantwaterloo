@@ -25,6 +25,7 @@ export async function createApiHarness({
   emailDelivery = null,
   bootstrapHash,
   moderation,
+  moderationAlerts = false,
   turnstileSecret = null,
   turnstileSitekey = turnstileSecret ? 'test-sitekey' : null,
 } = {}) {
@@ -89,6 +90,7 @@ export async function createApiHarness({
     },
     bindings: {
       OPENAI_API_KEY: 'test-only-not-a-real-key',
+      MODERATION_ALERT_EMAILS_ENABLED: moderationAlerts ? 'true' : 'false',
       GARDEN_ENV: preview ? 'preview' : 'test',
       ...(emailDelivery
         ? {

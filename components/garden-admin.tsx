@@ -270,6 +270,10 @@ export function GardenAdmin() {
       ) : (
         <>
           <p className="admin-identity">{email}</p>
+          <ModerationQueue
+            key={email}
+            onReviewed={() => void loadIdeas().catch(fail)}
+          />
           <nav aria-label="Admin sections">
             <Button
               variant={tab === 'ideas' ? 'default' : 'ghost'}
@@ -288,7 +292,6 @@ export function GardenAdmin() {
             <output>Loading…</output>
           ) : tab === 'ideas' ? (
             <>
-              <ModerationQueue />
               <form
                 className="admin-search"
                 onSubmit={(e) => {

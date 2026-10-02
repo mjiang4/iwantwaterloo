@@ -8,6 +8,7 @@ declare namespace Cloudflare {
     RESEND_API_KEY?: string;
     ADMIN_EMAIL_FROM?: string;
     ADMIN_ORIGIN?: string;
+    MODERATION_ALERT_EMAILS_ENABLED?: string;
     RATE_LIMIT_SECRET?: string;
     TURNSTILE_SITEKEY?: string;
     TURNSTILE_SECRET?: string;
