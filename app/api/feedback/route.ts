@@ -8,6 +8,7 @@ import {
   failure,
 } from '@/lib/server';
 import { limitWrites } from '@/lib/rate-limit';
+import { screen } from '@/server/moderation';
 
 export async function POST(request: Request) {
   const { id } = await identity(request);
@@ -22,6 +23,10 @@ export async function POST(request: Request) {
       typeof value.submissionKey === 'string' ? value.submissionKey : '';
     if (body.length < 10 || body.length > 2000)
       throw new InputError('Please use 10–2,000 characters.');
+    // Feedback is private (not public), so pending == allow for storage; only hard
+    // matches are refused.
+    if (screen(body).action === 'reject')
+      throw new InputError('This can’t be posted. Please rephrase.', 422);
     if (
       !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
         key,

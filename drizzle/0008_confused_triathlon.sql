@@ -1,0 +1,1 @@
+ALTER TABLE `ideas` ADD `moderation_state` text DEFAULT 'visible' NOT NULL;

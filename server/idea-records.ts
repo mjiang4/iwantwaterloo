@@ -40,9 +40,10 @@ export function ideaFromRow(row: Record<string, unknown>): Idea {
     example: false,
   };
 }
+/** Public shared-idea lookup (page + OG image): pending/rejected ideas stay hidden. */
 export async function findIdea(id: string, visitorId = '') {
   const row = await database()
-    .prepare(IDEA_SELECT + ' WHERE i.id=?')
+    .prepare(IDEA_SELECT + " WHERE i.id=? AND i.moderation_state='visible'")
     .bind(visitorId, id)
     .first<Record<string, unknown>>();
   return row ? ideaFromRow(row) : null;

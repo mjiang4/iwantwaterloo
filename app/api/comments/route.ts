@@ -8,6 +8,7 @@ import {
   response,
 } from '@/lib/server';
 import { limitWrites } from '@/lib/rate-limit';
+import { screen } from '@/server/moderation';
 
 function text(value: unknown, name: string, max: number, min = 0) {
   if (value !== undefined && typeof value !== 'string')
@@ -71,6 +72,11 @@ export async function POST(request: Request) {
       (parentId && !/^[a-f0-9-]{36}$/.test(parentId))
     )
       throw new InputError('Please retry this reply.');
+    const verdict = screen(`${body} ${displayName}`);
+    if (verdict.action === 'reject')
+      throw new InputError('This can’t be posted. Please rephrase.', 422);
+    const moderationState =
+      verdict.action === 'pending' ? 'pending' : 'visible';
     const db = database();
     async function findPrevious() {
       const previous = await db
@@ -116,7 +122,7 @@ export async function POST(request: Request) {
     const now = Date.now();
     const inserted = await db
       .prepare(
-        'INSERT INTO comments (id,idea_id,parent_id,body,display_name,created_at,visitor_id,submission_key) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO comments (id,idea_id,parent_id,body,display_name,created_at,visitor_id,submission_key,moderation_state) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         commentId,
@@ -127,6 +133,7 @@ export async function POST(request: Request) {
         now,
         id,
         submissionKey,
+        moderationState,
       )
       .run();
     if (!inserted.meta.changes) {

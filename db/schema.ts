@@ -22,6 +22,7 @@ export const ideas = sqliteTable(
     visitorId: text('visitor_id').notNull(),
     submissionKey: text('submission_key'),
     displayName: text('display_name'),
+    moderationState: text('moderation_state').notNull().default('visible'),
   },
   (t) => [
     uniqueIndex('idx_ideas_submission_key').on(t.submissionKey),

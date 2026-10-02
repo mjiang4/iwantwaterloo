@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       db = database(),
       ideaId = crypto.randomUUID(),
       now = Date.now();
-    const { submissionKey, ...fields } = data;
+    const { submissionKey, moderationState, ...fields } = data;
     async function previous() {
       if (!submissionKey) return null;
       const row = await db
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     await limitWrites(request, id, 'ideas');
     const result = await db
       .prepare(
-        'INSERT INTO ideas (id,title,description,category,place,display_name,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO ideas (id,title,description,category,place,display_name,created_at,visitor_id,submission_key,moderation_state) SELECT ?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         ideaId,
@@ -64,6 +64,7 @@ export async function POST(request: Request) {
         now,
         id,
         submissionKey,
+        moderationState,
         id,
         now - 600000,
       )

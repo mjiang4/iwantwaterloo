@@ -1,4 +1,5 @@
 import { InputError } from '@/lib/server';
+import { screen } from '@/server/moderation';
 
 export function validateIdea(raw: unknown) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw))
@@ -30,11 +31,15 @@ export function validateIdea(raw: unknown) {
     )
   )
     throw new InputError('Please retry this idea.');
+  const verdict = screen(`${title} ${description} ${place} ${displayName}`);
+  if (verdict.action === 'reject')
+    throw new InputError('This can’t be posted. Please rephrase.', 422);
   return {
     title,
     description,
     submissionKey: submissionKey || null,
     place,
     displayName: displayName || null,
+    moderationState: verdict.action === 'pending' ? 'pending' : 'visible',
   };
 }

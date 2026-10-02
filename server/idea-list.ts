@@ -17,7 +17,9 @@ export async function listIdeas(url: URL, id: string) {
         parseInt((url.searchParams.get('seed') || '0').slice(0, 10), 10) || 0,
       ) % 64,
     garden = url.searchParams.get('garden') === '1';
-  const where: string[] = ['1=1'],
+  // Pending/rejected ideas are hidden from every public read. Moderators use the
+  // separate /api/manage/ideas route, which does not apply this filter.
+  const where: string[] = ["i.moderation_state = 'visible'"],
     args: (string | number)[] = [];
   if (url.searchParams.get('mine') === '1') {
     where.push('i.visitor_id = ?');
