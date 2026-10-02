@@ -5,13 +5,19 @@ const publicWrites = new Set([
   '/api/reports',
   '/api/feedback',
 ]);
+import { getTurnstileToken } from '@/lib/turnstile-client';
+
 let visitorReady: Promise<void> | null = null;
 
 /** One bootstrap per tab, coordinated across tabs where Web Locks is available. */
 async function ensureVisitor() {
   if (!visitorReady) {
     const initialize = async () => {
-      await fetchJSON('/api/visitor', { method: 'POST', body: '{}' });
+      const turnstileToken = await getTurnstileToken();
+      await fetchJSON('/api/visitor', {
+        method: 'POST',
+        body: JSON.stringify({ turnstileToken }),
+      });
       const check = await fetchJSON<{ ready: boolean }>('/api/visitor');
       if (!check.ready)
         throw new Error(

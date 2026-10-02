@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { database } from '@/db/raw';
-import { InputError, visitorCookieName } from '@/lib/server';
+import { InputError, visitorCookieName, signVisitor } from '@/lib/server';
 const COOKIE = 'garden_preview_admin';
 export const sessionLifetime = 8 * 60 * 60;
 export function previewConfigured() {
@@ -114,8 +114,9 @@ export function adminCookie(
 ) {
   return `${COOKIE}=${value}; Path=/api/admin; HttpOnly; SameSite=Strict; Max-Age=${age}${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
 }
-export function visitorCookie(request: Request, id: string) {
-  return `${visitorCookieName()}=${id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
+export async function visitorCookie(request: Request, id: string) {
+  // Preview checks run as a real visitor, so their cookie must be signed like any other.
+  return `${visitorCookieName()}=${await signVisitor(id)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
 }
 export async function createSession(request: Request) {
   const value = token();

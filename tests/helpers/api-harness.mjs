@@ -25,6 +25,8 @@ export async function createApiHarness({
   emailDelivery = null,
   bootstrapHash,
   moderation,
+  turnstileSecret = null,
+  turnstileSitekey = turnstileSecret ? 'test-sitekey' : null,
 } = {}) {
   rejectExternalTarget();
   bundle ||= build({
@@ -49,6 +51,12 @@ export async function createApiHarness({
     d1Databases: { DB: 'test-' + randomUUID() },
     d1Persist: false,
     outboundService: async (request) => {
+      if (new URL(request.url).hostname === 'challenges.cloudflare.com') {
+        const form = new URLSearchParams(await request.text());
+        return Response.json({
+          success: form.get('response') === 'valid-token',
+        });
+      }
       if (new URL(request.url).hostname === 'api.openai.com') {
         if (moderation) return moderation(request);
         const categories = Object.fromEntries(
@@ -90,6 +98,8 @@ export async function createApiHarness({
           }
         : {}),
       RATE_LIMIT_SECRET: secret,
+      ...(turnstileSecret ? { TURNSTILE_SECRET: turnstileSecret } : {}),
+      ...(turnstileSitekey ? { TURNSTILE_SITEKEY: turnstileSitekey } : {}),
       ...(bootstrapHash
         ? {
             ADMIN_BOOTSTRAP_HASH: bootstrapHash,
