@@ -9,7 +9,7 @@ import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import { useFreshHighlight } from './use-fresh-highlight';
 import {
   growthForLikes,
-  growthStretch,
+  growthAtProgress,
   plantingScale,
   type GardenMoment,
   seedForId,
@@ -197,6 +197,14 @@ export function Forest(props: ForestProps) {
         if (key === 'planted' && celebrating && props.moment!.kind === 'plant')
           continue;
         const end = key === 'planted' ? 1 : target[key];
+        if (celebrating && props.moment!.kind === 'like' && key !== 'planted') {
+          state[key] = growthAtProgress(
+            growthForLikes(props.moment!.fromLikes)[key],
+            end,
+            momentState.current.progress,
+          );
+          continue;
+        }
         if (state[key] !== end) rebuild = true;
         state[key] += (end - state[key]) * easing;
         if (Math.abs(end - state[key]) < 0.002) state[key] = end;
@@ -246,20 +254,14 @@ export function Forest(props: ForestProps) {
     } of rows) {
       const state = states.current.get(idea.id);
       if (!state) continue;
-      const pulse =
-        props.moment?.id === idea.id &&
-        props.moment.kind === 'like' &&
-        props.momentReady.current
-          ? growthStretch(momentState.current.progress)
-          : 1;
       const p = state.planted,
-        h = (0.88 + randomAt(seed, 0) * 0.18) * state.height * p * pulse,
+        h = (0.88 + randomAt(seed, 0) * 0.18) * state.height * p,
         fullness = state.fullness,
         sway = props.motion
           ? Math.sin(time.current * 0.8 + randomAt(seed, 1) * 6) * 0.016
           : 0,
         crown = palette.foliage[seed % 3],
-        width = (0.2 + fullness * 0.26) * p * (1 + (pulse - 1) * 0.5);
+        width = (0.2 + fullness * 0.26) * p;
       if (rebuild)
         put(0, x, 0.16 + h * 0.38, z, 0.055 * p, h * 0.76, 0.055 * p);
       put(
@@ -303,7 +305,7 @@ export function Forest(props: ForestProps) {
           randomAt(seed, 70) * Math.PI * 2;
         const vertical = -0.2 + ring * 0.43;
         const radius = Math.sqrt(1 - vertical * vertical) * width * 1.08;
-        const fruitSize = state.fruitSize * born * p * (1 + (pulse - 1) * 0.5);
+        const fruitSize = state.fruitSize * born * p;
         put(
           [6, 8, 9][seed % 3],
           x + Math.cos(angle) * radius + sway,
