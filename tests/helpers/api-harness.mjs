@@ -23,7 +23,7 @@ export function rejectExternalTarget() {
 export async function createApiHarness({
   preview = false,
   emailDelivery = null,
-  bootstrapHash = undefined,
+  bootstrapHash,
 } = {}) {
   rejectExternalTarget();
   bundle ||= build({
@@ -157,9 +157,7 @@ export function ideaPayload(overrides = {}) {
   return {
     title: 'A covered place to meet',
     description: 'A covered seating area near the library for rainy days.',
-    tags: [],
     place: '',
-    connection: '',
     displayName: '',
     consent: true,
     submissionKey: randomUUID(),

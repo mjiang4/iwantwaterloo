@@ -46,18 +46,17 @@ void test('validation, origin checks, like idempotency and rate limits use real 
   const app = await createApiHarness();
   t.after(() => app.dispose());
   const browser = await app.browser();
-  const payload = ideaPayload({ tags: ['#Bike Lanes', 'bike_lanes'] });
+  const payload = ideaPayload();
   const saved = await browser.request('/api/ideas', {
     method: 'POST',
     body: payload,
   });
   assert.equal(saved.response.status, 201, saved.text);
-  assert.deepEqual(saved.data.idea.tags, ['bike-lanes']);
   assert.equal(saved.data.idea.displayName, undefined);
   const id = saved.data.idea.id;
   const malformed = await browser.request('/api/ideas', {
     method: 'POST',
-    body: ideaPayload({ tags: ['a', 'b', 'c', 'd'] }),
+    body: ideaPayload({ description: 'a' }),
   });
   assert.equal(malformed.response.status, 400);
   const crossOrigin = await browser.request('/api/ideas', {
@@ -71,10 +70,7 @@ void test('validation, origin checks, like idempotency and rate limits use real 
       .data.total,
     0,
   );
-  assert.equal(
-    (await browser.request('/api/ideas?tag=bike-lanes')).data.total,
-    1,
-  );
+  assert.equal((await browser.request('/api/ideas?q=covered')).data.total, 1);
   const grove = await browser.request(
     '/api/ideas?garden=1&page=' + Math.floor(saved.data.idea.plot / 24),
   );

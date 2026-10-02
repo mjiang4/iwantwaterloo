@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { database } from '@/db/raw';
 import { InputError } from '@/lib/server';
+// Backup/restore preserves legacy columns verbatim; fixtures and public APIs ignore them.
 const columns = {
   ideas: [
     'rowid',
@@ -9,8 +10,8 @@ const columns = {
     'description',
     'category',
     'tags',
-    'place',
     'connection',
+    'place',
     'display_name',
     'created_at',
     'visitor_id',
@@ -115,21 +116,6 @@ function fixtures(scenario: Scenario) {
     'Safe cycling for everyone',
     'More community gardens',
   ];
-  const tags = [
-    'learning',
-    'housing',
-    'public-spaces',
-    'arts',
-    'small-business',
-    'parks',
-    'cycling',
-    'parks',
-  ];
-  const connections = [
-    'From Waterloo',
-    'Studying in Waterloo',
-    'Interested from elsewhere',
-  ];
   const count =
       scenario === 'empty'
         ? 0
@@ -146,9 +132,7 @@ function fixtures(scenario: Scenario) {
     description:
       'A sample idea for this preview. Try opening it, liking it, or adding a reply.',
     category: 'other',
-    tags: JSON.stringify([tags[i % 8]]),
     place: '',
-    connection: connections[i % 3],
     display_name: i % 3 === 0 ? 'River' : null,
     created_at: now - i * 60000,
     visitor_id: 'preview-fixture',
@@ -268,7 +252,11 @@ export async function changePreview(raw: unknown) {
   if (action === 'scenario') {
     const data = fixtures(body.scenario as Scenario);
     for (const table of ['ideas', 'supports', 'comments'] as const) {
-      const cols = columns[table];
+      if (!data[table].length) continue;
+      // Insert only supplied fixture fields; retired columns use database defaults.
+      const cols = columns[table].filter((column) =>
+        Object.hasOwn(data[table][0], column),
+      );
       statements.push(
         db
           .prepare(

@@ -4,10 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 export function useIdeaFilters() {
   const [place, setPlace] = useState('all');
   const [mine, setMine] = useState(false);
-  const [tag, setTag] = useState('all');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [connection, setConnection] = useState('all');
   const [sort, setSort] = useState('newest');
   const [shuffle, setShuffle] = useState(0);
   useEffect(() => {
@@ -17,31 +15,20 @@ export function useIdeaFilters() {
   const clearFilters = useCallback(() => {
     setMine(false);
     setPlace('all');
-    setTag('all');
     setQuery('');
     setDebouncedQuery('');
-    setConnection('all');
     setSort('newest');
   }, []);
-  const filtered =
-    place !== 'all' ||
-    mine ||
-    tag !== 'all' ||
-    connection !== 'all' ||
-    sort !== 'newest';
+  const filtered = place !== 'all' || mine || sort !== 'newest';
   return {
     place,
     setPlace,
     mine,
     setMine,
-    tag,
-    setTag,
     query,
     setQuery,
     debouncedQuery,
     setDebouncedQuery,
-    connection,
-    setConnection,
     sort,
     setSort,
     shuffle,

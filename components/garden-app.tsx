@@ -20,7 +20,7 @@ import {
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { filterIdeas, type Idea } from '@/lib/garden';
+import { type Idea } from '@/lib/garden';
 import { IdeaComposer } from './idea-composer';
 import { useGardenTools } from './garden-tools';
 import { GardenExplorer } from './garden-explorer';
@@ -47,13 +47,10 @@ function Garden() {
   const {
     mine,
     setMine,
-    tag,
-    setTag,
     query,
     setQuery,
     debouncedQuery,
     setDebouncedQuery,
-    connection,
     place,
     sort,
     filtered,
@@ -92,8 +89,8 @@ function Garden() {
   const list = useIdeas(filters);
   const ideas = useMemo(() => {
     const real = list.data?.pages.flatMap((p) => p.ideas) || [];
-    return filterIdeas(real, 'all', debouncedQuery, connection, sort, tag);
-  }, [list.data, tag, debouncedQuery, connection, sort]);
+    return real;
+  }, [list.data]);
   const total = list.data?.pages[0].total || 0;
   useEffect(() => {
     if (directLinkChecked.current) return;
@@ -157,7 +154,6 @@ function Garden() {
       revealTree(idea, 'plant');
       void Promise.all([
         client.invalidateQueries({ queryKey: ['ideas'] }),
-        client.invalidateQueries({ queryKey: ['tags'] }),
         client.invalidateQueries({ queryKey: ['garden'] }),
       ]).catch(() => {});
       return idea;
@@ -197,10 +193,9 @@ function Garden() {
   );
   useGardenTools({
     plant: share,
-    explore: (q, c) => {
+    explore: (q) => {
       setQuery(q);
       setDebouncedQuery(q);
-      setTag(c);
       setSearchOpen(Boolean(q));
       setView('ideas');
     },
@@ -347,8 +342,7 @@ function Garden() {
               <div className="active-filter">
                 <span>
                   {[
-                    tag !== 'all' ? `#${tag}` : '',
-                    connection !== 'all' ? connection : '',
+                    place !== 'all' ? place : '',
                     sort === 'watered'
                       ? 'Most liked'
                       : sort === 'random'
@@ -432,10 +426,8 @@ function Garden() {
                 mine={mine}
                 postedIdea={postedIdea}
                 onReceiptDone={() => setPostedIdea(null)}
-                tag={tag}
                 query={debouncedQuery}
                 place={place}
-                connection={connection}
                 focusIdea={gardenFocus}
                 moment={moment}
                 onMomentComplete={onMomentComplete}
@@ -532,15 +524,6 @@ function Garden() {
                 pending={pending.has(selected.id)}
                 error={supportError}
                 onSupport={support}
-                onTag={(tag) => {
-                  clearFilters();
-                  setTag(tag);
-                  setSheetOpen(false);
-                  const url = new URL(window.location.href);
-                  url.searchParams.delete('idea');
-                  history.replaceState(null, '', url);
-                  setView('ideas');
-                }}
               />
             )}
           </SheetContent>

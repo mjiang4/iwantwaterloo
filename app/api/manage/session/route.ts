@@ -1,15 +1,12 @@
 import { database } from '@/db/raw';
-import { readBody, InputError } from '@/lib/server';
+import { readBody } from '@/lib/server';
 import {
   adminJSON,
   adminFailure,
   requireModerator,
   digest,
-  randomToken,
-  allowed,
   sessionCookie,
   readSession,
-  SESSION_SECONDS,
 } from '@/server/admin-auth';
 export async function GET(request: Request) {
   try {

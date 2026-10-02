@@ -65,9 +65,7 @@ export async function runPreviewChecks(
   const idea = {
     title: 'Preview browser check',
     description: 'Temporary data for the preview browser checks.',
-    tags: ['preview-check'],
     place: '',
-    connection: 'Studying in Waterloo',
     displayName: '',
     consent: true,
     submissionKey: started.data.ideaKey,
@@ -76,14 +74,9 @@ export async function runPreviewChecks(
     await check(
       privateHost ? 'Visitor access' : 'Anonymous access',
       async () => {
-        const [ideas, tags] = await Promise.all([
-          call('/api/ideas', 'GET', undefined, !privateHost),
-          call('/api/tags', 'GET', undefined, !privateHost),
-        ]);
+        const ideas = await call('/api/ideas', 'GET', undefined, !privateHost);
         expect(
-          ideas.status === 200 &&
-            Array.isArray(ideas.data.ideas) &&
-            tags.status === 200,
+          ideas.status === 200 && Array.isArray(ideas.data.ideas),
           'Public browsing failed.',
         );
       },
@@ -116,11 +109,6 @@ export async function runPreviewChecks(
       expect(
         direct.data.ideas?.[0]?.id === ideaId,
         'Direct idea lookup failed.',
-      );
-      const tagged = await call('/api/ideas?tag=preview-check');
-      expect(
-        tagged.data.ideas?.some((i: { id: string }) => i.id === ideaId),
-        'Tag lookup failed.',
       );
     });
     await check('Like and undo', async () => {
