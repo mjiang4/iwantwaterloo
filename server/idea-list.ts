@@ -2,7 +2,13 @@ import { database } from '@/db/raw';
 import { isIdeaPlace } from '@/lib/idea-places';
 import { InputError } from '@/lib/server';
 import { GROVE_SIZE } from '@/lib/garden';
-import { IDEA_SELECT, ideaFromRow } from './idea-records';
+import {
+  EXTERNAL_INPUT_SQL,
+  IDEA_FROM,
+  IDEA_SELECT,
+  PROGRESS_SQL,
+  ideaFromRow,
+} from './idea-records';
 
 /** The list and garden use the same filtering and stable pagination rules. */
 export async function listIdeas(url: URL, id: string) {
@@ -36,19 +42,27 @@ export async function listIdeas(url: URL, id: string) {
   }
   for (const term of query.toLowerCase().trim().split(/\s+/).filter(Boolean)) {
     where.push(
-      `lower(i.title || ' ' || i.description || ' ' || i.place) LIKE ? ESCAPE '\\'`,
+      `lower(coalesce(u.title,i.title) || ' ' || coalesce(u.description,i.description) || ' ' || i.place) LIKE ? ESCAPE '\\'`,
     );
     args.push('%' + term.replace(/[\\%_]/g, '\\$&') + '%');
   }
+  if (!garden && sort === 'needs-input') where.push(`NOT ${PROGRESS_SQL}`);
+  if (!garden && sort === 'progress') where.push(PROGRESS_SQL);
+  // Discovery interleaves untouched, contributed and progressing ideas, rotating daily.
+  const lane = `CASE WHEN ${PROGRESS_SQL} THEN 2 WHEN ${EXTERNAL_INPUT_SQL} THEN 1 ELSE 0 END`;
+  const day = Math.floor(Date.now() / 86400000) % 32;
+  const fairOrder = `row_number() OVER (PARTITION BY ${lane} ORDER BY CASE WHEN ${lane}=0 THEN i.created_at END DESC, substr(replace(i.id,'-',''),${day + 1}) || substr(replace(i.id,'-',''),1,${day}),i.id), (${lane}+${day}) % 3, i.id`;
   const clause = where.join(' AND '),
     order =
-      sort === 'watered'
-        ? 'waters DESC, i.created_at DESC, i.id'
-        : sort === 'random'
-          ? // UUIDs supply random bits. Rotating them gives a stable shuffled order
-            // across pages and refreshes, without ORDER BY random() duplicating rows.
-            `substr(replace(i.id,'-',''),${(seed % 32) + 1}) || substr(replace(i.id,'-',''),1,${seed % 32}) ${seed < 32 ? 'ASC' : 'DESC'}, i.id`
-          : 'i.created_at DESC, i.id';
+      sort === 'discover'
+        ? fairOrder
+        : sort === 'watered'
+          ? 'waters DESC, i.created_at DESC, i.id'
+          : sort === 'random'
+            ? // UUIDs supply random bits. Rotating them gives a stable shuffled order
+              // across pages and refreshes, without ORDER BY random() duplicating rows.
+              `substr(replace(i.id,'-',''),${(seed % 32) + 1}) || substr(replace(i.id,'-',''),1,${seed % 32}) ${seed < 32 ? 'ASC' : 'DESC'}, i.id`
+            : 'i.created_at DESC, i.id';
   const pageClause = garden ? ' AND i.rowid + 5 >= ? AND i.rowid + 5 < ?' : '';
   const pageArgs = garden
     ? [page * GROVE_SIZE, (page + 1) * GROVE_SIZE]
@@ -61,7 +75,7 @@ export async function listIdeas(url: URL, id: string) {
       .bind(id, ...args, ...pageArgs),
     db
       .prepare(
-        `SELECT count(*) AS total,group_concat(DISTINCT cast((i.rowid + 5) / ${GROVE_SIZE} AS integer)) AS grovePages FROM ideas i WHERE ${clause}`,
+        `SELECT count(*) AS total,group_concat(DISTINCT cast((i.rowid + 5) / ${GROVE_SIZE} AS integer)) AS grovePages ${IDEA_FROM} WHERE ${clause}`,
       )
       .bind(...args),
   ]);

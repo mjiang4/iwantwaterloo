@@ -6,6 +6,10 @@ A place to share ideas for a better Waterloo—whether you live here, study here
 
 Share an idea, explore what others imagine, and support the changes you want to see. Each idea plants a tree in a shared digital garden, and each like helps it grow. Everyone is welcome; no account is needed.
 
+## Park experiment
+
+This branch explores a mapped, interactive Waterloo Park. See the [editable design notebook](docs/PARK-NOTEBOOK.md) for the concept, preview instructions, and open questions, and the [Blender model guide](assets/park/README.md) to work on the landscape.
+
 ## Contribute
 
 Ideas for improving Waterloo belong on the site. Ideas for improving this project are welcome here, too!

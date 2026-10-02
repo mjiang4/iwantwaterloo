@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium, webkit } from 'playwright';
 import { startTestSite } from '../helpers/test-site.mjs';
+import { plantIdea } from '../helpers/park-ui.mjs';
 const site = await startTestSite({ screening: 'unavailable' });
 try {
   for (const [engine, width] of [
@@ -13,11 +14,11 @@ try {
         viewport: { width, height: 844 },
         reducedMotion: 'reduce',
       });
+      await page.addInitScript(() =>
+        localStorage.setItem('waterloo-park-tour-seen-v2', 'yes'),
+      );
       await page.goto(site.origin);
-      await page.getByRole('button', { name: 'Got it', exact: true }).click();
-      await page
-        .getByRole('button', { name: 'Share an idea', exact: true })
-        .click();
+      await plantIdea(page);
       await page
         .locator('#new-idea')
         .fill('Synthetic browser test: covered benches by the library.');

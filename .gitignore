@@ -44,3 +44,7 @@ next-env.d.ts
 # Isolated production-preview runtime and operator credentials
 /.preview/
 .dev.vars*
+
+# Blender autosave backups
+*.blend1
+*.blend2

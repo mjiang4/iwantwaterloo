@@ -43,9 +43,11 @@ const sourceJournal = JSON.parse(
 );
 if (
   !identityEntry ||
-  sourceJournal.entries.some((entry) => entry.idx >= identityEntry.idx)
+  sourceJournal.entries.some((entry) => entry.idx === identityEntry.idx)
 )
-  throw new Error('Preview identity migration needs rebasing before staging.');
+  throw new Error(
+    'Migration 0005 is reserved for the already-applied preview identity. Use the next index.',
+  );
 const revision = await fingerprint();
 const list = spawnSync(
   'git',
@@ -89,6 +91,7 @@ for (const file of files) {
   await cp(source, path.join(target, file));
 }
 sourceJournal.entries.push(identityEntry);
+sourceJournal.entries.sort((a, b) => a.idx - b.idx);
 await writeFile(
   path.join(target, journalPath),
   JSON.stringify(sourceJournal, null, 2) + '\n',

@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, webkit } from 'playwright';
 import { startTestSite } from '../helpers/test-site.mjs';
+import { openMenu, plantButton, plantIdea } from '../helpers/park-ui.mjs';
 
 const artifacts = path.resolve('outputs/browser-checks');
 await mkdir(artifacts, { recursive: true });
@@ -37,32 +38,41 @@ try {
     quality: 65,
     fullPage: true,
   });
-  await page.getByRole('button', { name: 'Got it', exact: true }).click();
-  await page.reload();
   await page
-    .getByRole('button', { name: 'Share an idea', exact: true })
-    .waitFor();
+    .getByRole('button', { name: 'Skip introduction', exact: true })
+    .click();
+  await page.reload();
+  await plantButton(page).waitFor();
   assert.equal(await page.locator('.garden-welcome').count(), 0);
+  const siteMenu = await openMenu(page);
+  const helpLink = siteMenu.getByRole('link', {
+    name: 'Help build this park',
+    exact: true,
+  });
   assert.equal(
-    await page
-      .getByRole('link', { name: 'GitHub', exact: true })
-      .getAttribute('href'),
+    await helpLink.getAttribute('href'),
     'https://github.com/mjiang4/iwantwaterloo',
   );
-  assert.ok(
-    (
-      await page
-        .getByRole('link', { name: 'make a pull request' })
-        .getAttribute('href')
-    ).includes('CONTRIBUTING.md'),
+  await helpLink.click();
+  const contribute = page.getByRole('link', { name: 'Make a pull request' });
+  assert.equal(
+    await contribute.getAttribute('href'),
+    'https://github.com/mjiang4/iwantwaterloo',
   );
+  // Exercise the local reward without navigating to an external service.
+  await context.route('https://github.com/**', (route) =>
+    route.fulfill({ status: 200, body: 'Contribution test' }),
+  );
+  await contribute.click();
+  await page
+    .getByText('Thanks for helping it grow.', { exact: true })
+    .waitFor();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   console.log(
     'PASS: park landing, dismissible introduction, and contribution links',
   );
 
-  await page
-    .getByRole('button', { name: 'Share an idea', exact: true })
-    .click();
+  await plantIdea(page);
   await page
     .locator('#new-idea')
     .fill('A covered seating area near Waterloo library for rainy days.');
@@ -156,14 +166,18 @@ try {
     }
     return route.continue();
   });
-  await page.getByRole('button', { name: 'Add reply', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Add contribution', exact: true })
+    .click();
   await page
     .locator('.discussion-message')
     .filter({ hasText: /Couldn’t connect|connection timed out/ })
     .waitFor({ timeout: 20000 });
-  await page.getByRole('button', { name: 'Add reply', exact: true }).click();
   await page
-    .getByText('Your reply joined the conversation.', { exact: true })
+    .getByRole('button', { name: 'Add contribution', exact: true })
+    .click();
+  await page
+    .getByText('Your contribution is part of this idea.', { exact: true })
     .waitFor();
   assert.equal(keys.length, 2);
   assert.equal(keys[0], keys[1]);
@@ -201,7 +215,11 @@ try {
     .locator('.filter-popover')
     .getByRole('button', { name: 'Done', exact: true })
     .click();
-  await page.getByRole('button', { name: 'How it works', exact: true }).click();
+  await (
+    await openMenu(page)
+  )
+    .getByRole('button', { name: 'How it works', exact: true })
+    .click();
   await page.locator('.garden-welcome').waitFor();
   console.log(
     'PASS: liking persists and returns to the tree; sorting remains in Filter',
@@ -242,9 +260,7 @@ try {
     activePage = page;
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(site.origin);
-    await page
-      .getByRole('button', { name: 'Share an idea', exact: true })
-      .waitFor();
+    await plantButton(page).waitFor();
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -257,9 +273,7 @@ try {
       quality: 65,
       fullPage: true,
     });
-    await page
-      .getByRole('button', { name: 'Share an idea', exact: true })
-      .click();
+    await plantIdea(page);
     await page
       .locator('#new-idea')
       .fill('More shaded seating near Waterloo bus stops.');
@@ -288,7 +302,9 @@ try {
       .click();
     const marker = page.locator('.garden-target').first();
     await marker.waitFor();
-    await marker.scrollIntoViewIfNeeded();
+    // Park markers sit inside the full-screen scene and regroup as the camera
+    // settles, so read a fresh position instead of scrolling a stale element.
+    await page.waitForTimeout(500);
     const target = await marker.boundingBox();
     assert.ok(target);
     await page.touchscreen.tap(
