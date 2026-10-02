@@ -1,4 +1,4 @@
-import { ImageResponse } from 'cf-workers-og';
+import { ImageResponse } from 'cf-workers-og/workerd';
 import type { Idea } from '@/lib/garden';
 
 // Keep the preview legible; the linked page always contains the full idea.
