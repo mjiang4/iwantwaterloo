@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : 'https://iwantwaterloo.com';
   const url = new URL(`/ideas/${idea.id}`, base).href;
   const description = idea.description.slice(0, 200);
-  const image = new URL('/og.png', base).href;
+  const image = new URL(`/ideas/${idea.id}/image`, base).href;
   return {
     title: `${idea.title} · I want Waterloo`,
     description,
@@ -35,9 +35,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: [
         {
           url: image,
-          width: 1733,
-          height: 908,
-          alt: 'I Want Waterloo — A better city starts with an idea.',
+          width: 1200,
+          height: 630,
+          alt: `“${description}”${idea.displayName ? ` — ${idea.displayName}` : ''}`,
         },
       ],
     },
@@ -77,12 +77,8 @@ export default async function IdeaPage({ params }: Props) {
         )}
         <SharedIdeaActions idea={idea} />
       </article>
-      <Link
-        prefetch={false}
-        className="shared-garden-link"
-        href={`/?idea=${idea.id}`}
-      >
-        See this idea in the garden →
+      <Link prefetch={false} className="shared-garden-link" href="/">
+        Browse more ideas →
       </Link>
     </main>
   );
