@@ -71,7 +71,17 @@ export function quoteCard(idea: Pick<Idea, 'description' | 'displayName'>) {
         }}
       >
         <div>iwantwaterloo.com</div>
-        <div>Browse more ideas →</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          Browse more ideas
+          <svg width="24" height="24" viewBox="0 0 24 24">
+            <path
+              d="M4 12h15m-6-6 6 6-6 6"
+              fill="none"
+              stroke="#60745b"
+              strokeWidth="2"
+            />
+          </svg>
+        </div>
       </div>
     </div>
   );
