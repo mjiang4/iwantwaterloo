@@ -3,7 +3,7 @@ import { GROVE_SIZE } from '../lib/garden.ts';
 import { test } from 'node:test';
 import {
   growthForLikes,
-  growthStretch,
+  growthAtProgress,
   plantingScale,
   seedForId,
   randomAt,
@@ -34,13 +34,23 @@ void test('growth stays monotonic, bounded and reversible, including malformed c
   assert.deepEqual(growthForLikes(0), sapling);
 });
 
-void test('each like can make a visible, finite stretch without changing final size', () => {
-  assert.equal(growthStretch(0), 1);
-  assert.equal(growthStretch(1), 1);
-  assert.ok(growthStretch(0.18) >= 1.33);
-  for (const n of [-1, 2, NaN, Infinity]) assert.equal(growthStretch(n), 1);
-  for (let i = 0; i <= 100; i++)
-    assert.ok(growthStretch(i / 100) >= 1 && growthStretch(i / 100) <= 1.34);
+void test('likes grow monotonically to their saved size without shrinking or overshoot', () => {
+  for (const likes of [0, 4, 14, 29, 100, 1000]) {
+    const before = growthForLikes(likes),
+      after = growthForLikes(likes + 1);
+    for (const key of Object.keys(before)) {
+      let previous = before[key];
+      for (let frame = 0; frame <= 100; frame++) {
+        const value = growthAtProgress(before[key], after[key], frame / 100);
+        assert.ok(value >= previous && value <= after[key]);
+        previous = value;
+      }
+      assert.equal(previous, after[key]);
+    }
+  }
+  assert.equal(growthAtProgress(1, 2, NaN), 1);
+  assert.equal(growthAtProgress(1, 2, -1), 1);
+  assert.equal(growthAtProgress(1, 2, 2), 2);
 });
 
 void test('tree identity and plots stay stable when lists are reordered or paged', () => {

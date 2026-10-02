@@ -38,17 +38,10 @@ export type GardenMoment = {
   kind: 'plant' | 'like';
   fromLikes: number;
 };
-// Fast rise, longer settle. Final values always match saved idea data.
-export function growthStretch(progress: number) {
-  if (!Number.isFinite(progress) || progress <= 0 || progress >= 1) return 1;
-  const peak = 0.18;
-  return (
-    1 +
-    0.34 *
-      (progress < peak
-        ? Math.sin(((progress / peak) * Math.PI) / 2)
-        : ((1 - progress) / (1 - peak)) ** 2)
-  );
+// Grow toward the saved size without overshoot or a shrinking settle.
+export function growthAtProgress(start: number, end: number, progress: number) {
+  const t = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
+  return start + (end - start) * (1 - (1 - t) ** 3);
 }
 export function plantingScale(progress: number) {
   if (!Number.isFinite(progress) || progress <= 0) return 0.025;
