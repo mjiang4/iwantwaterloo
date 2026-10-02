@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     await requireAdmin(request);
     await readBody(request);
     return adminResponse({ ok: true }, 200, [
-      visitorCookie(request, crypto.randomUUID()),
+      await visitorCookie(request, crypto.randomUUID()),
     ]);
   } catch (error) {
     return adminError(error);

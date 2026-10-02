@@ -19,7 +19,7 @@ function text(value: unknown, name: string, max: number, min = 0) {
 }
 
 export async function GET(request: Request) {
-  const { id } = identity(request);
+  const { id } = await identity(request);
   try {
     const ideaId = new URL(request.url).searchParams.get('ideaId') || '';
     const page = Math.max(
@@ -53,9 +53,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { id } = identity(request);
+  const { id } = await identity(request);
   try {
-    requireVisitor(request);
+    await requireVisitor(request);
     const raw = await readBody(request);
     if (!raw || typeof raw !== 'object' || Array.isArray(raw))
       throw new InputError('Write a reply first.');

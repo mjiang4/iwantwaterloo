@@ -13,7 +13,56 @@ export function visitorCookieName() {
     ? 'garden_preview_visitor'
     : 'garden_visitor';
 }
-export function identity(request: Request) {
+// The visitor cookie is HMAC-signed as `<uuid>.<hmac>` so a bot cannot mint a valid
+// anonymous identity by inventing a UUID. Legacy unsigned (bare-UUID) cookies and any
+// cookie with a bad signature are treated as absent: the client silently re-establishes
+// one signed cookie through /api/visitor on its next write. Pre-existing anonymous
+// like/authorship rows keyed to those old UUIDs are orphaned by this change; that is an
+// accepted one-time cost for closing the vote-bot hole on an anonymous civic garden.
+function visitorSecret() {
+  const secret =
+    env.RATE_LIMIT_SECRET ||
+    (import.meta.env.DEV ? 'local-development-only' : '');
+  if (!secret) throw new Error('Abuse protection is not configured');
+  return secret;
+}
+async function hmacHex(message: string) {
+  const material = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(visitorSecret()),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    material,
+    new TextEncoder().encode(message),
+  );
+  return Array.from(new Uint8Array(signature), (x) =>
+    x.toString(16).padStart(2, '0'),
+  ).join('');
+}
+/** Produce the signed cookie value for a visitor UUID. */
+export async function signVisitor(id: string) {
+  return `${id}.${await hmacHex(id)}`;
+}
+/** Return the UUID from a signed cookie value, or null if unsigned/forged. */
+async function verifyVisitor(raw: string) {
+  const dot = raw.indexOf('.');
+  if (dot !== 36) return null;
+  const id = raw.slice(0, dot),
+    mac = raw.slice(dot + 1);
+  if (!/^[a-f0-9-]{36}$/.test(id) || !/^[a-f0-9]{64}$/.test(mac)) return null;
+  const expected = await hmacHex(id);
+  // Length-constant comparison; both values are fixed-length hex.
+  if (mac.length !== expected.length) return null;
+  let diff = 0;
+  for (let i = 0; i < mac.length; i++)
+    diff |= mac.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0 ? id : null;
+}
+export async function identity(request: Request) {
   const name = visitorCookieName();
   const raw = request.headers
     .get('cookie')
@@ -21,20 +70,20 @@ export function identity(request: Request) {
     .map((s) => s.trim())
     .find((s) => s.startsWith(name + '='))
     ?.slice(name.length + 1);
-  const existing = raw && /^[a-f0-9-]{36}$/.test(raw) ? raw : null;
+  const existing = raw ? await verifyVisitor(raw) : null;
   return {
     id: existing || crypto.randomUUID(),
     existing: Boolean(existing),
   };
 }
-export function requireVisitor(request: Request) {
-  if (!identity(request).existing)
+export async function requireVisitor(request: Request) {
+  if (!(await identity(request)).existing)
     throw new InputError(
       'Refresh the page and allow cookies to keep your ideas and likes.',
       409,
     );
 }
-export function response(
+export async function response(
   request: Request,
   id: string,
   data: unknown,
@@ -47,7 +96,7 @@ export function response(
   };
   if (!['GET', 'HEAD'].includes(request.method))
     headers['Set-Cookie'] =
-      `${visitorCookieName()}=${id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
+      `${visitorCookieName()}=${await signVisitor(id)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
   if (retryAfter) headers['Retry-After'] = String(retryAfter);
   return Response.json(data, { status, headers });
 }
@@ -82,7 +131,7 @@ export async function readBody(request: Request) {
     throw new InputError('Please send a valid form.');
   }
 }
-export function failure(request: Request, id: string, error: unknown) {
+export async function failure(request: Request, id: string, error: unknown) {
   if (!(error instanceof InputError))
     console.error(
       'Garden storage operation failed',

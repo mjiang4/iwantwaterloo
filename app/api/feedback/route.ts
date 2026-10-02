@@ -10,9 +10,9 @@ import {
 import { limitWrites } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
-  const { id } = identity(request);
+  const { id } = await identity(request);
   try {
-    requireVisitor(request);
+    await requireVisitor(request);
     const raw = await readBody(request);
     if (!raw || typeof raw !== 'object' || Array.isArray(raw))
       throw new InputError('Please add your feedback.');

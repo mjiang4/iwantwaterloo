@@ -6,6 +6,7 @@ import {
   type InfiniteData,
 } from '@tanstack/react-query';
 import { requestJSON } from '@/lib/client';
+import { getTurnstileToken } from '@/lib/turnstile-client';
 import type { Idea } from '@/lib/garden';
 import type { IdeasPage, GardenPage, SupportState } from './model';
 
@@ -65,9 +66,14 @@ export function useIdeaSupport({
           waters: Math.max(0, idea.waters + (idea.watered ? -1 : 1)),
           watered: !idea.watered,
         });
+        const turnstileToken = await getTurnstileToken();
         const updated = await requestJSON<SupportState>('/api/support', {
           method: 'PUT',
-          body: JSON.stringify({ ideaId: idea.id, watered: !idea.watered }),
+          body: JSON.stringify({
+            ideaId: idea.id,
+            watered: !idea.watered,
+            turnstileToken,
+          }),
         });
         apply(updated);
         if (!idea.watered && updated.watered)

@@ -12,7 +12,7 @@ import {
 import { IDEA_SELECT, ideaFromRow } from '@/server/idea-records';
 import { limitWrites } from '@/lib/rate-limit';
 export async function GET(request: Request) {
-  const { id } = identity(request);
+  const { id } = await identity(request);
   try {
     return response(request, id, await listIdeas(new URL(request.url), id));
   } catch (error) {
@@ -20,9 +20,9 @@ export async function GET(request: Request) {
   }
 }
 export async function POST(request: Request) {
-  const { id } = identity(request);
+  const { id } = await identity(request);
   try {
-    requireVisitor(request);
+    await requireVisitor(request);
     const data = validateIdea(await readBody(request)),
       db = database(),
       ideaId = crypto.randomUUID(),

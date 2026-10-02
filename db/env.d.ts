@@ -8,6 +8,8 @@ declare namespace Cloudflare {
     ADMIN_EMAIL_FROM?: string;
     ADMIN_ORIGIN?: string;
     RATE_LIMIT_SECRET?: string;
+    TURNSTILE_SITEKEY?: string;
+    TURNSTILE_SECRET?: string;
     GARDEN_ENV?: string;
     PREVIEW_ID?: string;
     PREVIEW_ORIGIN?: string;

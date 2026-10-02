@@ -51,7 +51,7 @@ export async function POST(request: Request) {
           409,
         );
       return adminResponse({ id, ideaKey }, 200, [
-        visitorCookie(request, visitor),
+        await visitorCookie(request, visitor),
       ]);
     }
     if (
