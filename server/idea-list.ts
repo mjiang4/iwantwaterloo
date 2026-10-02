@@ -2,6 +2,7 @@ import { database } from '@/db/raw';
 import { isIdeaPlace } from '@/lib/idea-places';
 import { InputError } from '@/lib/server';
 import { GROVE_SIZE } from '@/lib/garden';
+import { PEOPLE_WINDOW_DAYS } from '@/features/park/people-graph';
 import {
   EXTERNAL_INPUT_SQL,
   IDEA_FROM,
@@ -67,7 +68,7 @@ export async function listIdeas(url: URL, id: string) {
   const pageArgs = garden
     ? [page * GROVE_SIZE, (page + 1) * GROVE_SIZE]
     : [page * 50];
-  const [rows, count] = await db.batch<Record<string, unknown>>([
+  const statements = [
     db
       .prepare(
         `${IDEA_SELECT} WHERE ${clause}${pageClause} ORDER BY ${garden ? 'i.rowid' : order} ${garden ? 'LIMIT ' + GROVE_SIZE : 'LIMIT 50 OFFSET ?'}`,
@@ -78,7 +79,19 @@ export async function listIdeas(url: URL, id: string) {
         `SELECT count(*) AS total,group_concat(DISTINCT cast((i.rowid + 5) / ${GROVE_SIZE} AS integer)) AS grovePages ${IDEA_FROM} WHERE ${clause}`,
       )
       .bind(...args),
-  ]);
+  ];
+  // The park's people: how many browsers planted a visible idea recently. Only a
+  // count leaves the server, never which ideas share an author.
+  if (garden)
+    statements.push(
+      db
+        .prepare(
+          "SELECT count(DISTINCT visitor_id) AS people FROM ideas WHERE moderation_state='visible' AND created_at>?",
+        )
+        .bind(Date.now() - PEOPLE_WINDOW_DAYS * 86400000),
+    );
+  const [rows, count, people] =
+    await db.batch<Record<string, unknown>>(statements);
   const ideas = rows.results.map(ideaFromRow);
   const total = Number(count.results[0]?.total || 0);
   const grovePages = (
@@ -97,5 +110,6 @@ export async function listIdeas(url: URL, id: string) {
     examples: [],
     examplesTotal: 0,
     nextPage: !garden && (page + 1) * 50 < total ? page + 1 : null,
+    ...(people && { people: Number(people.results[0]?.people || 0) }),
   };
 }

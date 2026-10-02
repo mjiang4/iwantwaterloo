@@ -40,12 +40,23 @@ try {
           { timeout: 30000 },
         );
       const transform = page.getByRole('button', { name: 'Transform me' });
+      // The park's walkers report how many are out on the canvas (tests, look-dev).
+      const people = () =>
+        page.evaluate(() =>
+          Number(document.querySelector('canvas')?.dataset.people || 0),
+        );
 
       // Phones open the stripped-down park: no city download, 1x resolution.
       await page.goto(site.origin);
       await transform.waitFor();
       await page.locator('canvas').waitFor();
       assert.equal(cityRequests, 0, 'the stripped-down park skips the city');
+      // The walkers report an explicit 0 when off, so this can't pass by accident.
+      await page.waitForFunction(
+        () => document.querySelector('canvas')?.dataset.people === '0',
+        null,
+        { timeout: 30000 },
+      );
       await canvasWidthBetween(390, 390); // stripped-down renders at 1x
 
       // "Transform me" grows the full park in place and remembers the choice.
@@ -57,6 +68,13 @@ try {
       );
       assert.equal(cityRequests, 1, 'transforming loads the city');
       await canvasWidthBetween(391, Infinity); // the full park renders sharper
+      // A transformed phone gets a handful of walkers, never the laptop crowd.
+      await page.waitForFunction(
+        () => Number(document.querySelector('canvas')?.dataset.people) > 0,
+        null,
+        { timeout: 30000 },
+      );
+      assert.ok((await people()) <= 8, 'phones get at most eight people');
       await page.reload();
       await page.locator('canvas').waitFor();
       await page.waitForTimeout(1000);
@@ -69,9 +87,16 @@ try {
         .getByRole('button', { name: 'Use lighter version', exact: true })
         .tap();
       await transform.waitFor();
+      assert.equal(
+        await page.evaluate(
+          () => document.querySelector('canvas')?.dataset.people,
+        ),
+        '0',
+        'switching back sends the people home',
+      );
       assert.deepEqual(errors, []);
       console.log(
-        `PASS: ${engine.name()} phones start stripped down, transform, remember and switch back`,
+        `PASS: ${engine.name()} phones start stripped down without people, transform to a few, remember and switch back`,
       );
     } finally {
       await browser.close();
@@ -91,12 +116,21 @@ try {
       await page.getByRole('button', { name: 'Transform me' }).isVisible(),
       false,
     );
+    // Laptops get the park's people even with no ideas yet; how many depends on
+    // the live time of day (most go home after dark), but never fewer than two.
+    await page.waitForFunction(
+      () => Number(document.querySelector('canvas')?.dataset.people) >= 2,
+      null,
+      { timeout: 30000 },
+    );
     const menu = await openMenu(page);
     assert.equal(
       await menu.getByRole('button', { name: /lighter version/ }).count(),
       0,
     );
-    console.log('PASS: laptops get the full park without a transform step');
+    console.log(
+      'PASS: laptops get the full park and its people without a transform step',
+    );
   } finally {
     await browser.close();
   }
