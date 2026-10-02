@@ -2690,24 +2690,28 @@ main {
 }
 .idea-share-menu button,
 .idea-share-email {
+  display: flex;
+  align-items: center;
   min-height: 44px;
   justify-content: flex-start;
   width: 100%;
-}
-.idea-share-email {
-  display: flex;
-  align-items: center;
   gap: 8px;
   padding: 8px 12px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
   text-decoration: none;
 }
-.idea-share-email:hover {
-  background: #edf1e8;
-}
+.idea-share-menu button:hover,
+.idea-share-menu button:active,
+.idea-share-menu button:focus-visible,
+.idea-share-email:hover,
+.idea-share-email:active,
 .idea-share-email:focus-visible {
-  outline: 2px solid #284e35;
-  outline-offset: 2px;
+  background: #e4ecdd;
+  outline: none;
+  box-shadow: none;
 }
 .idea-share-menu input {
   width: 100%;
