@@ -2682,3 +2682,34 @@ main {
 .admin-members form {
   margin-top: 24px;
 }
+
+.idea-share-menu {
+  width: 220px;
+  max-width: calc(100vw - 24px);
+  gap: 4px;
+}
+.idea-share-menu button,
+.idea-share-email {
+  min-height: 44px;
+  justify-content: flex-start;
+  width: 100%;
+}
+.idea-share-email {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+.idea-share-email:hover {
+  background: #edf1e8;
+}
+.idea-share-email:focus-visible {
+  outline: 2px solid #284e35;
+  outline-offset: 2px;
+}
+.idea-share-menu input {
+  width: 100%;
+  min-width: 0;
+}
