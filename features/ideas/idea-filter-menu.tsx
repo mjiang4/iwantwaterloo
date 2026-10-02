@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { SlidersHorizontal, Shuffle, X } from 'lucide-react';
+import { SlidersHorizontal, Shuffle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -9,9 +9,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Choice } from '@/components/choice';
-import { TagSearch } from '@/components/tag-picker';
 import { IDEA_PLACES } from '@/lib/idea-places';
-import { CONNECTIONS } from '@/lib/garden';
 import type { IdeaFilters } from './use-idea-filters';
 
 export function IdeaFilterMenu({
@@ -25,18 +23,8 @@ export function IdeaFilterMenu({
   placeholder: boolean;
   failed: boolean;
 }) {
-  const {
-    tag,
-    setTag,
-    connection,
-    setConnection,
-    sort,
-    setSort,
-    shuffle,
-    setShuffle,
-    filtered,
-    clearFilters,
-  } = filters;
+  const { sort, setSort, shuffle, setShuffle, filtered, clearFilters } =
+    filters;
   const [filterOpen, setFilterOpen] = useState(false);
   const [shuffleRequested, setShuffleRequested] = useState(false);
   const [shuffleNotice, setShuffleNotice] = useState('');
@@ -61,31 +49,6 @@ export function IdeaFilterMenu({
         </PopoverTrigger>
         <PopoverContent className="filter-popover" align="end">
           <PopoverTitle className="popover-heading">Filter ideas</PopoverTitle>
-          <label htmlFor="filter-place">Where</label>
-          <Choice
-            id="filter-place"
-            label="Filter city"
-            value={filters.place}
-            onChange={filters.setPlace}
-            items={[
-              { value: 'all', label: 'Everywhere' },
-              ...IDEA_PLACES.map((place) => ({ value: place, label: place })),
-            ]}
-          />
-          <label htmlFor="filter-tag-search">Tags</label>
-          <TagSearch id="filter-tag-search" onChoose={setTag} />
-          {tag !== 'all' && (
-            <div className="tag-options selected-tags">
-              <button
-                type="button"
-                onClick={() => setTag('all')}
-                aria-label={`Remove tag ${tag}`}
-              >
-                #{tag}
-                <X size={12} />
-              </button>
-            </div>
-          )}
           <div className="filter-field-label">Sort</div>
           <Choice
             label="Sort ideas"
@@ -130,15 +93,15 @@ export function IdeaFilterMenu({
               Reshuffle
             </button>
           )}
-          <label htmlFor="filter-connection">Connection</label>
+          <label htmlFor="filter-place">Where</label>
           <Choice
-            id="filter-connection"
-            label="Filter connection"
-            value={connection}
-            onChange={setConnection}
+            id="filter-place"
+            label="Filter city"
+            value={filters.place}
+            onChange={filters.setPlace}
             items={[
-              { value: 'all', label: 'Everyone' },
-              ...CONNECTIONS.map((c) => ({ value: c, label: c })),
+              { value: 'all', label: 'Everywhere' },
+              ...IDEA_PLACES.map((place) => ({ value: place, label: place })),
             ]}
           />
           <div className="filter-actions">
