@@ -65,12 +65,19 @@ export function IdeaDiscussion({ idea }: { idea: Idea }) {
         body: body.trim(),
         displayName: name.trim(),
       };
-      await requestJSON('/api/comments', {
+      const saved = await requestJSON<{
+        comment: { moderationState?: string };
+      }>('/api/comments', {
         method: 'POST',
         body: JSON.stringify({ ...input, submissionKey: prepare(input) }),
       });
       clear();
-      setMessage('Your reply joined the conversation.');
+      setMessage(
+        saved.comment.moderationState &&
+          saved.comment.moderationState !== 'visible'
+          ? 'Thanks—your reply is awaiting review.'
+          : 'Your reply joined the conversation.',
+      );
       await client.invalidateQueries({ queryKey: ['comments', idea.id] });
       void client.invalidateQueries({ queryKey: ['ideas'] });
       void client.invalidateQueries({ queryKey: ['garden'] });

@@ -147,6 +147,7 @@ function Garden() {
         method: 'POST',
         body: JSON.stringify(input),
       });
+      if (idea.moderationState === 'pending') return idea;
       setPostedIdea(idea);
       setPlantingId(idea.id);
       setNewIdeaId(idea.id);
@@ -547,6 +548,10 @@ function Garden() {
                 submitting a PR
               </a>
               !
+            </p>
+            <p>
+              Submitted text and names are screened by OpenAI for abusive
+              content. Some submissions may await review before appearing.
             </p>
             <Button onClick={() => setAboutOpen(false)}>Got it</Button>
           </DialogContent>

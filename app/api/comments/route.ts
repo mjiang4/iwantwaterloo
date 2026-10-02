@@ -1,3 +1,4 @@
+import { screenSubmission } from '@/server/moderation';
 import { database } from '@/db/raw';
 import {
   failure,
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
       throw new InputError('Idea not found.', 404);
     const db = database();
     const idea = await db
-      .prepare('SELECT id FROM ideas WHERE id=?')
+      .prepare("SELECT id FROM ideas WHERE id=? AND moderation_state='visible'")
       .bind(ideaId)
       .first();
     if (!idea) throw new InputError('Idea not found.', 404);
@@ -75,9 +76,9 @@ export async function POST(request: Request) {
     async function findPrevious() {
       const previous = await db
         .prepare(
-          "SELECT id,idea_id AS ideaId,parent_id AS parentId,body,coalesce(display_name,'') AS displayName,created_at AS createdAt FROM comments WHERE submission_key=?",
+          "SELECT id,idea_id AS ideaId,parent_id AS parentId,body,coalesce(display_name,'') AS displayName,created_at AS createdAt,moderation_state AS moderationState FROM comments WHERE submission_key=? AND visitor_id=?",
         )
-        .bind(submissionKey)
+        .bind(submissionKey, id)
         .first();
       if (previous) {
         if (
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
     const previous = await findPrevious();
     if (previous) return response(request, id, { comment: previous });
     const idea = await db
-      .prepare('SELECT id FROM ideas WHERE id=?')
+      .prepare("SELECT id FROM ideas WHERE id=? AND moderation_state='visible'")
       .bind(ideaId)
       .first();
     if (!idea) throw new InputError('Idea not found.', 404);
@@ -112,11 +113,14 @@ export async function POST(request: Request) {
         throw new InputError('That reply is no longer available.', 409);
     }
     await limitWrites(request, id, 'comments');
+    const screening = await screenSubmission(
+      [body, displayName].filter(Boolean).join('\n'),
+    );
     const commentId = crypto.randomUUID();
     const now = Date.now();
     const inserted = await db
       .prepare(
-        'INSERT INTO comments (id,idea_id,parent_id,body,display_name,created_at,visitor_id,submission_key) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO comments (id,idea_id,parent_id,body,display_name,created_at,visitor_id,submission_key,moderation_state,moderation_reason) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         commentId,
@@ -127,6 +131,8 @@ export async function POST(request: Request) {
         now,
         id,
         submissionKey,
+        screening.state,
+        screening.reason,
       )
       .run();
     if (!inserted.meta.changes) {
@@ -140,6 +146,7 @@ export async function POST(request: Request) {
       {
         comment: {
           id: commentId,
+          moderationState: screening.state,
           ideaId,
           parentId: parentId || null,
           body,

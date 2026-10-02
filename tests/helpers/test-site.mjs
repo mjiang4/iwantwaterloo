@@ -1,4 +1,11 @@
-import { cp, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import {
+  cp,
+  mkdtemp,
+  readFile,
+  writeFile,
+  rm,
+  readdir,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { spawn, execFile } from 'node:child_process';
@@ -15,7 +22,7 @@ const run = promisify(execFile);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Runs the compiled application against a new database, never .preview/state. */
-export async function startTestSite() {
+export async function startTestSite({ screening = 'allow' } = {}) {
   rejectExternalTarget();
   const directory = await mkdtemp(path.join(tmpdir(), 'waterloo-browser-'));
   const port = Number(process.env.WATERLOO_TEST_PORT || 3173);
@@ -49,6 +56,32 @@ export async function startTestSite() {
       recursive: true,
     });
     const server = path.join(directory, 'dist/server');
+    // Replace only the disposable compiled copy's provider boundary. Production
+    // source has no test switch or configurable screening endpoint.
+    const entry = path.join(server, 'index.js');
+    const providerMock = `globalThis.__waterlooModerationFetch = async (input) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        if (new URL(url).hostname !== 'api.openai.com') throw new Error('Unexpected moderation endpoint');
+        if (${JSON.stringify(screening)} === 'unavailable') return new Response('', {status:503});
+        const keys = ['sexual','sexual/minors','harassment','harassment/threatening','hate','hate/threatening','violence/graphic','illicit/violent','self-harm/instructions'];
+        return Response.json({ results:[{ categories:Object.fromEntries(keys.map(k=>[k,false])), category_scores:Object.fromEntries(keys.map(k=>[k,0])) }] });
+      };\n`;
+    await writeFile(entry, providerMock + (await readFile(entry, 'utf8')));
+    // Vinext installs its own fetch wrapper; patch the call in the copied
+    // moderation chunk so all other framework/network behaviour stays intact.
+    const chunks = path.join(server, '_next/static');
+    for (const name of await readdir(chunks)) {
+      if (!name.startsWith('moderation-') || !name.endsWith('.js')) continue;
+      const file = path.join(chunks, name);
+      const code = await readFile(file, 'utf8');
+      await writeFile(
+        file,
+        code.replace(
+          'fetch(`https://api.openai.com/v1/moderations`',
+          'globalThis.__waterlooModerationFetch(`https://api.openai.com/v1/moderations`',
+        ),
+      );
+    }
     const configPath = path.join(server, 'wrangler.json');
     const original = JSON.parse(await readFile(configPath, 'utf8'));
     const config = {
@@ -69,6 +102,7 @@ export async function startTestSite() {
       ],
       vars: {
         GARDEN_ENV: 'test',
+        OPENAI_API_KEY: 'test-only-not-a-real-key',
         RATE_LIMIT_SECRET: randomBytes(32).toString('hex'),
       },
     };

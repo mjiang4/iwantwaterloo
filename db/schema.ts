@@ -11,6 +11,8 @@ export const ideas = sqliteTable(
   {
     id: text('id').primaryKey(),
     title: text('title').notNull(),
+    moderationState: text('moderation_state').notNull().default('visible'),
+    moderationReason: text('moderation_reason'),
     description: text('description').notNull(),
     // Retired metadata: retained only to preserve stored data and applied migrations.
     // Public contracts and read queries must not expose these columns.
@@ -36,6 +38,7 @@ export const comments = sqliteTable(
     ideaId: text('idea_id').notNull(),
     parentId: text('parent_id'),
     body: text('body').notNull(),
+    moderationReason: text('moderation_reason'),
     displayName: text('display_name'),
     createdAt: integer('created_at').notNull(),
     visitorId: text('visitor_id').notNull(),

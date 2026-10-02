@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ModerationQueue } from './moderation-queue';
 import { ArrowLeft, Trash2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -287,6 +288,7 @@ export function GardenAdmin() {
             <output>Loading…</output>
           ) : tab === 'ideas' ? (
             <>
+              <ModerationQueue />
               <form
                 className="admin-search"
                 onSubmit={(e) => {

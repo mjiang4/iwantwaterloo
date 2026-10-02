@@ -1,3 +1,4 @@
+import { screenSubmission } from '@/server/moderation';
 import { listIdeas } from '@/server/idea-list';
 import { validateIdea } from '@/server/idea-input';
 import { database } from '@/db/raw';
@@ -31,8 +32,8 @@ export async function POST(request: Request) {
     async function previous() {
       if (!submissionKey) return null;
       const row = await db
-        .prepare(IDEA_SELECT + ' WHERE submission_key=?')
-        .bind(id, submissionKey)
+        .prepare(IDEA_SELECT + ' WHERE submission_key=? AND i.visitor_id=?')
+        .bind(id, submissionKey, id)
         .first<Record<string, unknown>>();
       if (!row) return null;
       if (
@@ -50,9 +51,14 @@ export async function POST(request: Request) {
     const saved = await previous();
     if (saved) return response(request, id, { idea: saved });
     await limitWrites(request, id, 'ideas');
+    const screening = await screenSubmission(
+      [fields.title, fields.description, fields.displayName]
+        .filter(Boolean)
+        .join('\n'),
+    );
     const result = await db
       .prepare(
-        'INSERT INTO ideas (id,title,description,category,place,display_name,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO ideas (id,title,description,category,place,display_name,created_at,visitor_id,submission_key,moderation_state,moderation_reason) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         ideaId,
@@ -64,6 +70,8 @@ export async function POST(request: Request) {
         now,
         id,
         submissionKey,
+        screening.state,
+        screening.reason,
         id,
         now - 600000,
       )
@@ -83,6 +91,7 @@ export async function POST(request: Request) {
       {
         idea: {
           id: ideaId,
+          moderationState: screening.state,
           ...fields,
           displayName: fields.displayName || undefined,
           plot: Number(result.meta.last_row_id) + 5,

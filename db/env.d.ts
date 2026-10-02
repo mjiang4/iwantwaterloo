@@ -2,6 +2,7 @@
 declare namespace Cloudflare {
   interface Env {
     DB: D1Database;
+    OPENAI_API_KEY?: string;
     ADMIN_BOOTSTRAP_HASH?: string;
     ADMIN_BOOTSTRAP_EXPIRES?: string;
     RESEND_API_KEY?: string;

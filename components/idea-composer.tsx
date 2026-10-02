@@ -164,10 +164,23 @@ export function IdeaComposer({
             <span className="success-symbol">
               <TreeDeciduous size={28} strokeWidth={1.6} />
             </span>
-            <h2>Your idea is in the garden.</h2>
+            <h2>
+              {shared.moderationState === 'pending'
+                ? 'Thanks—your idea is awaiting review.'
+                : 'Your idea is in the garden.'}
+            </h2>
             <div className="success-actions">
-              <Button variant="ghost" onClick={() => onGarden(shared)}>
-                See your tree
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  onGarden(
+                    shared.moderationState === 'pending' ? undefined : shared,
+                  )
+                }
+              >
+                {shared.moderationState === 'pending'
+                  ? 'Browse the garden'
+                  : 'See your tree'}
               </Button>
               <Button onClick={another}>Add another</Button>
             </div>

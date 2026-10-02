@@ -24,6 +24,7 @@ export async function createApiHarness({
   preview = false,
   emailDelivery = null,
   bootstrapHash,
+  moderation,
 } = {}) {
   rejectExternalTarget();
   bundle ||= build({
@@ -48,11 +49,38 @@ export async function createApiHarness({
     d1Databases: { DB: 'test-' + randomUUID() },
     d1Persist: false,
     outboundService: async (request) => {
+      if (new URL(request.url).hostname === 'api.openai.com') {
+        if (moderation) return moderation(request);
+        const categories = Object.fromEntries(
+          [
+            'sexual',
+            'sexual/minors',
+            'harassment',
+            'harassment/threatening',
+            'hate',
+            'hate/threatening',
+            'violence/graphic',
+            'illicit/violent',
+            'self-harm/instructions',
+          ].map((k) => [k, false]),
+        );
+        return Response.json({
+          results: [
+            {
+              categories,
+              category_scores: Object.fromEntries(
+                Object.keys(categories).map((k) => [k, 0]),
+              ),
+            },
+          ],
+        });
+      }
       if (!emailDelivery)
         throw new Error('Unexpected outbound request in test');
       return emailDelivery(request);
     },
     bindings: {
+      OPENAI_API_KEY: 'test-only-not-a-real-key',
       GARDEN_ENV: preview ? 'preview' : 'test',
       ...(emailDelivery
         ? {

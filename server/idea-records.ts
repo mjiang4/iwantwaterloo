@@ -3,7 +3,7 @@ import type { Idea } from '@/lib/garden';
 
 /** One projection for lists, retry receipts, and shared idea pages. First bind is the viewer. */
 export const IDEA_SELECT = `SELECT
-  i.id, i.title, i.description, i.rowid + 5 AS plot,
+  i.moderation_state AS moderationState, i.id, i.title, i.description, i.rowid + 5 AS plot,
   i.place, i.display_name AS displayName,
   i.created_at AS createdAt,
   (SELECT count(*) FROM supports s WHERE s.idea_id=i.id) AS waters,
@@ -27,6 +27,7 @@ function number(row: Record<string, unknown>, key: string) {
 export function ideaFromRow(row: Record<string, unknown>): Idea {
   return {
     id: text(row, 'id'),
+    moderationState: row.moderationState === 'visible' ? 'visible' : 'pending',
     title: text(row, 'title'),
     description: text(row, 'description'),
     plot: number(row, 'plot'),
@@ -42,7 +43,7 @@ export function ideaFromRow(row: Record<string, unknown>): Idea {
 }
 export async function findIdea(id: string, visitorId = '') {
   const row = await database()
-    .prepare(IDEA_SELECT + ' WHERE i.id=?')
+    .prepare(IDEA_SELECT + " WHERE i.id=? AND i.moderation_state='visible'")
     .bind(visitorId, id)
     .first<Record<string, unknown>>();
   return row ? ideaFromRow(row) : null;

@@ -1,3 +1,4 @@
+import * as manageReview from '../../app/api/manage/review/route';
 import * as manageSetup from '../../app/api/manage/setup/route';
 import * as managePassword from '../../app/api/manage/password/route';
 import * as manageLogin from '../../app/api/manage/login/route';
@@ -16,6 +17,7 @@ import * as scenario from '../../app/api/admin/scenario/route';
 
 type Handler = (request: Request) => Response | Promise<Response>;
 const routes: Record<string, Partial<Record<string, Handler>>> = {
+  '/api/manage/review': manageReview,
   '/api/manage/setup': manageSetup,
   '/api/manage/password': managePassword,
   '/api/manage/login': manageLogin,

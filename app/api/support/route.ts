@@ -23,7 +23,9 @@ export async function PUT(request: Request) {
     const db = database();
     if (
       !(await db
-        .prepare('SELECT id FROM ideas WHERE id=?')
+        .prepare(
+          "SELECT id FROM ideas WHERE id=? AND moderation_state='visible'",
+        )
         .bind(raw.ideaId)
         .first())
     )

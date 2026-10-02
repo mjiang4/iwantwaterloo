@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       .prepare(`SELECT id,title,description,display_name AS displayName,place,created_at AS createdAt,
       (SELECT count(*) FROM comments WHERE idea_id=i.id) AS comments,
       (SELECT count(*) FROM supports WHERE idea_id=i.id) AS likes
-      FROM ideas i WHERE description LIKE ? ESCAPE '\\' ORDER BY created_at DESC,id LIMIT 51 OFFSET ?`)
+      FROM ideas i WHERE moderation_state='visible' AND description LIKE ? ESCAPE '\\' ORDER BY created_at DESC,id LIMIT 51 OFFSET ?`)
       .bind(pattern, offset)
       .all();
     return adminJSON({
