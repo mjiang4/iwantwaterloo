@@ -24,6 +24,7 @@ export async function createApiHarness({
   preview = false,
   emailDelivery = null,
   bootstrapHash,
+  turnstileSecret = null,
 } = {}) {
   rejectExternalTarget();
   bundle ||= build({
@@ -48,6 +49,13 @@ export async function createApiHarness({
     d1Databases: { DB: 'test-' + randomUUID() },
     d1Persist: false,
     outboundService: async (request) => {
+      // Stub Cloudflare Turnstile verification: the token 'valid-token' passes.
+      if (new URL(request.url).hostname === 'challenges.cloudflare.com') {
+        const form = new URLSearchParams(await request.text());
+        return Response.json({
+          success: form.get('response') === 'valid-token',
+        });
+      }
       if (!emailDelivery)
         throw new Error('Unexpected outbound request in test');
       return emailDelivery(request);
@@ -62,6 +70,7 @@ export async function createApiHarness({
           }
         : {}),
       RATE_LIMIT_SECRET: secret,
+      ...(turnstileSecret ? { TURNSTILE_SECRET: turnstileSecret } : {}),
       ...(bootstrapHash
         ? {
             ADMIN_BOOTSTRAP_HASH: bootstrapHash,
