@@ -22,6 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : 'https://iwantwaterloo.com';
   const url = new URL(`/ideas/${idea.id}`, base).href;
   const description = idea.description.slice(0, 200);
+  const image = new URL('/og.png', base).href;
   return {
     title: `${idea.title} · I want Waterloo`,
     description,
@@ -31,9 +32,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url,
       type: 'article',
-      images: [],
+      images: [
+        {
+          url: image,
+          width: 1733,
+          height: 908,
+          alt: 'I Want Waterloo — A better city starts with an idea.',
+        },
+      ],
     },
-    twitter: { card: 'summary', title: idea.title, description, images: [] },
+    twitter: {
+      card: 'summary_large_image',
+      title: idea.title,
+      description,
+      images: [image],
+    },
   };
 }
 export default async function IdeaPage({ params }: Props) {
