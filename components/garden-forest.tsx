@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { Tooltip } from '@base-ui/react/tooltip';
+import { createFruitGeometry } from './garden-fruit';
 import * as THREE from 'three';
 import { GROVE_SIZE, type Idea } from '@/lib/garden';
 import { useFreshHighlight } from './use-fresh-highlight';
@@ -41,7 +42,7 @@ type ForestProps = {
   onSelect: (id: string) => void;
   onCluster: (ids: string[]) => void;
 };
-// Eight instanced draws for the entire grove, including canopy fruit and
+// Ten instanced draws for the entire grove, including canopy fruit and
 // interaction-only sparkles. Fixed capacities keep geometry bounded on mobile.
 export function Forest(props: ForestProps) {
   const { onPlanted, motion } = props;
@@ -70,6 +71,18 @@ export function Forest(props: ForestProps) {
     }
     return shape;
   }, []);
+  const fruitGeometries = useMemo(
+    () => [
+      createFruitGeometry('apple'),
+      createFruitGeometry('pear'),
+      createFruitGeometry('orange'),
+    ],
+    [],
+  );
+  useEffect(
+    () => () => fruitGeometries.forEach((g) => g.dispose()),
+    [fruitGeometries],
+  );
   const { invalidate } = useThree();
   const rows = useMemo(
     () =>
@@ -107,7 +120,7 @@ export function Forest(props: ForestProps) {
       else props.onSelect(row.idea.id);
     }
   }
-  const batchCounts = useRef([0, 0, 0, 0, 0, 0, 0, 0]);
+  const batchCounts = useRef([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   const dirty = useRef(true),
     time = useRef(0);
   useEffect(() => {
@@ -201,6 +214,8 @@ export function Forest(props: ForestProps) {
     else {
       counts[1] = 0;
       counts[6] = 0;
+      counts[8] = 0;
+      counts[9] = 0;
     }
     function put(
       batch: number,
@@ -290,7 +305,7 @@ export function Forest(props: ForestProps) {
         const radius = Math.sqrt(1 - vertical * vertical) * width * 1.08;
         const fruitSize = state.fruitSize * born * p * (1 + (pulse - 1) * 0.5);
         put(
-          6,
+          [6, 8, 9][seed % 3],
           x + Math.cos(angle) * radius + sway,
           0.16 + h * (0.82 + vertical * 0.36),
           z + Math.sin(angle) * radius,
@@ -300,7 +315,6 @@ export function Forest(props: ForestProps) {
           0,
           angle,
           0,
-          ['#e64b32', '#f28635'][i % 2],
         );
       }
       if (!rebuild) continue;
@@ -406,7 +420,7 @@ export function Forest(props: ForestProps) {
       }
     }
     refs.current.forEach((mesh, i) => {
-      if (mesh && (rebuild || i === 1 || i === 6)) {
+      if (mesh && (rebuild || i === 1 || i === 6 || i === 8 || i === 9)) {
         mesh.count = counts[i];
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor && rebuild)
@@ -492,18 +506,20 @@ export function Forest(props: ForestProps) {
         <circleGeometry args={[1, 8]} />
         <meshBasicMaterial color="#a17a42" />
       </instancedMesh>
-      <instancedMesh
-        name="idea-fruit"
-        ref={(m) => {
-          refs.current[6] = m;
-        }}
-        args={[undefined, undefined, GROVE_SIZE * 12]}
-        frustumCulled={false}
-        raycast={noRaycast}
-      >
-        <icosahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial roughness={0.45} />
-      </instancedMesh>
+      {fruitGeometries.map((geometry, kind) => (
+        <instancedMesh
+          key={kind}
+          name={`idea-fruit-${['apple', 'pear', 'orange'][kind]}`}
+          ref={(m) => {
+            refs.current[[6, 8, 9][kind]] = m;
+          }}
+          args={[geometry, undefined, GROVE_SIZE * 12]}
+          frustumCulled={false}
+          raycast={noRaycast}
+        >
+          <meshStandardMaterial vertexColors roughness={0.85} flatShading />
+        </instancedMesh>
+      ))}
       <instancedMesh
         name="idea-sparkles"
         ref={(m) => {

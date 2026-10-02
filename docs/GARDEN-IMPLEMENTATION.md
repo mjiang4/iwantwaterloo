@@ -1,8 +1,8 @@
 # Current tree growth — October 2, 2026
 
-Each grove now holds up to 48 idea trees, using eight bounded instance batches. Existing idea identifiers and stored plots are preserved; plots 24–47 have their own lawn positions instead of wrapping into a second 24-tree view. No decorative trees are added.
+Each grove now holds up to 48 idea trees, using ten bounded instance batches. Existing idea identifiers and stored plots are preserved; plots 24–47 have their own lawn positions instead of wrapping into a second 24-tree view. No decorative trees are added.
 
-Saplings start fuller. Five likes adds four prominent coral/orange fruits attached outside the canopy and a noticeable size increase; fifteen likes reaches eight fruits and thirty reaches twelve larger fruits. Fruit count and size interpolate between milestones and remain capped. Fifteen likes adds four flowers, growing towards twelve. At thirty likes, selection or liking triggers eight brief sparkles; nothing sparkles continuously. Reduced motion skips the sparkle and growth animation. Each like still has the existing stretch-and-settle response.
+Saplings start fuller. Five likes adds four small low-poly fruits attached outside the canopy and a noticeable size increase; fifteen likes reaches eight fruits and thirty reaches twelve larger fruits. Each tree keeps one fruit type: rosy apples, golden pears, or paired oranges, with stems and leaves built into shared geometry. Fruit count and size interpolate between milestones and remain capped. Fifteen likes adds four flowers, growing towards twelve. At thirty likes, selection or liking triggers eight brief sparkles; nothing sparkles continuously. Reduced motion skips the sparkle and growth animation. Each like still has the existing stretch-and-settle response.
 
 Every idea has an invisible 48px target over its canopy, with no numbered badges. A tap opens its idea; only an ambiguous tap opens the idea chooser. Keyboard focus reveals a visible indicator and activates that particular idea directly. Hover/focus cards show the idea and like count in a portal outside the clipped canvas, with viewport collision handling.
 

@@ -27,7 +27,7 @@ export function growthForLikes(input: number) {
         : likes < 15
           ? 4 + (likes - 5) * 0.4
           : Math.min(12, 8 + ((likes - 15) * 4) / 15),
-    fruitSize: likes < 5 ? 0 : 0.145 + Math.min(1, (likes - 5) / 25) * 0.05,
+    fruitSize: likes < 5 ? 0 : 0.1 + Math.min(1, (likes - 5) / 25) * 0.025,
     flowers: likes < 15 ? 0 : 4 + 8 * (1 - Math.exp(-(likes - 15) / 18)),
     branches: Math.min(2, likes / 10),
   };

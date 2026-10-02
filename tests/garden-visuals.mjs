@@ -82,8 +82,8 @@ void test('five likes adds fruit on a fuller tree; fifteen adds flowers', () => 
   assert.equal(growthForLikes(1000000).fruits, 12);
   assert.equal(growthForLikes(15).fruits, 8);
   assert.equal(growthForLikes(30).fruits, 12);
-  assert.ok(growthForLikes(30).fruitSize > growthForLikes(5).fruitSize * 1.3);
-  assert.ok(growthForLikes(1000000).fruitSize <= 0.195);
+  assert.ok(growthForLikes(30).fruitSize > growthForLikes(5).fruitSize * 1.2);
+  assert.ok(growthForLikes(1000000).fruitSize <= 0.125);
   const plots = Array.from({ length: 48 }, (_, i) => plotPosition(i));
   assert.equal(new Set(plots.map((p) => p.join(','))).size, GROVE_SIZE);
   for (const [x, z] of plots)
