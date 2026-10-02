@@ -12,9 +12,7 @@ function derive(password: string, salt: string) {
 }
 export function validatePassword(value: unknown): string {
   if (typeof value !== 'string' || value.length < 8 || value.length > 128)
-    throw new InputError(
-      'Use a password or passphrase with 8–128 characters.',
-    );
+    throw new InputError('Use a password or passphrase with 8–128 characters.');
   return value;
 }
 export async function passwordHash(password: string) {

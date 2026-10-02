@@ -1,6 +1,6 @@
 'use client';
 import { Heart, MessageCircle } from 'lucide-react';
-import { ideaTags, type Idea } from '@/lib/garden';
+import { type Idea } from '@/lib/garden';
 import { useFreshHighlight } from '@/components/use-fresh-highlight';
 export function SupportButton({
   idea,
@@ -58,11 +58,6 @@ export function IdeaCard({
       className={`idea-card ${highlighted ? 'is-fresh' : ''}`}
     >
       <button className="idea-open" onClick={() => onRead(idea)}>
-        <span className="idea-topic">
-          {ideaTags(idea)
-            .map((t) => `#${t}`)
-            .join(' ') || 'Idea'}
-        </span>
         <h3>{idea.title}</h3>
         {idea.displayName && (
           <span className="card-signature">{idea.displayName}</span>

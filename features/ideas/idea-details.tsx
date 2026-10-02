@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { ideaTags, ideaBody, hasDerivedTitle, type Idea } from '@/lib/garden';
+import { ideaBody, hasDerivedTitle, type Idea } from '@/lib/garden';
 import { requestJSON as api } from '@/lib/client';
 import { IdeaShare } from '@/components/idea-share';
 import { IdeaDiscussion } from '@/components/idea-discussion';
@@ -9,13 +9,11 @@ import { SupportButton } from './idea-card';
 
 export function IdeaDetails({
   idea,
-  onTag,
   onSupport,
   pending,
   error,
 }: {
   idea: Idea;
-  onTag: (tag: string) => void;
   onSupport: (idea: Idea) => void;
   pending: boolean;
   error: string;
@@ -23,19 +21,7 @@ export function IdeaDetails({
   const [reportMessage, setReportMessage] = useState('');
   return (
     <div className="idea-detail">
-      <span className="detail-topic">
-        {ideaTags(idea).map((t) => (
-          <button
-            type="button"
-            className="detail-tag"
-            key={t}
-            onClick={() => onTag(t)}
-          >
-            #{t}
-          </button>
-        ))}
-        {idea.example && <span className="example-badge">Example</span>}
-      </span>
+      {idea.example && <span className="example-badge">Example</span>}
       <SheetTitle
         className={hasDerivedTitle(idea) ? 'sr-only' : 'detail-title'}
       >
@@ -50,7 +36,6 @@ export function IdeaDetails({
       )}
       <SheetDescription className="detail-meta">
         {idea.place || 'Waterloo'}
-        {idea.connection ? ` · ${idea.connection}` : ''}
       </SheetDescription>
       {idea.displayName && <p className="idea-signature">{idea.displayName}</p>}
       <div className="detail-actions">

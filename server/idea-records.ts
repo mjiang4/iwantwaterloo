@@ -1,11 +1,10 @@
 import { database } from '@/db/raw';
-import { CATEGORIES, decodeTags, type Idea } from '@/lib/garden';
-import { connectionSQL } from '@/lib/server';
+import type { Idea } from '@/lib/garden';
 
 /** One projection for lists, retry receipts, and shared idea pages. First bind is the viewer. */
 export const IDEA_SELECT = `SELECT
-  i.id, i.title, i.description, i.category, i.tags, i.rowid + 5 AS plot,
-  i.place, ${connectionSQL} AS connection, i.display_name AS displayName,
+  i.id, i.title, i.description, i.rowid + 5 AS plot,
+  i.place, i.display_name AS displayName,
   i.created_at AS createdAt,
   (SELECT count(*) FROM supports s WHERE s.idea_id=i.id) AS waters,
   (SELECT count(*) FROM comments c WHERE c.idea_id=i.id AND c.moderation_state='visible') AS commentCount,
@@ -26,17 +25,12 @@ function number(row: Record<string, unknown>, key: string) {
 
 /** Database nulls and SQLite booleans never escape into the browser contract. */
 export function ideaFromRow(row: Record<string, unknown>): Idea {
-  const category =
-    CATEGORIES.find((item) => item.id === row.category)?.id || 'other';
   return {
     id: text(row, 'id'),
     title: text(row, 'title'),
     description: text(row, 'description'),
-    category,
-    tags: decodeTags(row.tags, category),
     plot: number(row, 'plot'),
     place: text(row, 'place'),
-    connection: text(row, 'connection'),
     displayName:
       typeof row.displayName === 'string' ? row.displayName : undefined,
     createdAt: number(row, 'createdAt'),

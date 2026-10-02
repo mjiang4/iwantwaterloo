@@ -110,9 +110,7 @@ export function IdeaComposer({
       const input = {
         title: ideaTitle(text),
         description: text.trim(),
-        tags: [],
         place,
-        connection: '',
         displayName,
         consent: true,
         website: honeypot.current?.value || '',
@@ -243,9 +241,8 @@ export function IdeaComposer({
               disabled={saving || !draftReady}
             />
             {confirmShort && (
-              <div
+              <fieldset
                 className="short-idea-prompt"
-                role="group"
                 aria-labelledby="short-idea-heading"
               >
                 <p id="short-idea-heading">Want to add a little more detail?</p>
@@ -268,7 +265,7 @@ export function IdeaComposer({
                     Post anyway
                   </Button>
                 </div>
-              </div>
+              </fieldset>
             )}
             {!confirmShort && (
               <div className="compose-actions compose-post-action">

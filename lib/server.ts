@@ -1,14 +1,4 @@
 import { env } from 'cloudflare:workers';
-import {
-  CATEGORIES,
-  CONNECTIONS,
-  normalizeTag,
-  validTag,
-  categoryForTags,
-  LEGACY_TAGS,
-  connectionGroup,
-  type Category,
-} from './garden';
 export class InputError extends Error {
   constructor(
     message: string,
@@ -92,66 +82,6 @@ export async function readBody(request: Request) {
     throw new InputError('Please send a valid form.');
   }
 }
-export function validateIdea(raw: unknown) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw))
-    throw new InputError('Please complete the idea form.');
-  const v = raw as Record<string, unknown>;
-  function field(name: string, max: number, min = 0) {
-    if (v[name] !== undefined && typeof v[name] !== 'string')
-      throw new InputError(`Please check ${name}.`);
-    const t = String(v[name] ?? '').trim();
-    if (t.length < min || t.length > max)
-      throw new InputError(
-        `${name === 'title' ? 'Title' : name === 'description' ? 'Idea' : name} must be ${min}–${max} characters.`,
-      );
-    return t;
-  }
-  const title = field('title', 90, 5),
-    description = field('description', 1400, 5),
-    category = field('category', 30),
-    place = field('place', 90),
-    connection = field('connection', 60),
-    displayName = field('displayName', 60);
-  if (category && !CATEGORIES.some((c) => c.id === category))
-    throw new InputError('Choose a valid tag.');
-  if (
-    v.tags !== undefined &&
-    (!Array.isArray(v.tags) ||
-      v.tags.length > 3 ||
-      v.tags.some((t) => typeof t !== 'string'))
-  )
-    throw new InputError('Use up to 3 tags.');
-  const tags =
-    v.tags === undefined
-      ? LEGACY_TAGS[category] || []
-      : [...new Set((v.tags as string[]).map(normalizeTag))];
-  if (tags.some((t) => !validTag(t)))
-    throw new InputError('Tags need 2–24 letters or numbers.');
-  if (connection && !CONNECTIONS.some((c) => c === connectionGroup(connection)))
-    throw new InputError('Choose a connection to Waterloo.');
-  if (v.consent !== true)
-    throw new InputError('Confirm sharing with visitors.');
-  if (v.website)
-    throw new InputError('We could not plant this idea. Please try again.');
-  const submissionKey = field('submissionKey', 36);
-  if (
-    submissionKey &&
-    !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(
-      submissionKey,
-    )
-  )
-    throw new InputError('Please retry this idea.');
-  return {
-    title,
-    description,
-    submissionKey: submissionKey || null,
-    category: (category || categoryForTags(tags)) as Category,
-    tags,
-    place,
-    connection: connectionGroup(connection),
-    displayName: displayName || null,
-  };
-}
 export function failure(request: Request, id: string, error: unknown) {
   if (!(error instanceof InputError))
     console.error(
@@ -171,9 +101,3 @@ export function failure(request: Request, id: string, error: unknown) {
     error instanceof InputError ? error.retryAfter : undefined,
   );
 }
-
-// Legacy records remain intact; old category names become searchable tags.
-export const tagsSQL =
-  "CASE WHEN i.tags != '[]' THEN i.tags ELSE CASE i.category WHEN 'nature' THEN '[\"parks\"]' WHEN 'mobility' THEN '[\"cycling\"]' WHEN 'homes' THEN '[\"housing\"]' WHEN 'culture' THEN '[\"arts\"]' WHEN 'learning' THEN '[\"learning\"]' WHEN 'business' THEN '[\"small-business\"]' ELSE '[]' END END";
-export const connectionSQL =
-  "CASE i.connection WHEN 'I live here' THEN 'From Waterloo' WHEN 'I study here' THEN 'Studying in Waterloo' WHEN 'I visit' THEN 'Interested from elsewhere' ELSE i.connection END";

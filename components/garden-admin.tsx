@@ -32,9 +32,12 @@ async function call<T>(
     method,
     credentials: 'same-origin',
     cache: 'no-store',
-    headers:
-      body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...(method !== 'GET' && body !== undefined
+      ? {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      : {}),
   });
   const data = (await r.json()) as T & { error?: string };
   if (!r.ok)
@@ -73,6 +76,8 @@ export function GardenAdmin() {
       'setup',
     );
     if (token) {
+      // Synchronize the one-time invitation from the browser URL, then erase it.
+      // oxlint-disable-next-line react/react-compiler
       setLink(token);
       setInput(
         new URLSearchParams(window.location.hash.slice(1)).get('email') || '',
@@ -100,6 +105,8 @@ export function GardenAdmin() {
   useEffect(() => {
     if (!email) return;
     let active = true;
+    // A changed authenticated identity starts a fresh external data load.
+    // oxlint-disable-next-line react/react-compiler
     setLoading(true);
     Promise.all([
       call<{ ideas: Idea[]; nextOffset: number | null }>('ideas'),
@@ -168,13 +175,9 @@ export function GardenAdmin() {
           {error}
         </p>
       )}
-      {notice && (
-        <p className="admin-notice" role="status">
-          {notice}
-        </p>
-      )}
+      {notice && <output className="admin-notice">{notice}</output>}
       {loading && !email ? (
-        <p role="status">Loading…</p>
+        <output>Loading…</output>
       ) : !email ? (
         <section className="admin-login">
           <form
@@ -281,7 +284,7 @@ export function GardenAdmin() {
             </Button>
           </nav>
           {loading ? (
-            <p role="status">Loading…</p>
+            <output>Loading…</output>
           ) : tab === 'ideas' ? (
             <>
               <form
@@ -316,9 +319,8 @@ export function GardenAdmin() {
                       .join(' · ')}
                   </p>
                   {confirm?.id === idea.id ? (
-                    <div
+                    <fieldset
                       className="admin-confirm"
-                      role="group"
                       aria-label="Confirm deletion"
                     >
                       <p>
@@ -351,7 +353,7 @@ export function GardenAdmin() {
                       >
                         Delete idea
                       </Button>
-                    </div>
+                    </fieldset>
                   ) : (
                     <Button
                       variant="ghost"

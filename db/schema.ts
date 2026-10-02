@@ -12,6 +12,8 @@ export const ideas = sqliteTable(
     id: text('id').primaryKey(),
     title: text('title').notNull(),
     description: text('description').notNull(),
+    // Retired metadata: retained only to preserve stored data and applied migrations.
+    // Public contracts and read queries must not expose these columns.
     category: text('category').notNull(),
     tags: text('tags').notNull().default('[]'),
     place: text('place').notNull().default(''),

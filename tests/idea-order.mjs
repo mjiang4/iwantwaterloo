@@ -11,14 +11,13 @@ void test('new, most liked and seeded random paginate without duplicates', async
     ids.map((id, index) =>
       app.db
         .prepare(
-          'INSERT INTO ideas(id,title,description,category,tags,created_at,visitor_id) VALUES (?,?,?,?,?,?,?)',
+          'INSERT INTO ideas(id,title,description,category,created_at,visitor_id) VALUES (?,?,?,?,?,?)',
         )
         .bind(
           id,
           'Idea ' + index,
           'Specific suggestion ' + index,
           'other',
-          '["order-test"]',
           1000 + index,
           'test-fixture',
         ),
@@ -32,9 +31,7 @@ void test('new, most liked and seeded random paginate without duplicates', async
     .run();
   const read = async (sort, page = 0, seed = 7) =>
     (
-      await app.request(
-        `/api/ideas?tag=order-test&sort=${sort}&page=${page}&seed=${seed}`,
-      )
+      await app.request(`/api/ideas?sort=${sort}&page=${page}&seed=${seed}`)
     ).data.ideas.map((i) => i.id);
   assert.equal((await read('newest'))[0], ids[69]);
   assert.equal((await read('watered'))[0], ids[0]);

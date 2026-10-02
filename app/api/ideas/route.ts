@@ -1,127 +1,20 @@
-import { isIdeaPlace } from '@/lib/idea-places';
+import { listIdeas } from '@/server/idea-list';
+import { validateIdea } from '@/server/idea-input';
 import { database } from '@/db/raw';
 import {
   identity,
   requireVisitor,
   response,
   readBody,
-  validateIdea,
   failure,
   InputError,
-  tagsSQL,
-  connectionSQL,
 } from '@/lib/server';
-import { GROVE_SIZE } from '@/lib/garden';
 import { IDEA_SELECT, ideaFromRow } from '@/server/idea-records';
 import { limitWrites } from '@/lib/rate-limit';
 export async function GET(request: Request) {
   const { id } = identity(request);
   try {
-    const db = database(),
-      url = new URL(request.url),
-      page = Math.floor(
-        Math.max(
-          0,
-          Math.min(100000, Number(url.searchParams.get('page')) || 0),
-        ),
-      ),
-      category = url.searchParams.get('category') || 'all',
-      query = (url.searchParams.get('q') || '').slice(0, 200),
-      connection = url.searchParams.get('connection') || 'all',
-      sort = url.searchParams.get('sort') || 'newest',
-      seed =
-        Math.abs(
-          parseInt((url.searchParams.get('seed') || '0').slice(0, 10), 10) || 0,
-        ) % 64,
-      tag = url.searchParams.get('tag') || 'all',
-      garden = url.searchParams.get('garden') === '1';
-    const where: string[] = ['1=1'],
-      args: (string | number)[] = [];
-    if (url.searchParams.get('mine') === '1') {
-      where.push('i.visitor_id = ?');
-      args.push(id);
-    }
-    const exactId = url.searchParams.get('id');
-    if (exactId) {
-      where.push('i.id = ?');
-      args.push(exactId.slice(0, 64));
-    }
-    const place = url.searchParams.get('place') || 'all';
-    if (place !== 'all') {
-      if (!isIdeaPlace(place)) throw new InputError('Choose a city.');
-      where.push("COALESCE(NULLIF(i.place, ''), 'Waterloo') = ?");
-      args.push(place);
-    }
-    if (category !== 'all') {
-      where.push('i.category = ?');
-      args.push(category);
-    }
-    if (connection !== 'all') {
-      where.push(`${connectionSQL} = ?`);
-      args.push(connection);
-    }
-    if (tag !== 'all') {
-      where.push(
-        `EXISTS (SELECT 1 FROM json_each(${tagsSQL}) t WHERE t.value=?)`,
-      );
-      args.push(tag);
-    }
-    for (const term of query
-      .toLowerCase()
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)) {
-      where.push(
-        `lower(i.title || ' ' || i.description || ' ' || i.place || ' ' || ${tagsSQL}) LIKE ? ESCAPE '\\'`,
-      );
-      args.push('%' + term.replace(/[\\%_]/g, '\\$&') + '%');
-    }
-    const clause = where.join(' AND '),
-      order =
-        sort === 'watered'
-          ? 'waters DESC, i.created_at DESC, i.id'
-          : sort === 'random'
-            ? // UUIDs supply random bits. Rotating them gives a stable shuffled order
-              // across pages and refreshes, without ORDER BY random() duplicating rows.
-              `substr(replace(i.id,'-',''),${(seed % 32) + 1}) || substr(replace(i.id,'-',''),1,${seed % 32}) ${seed < 32 ? 'ASC' : 'DESC'}, i.id`
-            : 'i.created_at DESC, i.id';
-    const pageClause = garden
-      ? ' AND i.rowid + 5 >= ? AND i.rowid + 5 < ?'
-      : '';
-    const pageArgs = garden
-      ? [page * GROVE_SIZE, (page + 1) * GROVE_SIZE]
-      : [page * 50];
-    const [rows, count] = await db.batch<Record<string, unknown>>([
-      db
-        .prepare(
-          `${IDEA_SELECT} WHERE ${clause}${pageClause} ORDER BY ${garden ? 'i.rowid' : order} ${garden ? 'LIMIT ' + GROVE_SIZE : 'LIMIT 50 OFFSET ?'}`,
-        )
-        .bind(id, ...args, ...pageArgs),
-      db
-        .prepare(
-          `SELECT count(*) AS total,group_concat(DISTINCT cast((i.rowid + 5) / ${GROVE_SIZE} AS integer)) AS grovePages FROM ideas i WHERE ${clause}`,
-        )
-        .bind(...args),
-    ]);
-    const ideas = rows.results.map(ideaFromRow);
-    const total = Number(count.results[0]?.total || 0);
-    const grovePages = (
-      typeof count.results[0]?.grovePages === 'string'
-        ? count.results[0].grovePages
-        : ''
-    )
-      .split(',')
-      .filter(Boolean)
-      .map(Number)
-      .sort((a, b) => a - b);
-    return response(request, id, {
-      ideas,
-      total,
-      grovePages: grovePages.length ? grovePages : [0],
-      examples: [],
-      examplesTotal: 0,
-      nextPage: !garden && (page + 1) * 50 < total ? page + 1 : null,
-    });
+    return response(request, id, await listIdeas(new URL(request.url), id));
   } catch (error) {
     return failure(request, id, error);
   }
@@ -145,11 +38,8 @@ export async function POST(request: Request) {
       if (
         row.title !== fields.title ||
         row.description !== fields.description ||
-        row.category !== fields.category ||
         row.place !== fields.place ||
-        row.connection !== fields.connection ||
-        row.displayName !== fields.displayName ||
-        row.tags !== JSON.stringify(fields.tags)
+        row.displayName !== fields.displayName
       )
         throw new InputError(
           'This submission changed. Edit the idea and try again.',
@@ -162,16 +52,14 @@ export async function POST(request: Request) {
     await limitWrites(request, id, 'ideas');
     const result = await db
       .prepare(
-        'INSERT INTO ideas (id,title,description,category,tags,place,connection,display_name,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO ideas (id,title,description,category,place,display_name,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         ideaId,
         fields.title,
         fields.description,
-        fields.category,
-        JSON.stringify(fields.tags),
+        'other', // Required by the retained legacy database column.
         fields.place,
-        fields.connection,
         fields.displayName,
         now,
         id,

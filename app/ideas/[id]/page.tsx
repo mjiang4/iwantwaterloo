@@ -70,11 +70,6 @@ export default async function IdeaPage({ params }: Props) {
         {idea.displayName && (
           <p className="idea-signature">{idea.displayName}</p>
         )}
-        {!!idea.tags?.length && (
-          <p className="shared-tags">
-            {idea.tags.map((tag) => `#${tag}`).join(' ')}
-          </p>
-        )}
         <SharedIdeaActions idea={idea} />
       </article>
       <Link prefetch={false} className="shared-garden-link" href="/">

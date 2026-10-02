@@ -69,7 +69,7 @@ export function IdeaFilterMenu({
           />
           {sort === 'random' && (
             <button
-              className="tag-done reshuffle-button"
+              className="filter-secondary-action reshuffle-button"
               type="button"
               disabled={loading || shuffleRequested}
               aria-busy={shuffleRequested}

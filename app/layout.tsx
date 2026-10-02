@@ -14,12 +14,14 @@ export const metadata: Metadata = {
     url: 'https://iwantwaterloo.com/',
     siteName: 'I Want Waterloo',
     type: 'website',
-    images: [{
-      url: '/og.png',
-      width: 1733,
-      height: 908,
-      alt: 'I want Waterloo — A better city starts with an idea. A miniature green park with a pond, trees and walking paths.',
-    }],
+    images: [
+      {
+        url: '/og.png',
+        width: 1733,
+        height: 908,
+        alt: 'I want Waterloo — A better city starts with an idea. A miniature green park with a pond, trees and walking paths.',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',

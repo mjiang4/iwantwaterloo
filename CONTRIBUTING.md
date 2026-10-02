@@ -64,3 +64,7 @@ Describe the problem, the resulting behavior, and the checks you ran. Include sc
 ## Tooling dependency pins
 
 The esbuild, ws, and sharp overrides select patched releases while retaining the existing stable Cloudflare toolchain. They cover local tooling, not extra browser libraries. When updating that toolchain, check whether upstream dependencies make the overrides unnecessary. Verify the build, tests, migration generator, and npm audit before removing them.
+
+## Integrating the park-direction work
+
+PR #3 also changes the idea contracts, APIs, filters, schema, and garden components. Rebase it onto the current main branch before merging; keep retired tags/connections out of its public model. Its `0006_participation` and `0007_loves` migrations overlap the already-applied admin/password migration indices. Append the new migrations after the current journal and regenerate their snapshots; never replace existing production migrations. Test a populated database upgrade, stable tree positions, admin sign-in, likes, replies, and sharing before publishing.

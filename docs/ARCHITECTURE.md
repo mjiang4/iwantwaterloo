@@ -1,6 +1,6 @@
 # Architecture
 
-Current development structure, September 18, 2026. Deployment is separate from the contents of a branch.
+Current production structure, October 1, 2026. Deployment is separate from the contents of a branch.
 
 ## Stack and boundaries
 
@@ -59,3 +59,16 @@ API tests run actual handlers in disposable Miniflare Workers. Browser tests use
 Garden placement still uses legacy SQLite rowids plus a reserved offset. Titles from older records are interpreted through a compatibility heuristic. Replacing either needs a data migration that preserves existing behavior; these are recorded separately in the backlog.
 
 Reports are stored, but production moderation is an operator responsibility until a protected interface is implemented. See [operations](OPERATIONS.md). A successful report means it was saved, not that a review has happened.
+
+## Idea query and validation boundaries
+
+- `lib/garden.ts` contains the public idea/comment types and text helpers only.
+- `server/idea-input.ts` validates submitted idea text, attribution, consent, and retry keys.
+- `server/idea-list.ts` owns search, city filtering, stable sorting, and list/grove pagination.
+- `server/idea-records.ts` maps stored rows to an explicit public contract. Never return raw database rows.
+- `features/ideas/queries.ts` owns the client query key and fetch lifecycle. The client preserves server ordering instead of filtering or sorting the same results again.
+- `app/api/ideas/route.ts` handles HTTP identity, responses, write limits, and idempotent creation.
+
+Tags, connections, and their category fallback are retired. They are not accepted into the public model, rendered, searched, or exposed by browser tools. `/api/tags` is removed. Extra fields from an old cached client are ignored, so retrying an unchanged idea remains safe.
+
+Legacy database columns and applied migrations remain intact to avoid losing data or moving rowid-based trees. Preview snapshots preserve these columns for lossless restore; sample fixtures use defaults. Physical column removal requires a separate, approved data migration. These storage-only exceptions are not active product features.

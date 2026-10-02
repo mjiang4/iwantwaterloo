@@ -187,6 +187,14 @@ try {
     fullPage: true,
   });
   await page.getByRole('button', { name: 'Filter ideas', exact: true }).click();
+  const filter = page.locator('.filter-popover');
+  assert.equal(await filter.getByText('Tags', { exact: true }).count(), 0);
+  assert.equal(
+    await filter.getByText('Connection', { exact: true }).count(),
+    0,
+  );
+  const filterText = await filter.innerText();
+  assert.ok(filterText.indexOf('Sort') < filterText.indexOf('Where'));
   await page.getByRole('combobox', { name: 'Sort ideas', exact: true }).click();
   await page.getByRole('option', { name: 'Most liked', exact: true }).click();
   await page

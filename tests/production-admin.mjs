@@ -48,7 +48,7 @@ async function auth(site, email = owners[0]) {
   assert.equal(result.response.status, 200, result.text);
   return result.response.headers.get('set-cookie').split(';')[0];
 }
-test('password login rejects unlisted, wrong, cross-origin and retired magic links; logout revokes', async () => {
+void test('password login rejects unlisted, wrong, cross-origin and retired magic links; logout revokes', async () => {
   const site = await createApiHarness();
   try {
     for (const path of ['ideas', 'members', 'session'])
@@ -121,7 +121,7 @@ test('password login rejects unlisted, wrong, cross-origin and retired magic lin
     await site.dispose();
   }
 });
-test('private first-owner setup cannot be claimed without token, replayed or overwrite passwords', async () => {
+void test('private first-owner setup cannot be claimed without token, replayed or overwrite passwords', async () => {
   const token = randomBytes(32).toString('hex'),
     site = await createApiHarness({ bootstrapHash: hash(token) });
   try {
@@ -159,7 +159,10 @@ test('private first-owner setup cannot be claimed without token, replayed or ove
         site.request('/api/manage/setup', { method: 'POST', body }),
       ),
     );
-    assert.deepEqual(results.map((r) => r.response.status).sort(), [200, 409]);
+    assert.deepEqual(
+      results.map((r) => r.response.status).sort((a, b) => a - b),
+      [200, 409],
+    );
     const rows = (await site.db.prepare('SELECT * FROM admin_passwords').all())
       .results;
     assert.equal(rows.length, 1);
@@ -178,7 +181,7 @@ test('private first-owner setup cannot be claimed without token, replayed or ove
     await site.dispose();
   }
 });
-test('invites set passwords once; password change requires old password and revokes sessions', async () => {
+void test('invites set passwords once; password change requires old password and revokes sessions', async () => {
   const site = await createApiHarness();
   try {
     const cookie = await auth(site),
@@ -257,7 +260,7 @@ test('invites set passwords once; password change requires old password and revo
     await site.dispose();
   }
 });
-test('only admins can manage access; revocation invalidates pending links and sessions; owners stay', async () => {
+void test('only admins can manage access; revocation invalidates pending links and sessions; owners stay', async () => {
   const site = await createApiHarness();
   try {
     const cookie = await auth(site),
@@ -337,7 +340,7 @@ test('only admins can manage access; revocation invalidates pending links and se
     await site.dispose();
   }
 });
-test('confirmed idea deletion removes dependent rows and preserves unrelated data', async () => {
+void test('confirmed idea deletion removes dependent rows and preserves unrelated data', async () => {
   const site = await createApiHarness();
   try {
     const visitor = await site.browser();
