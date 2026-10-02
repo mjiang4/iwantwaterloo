@@ -20,22 +20,23 @@ import {
 /** Footpaths sit just above the lawn in the park model. */
 const PATH_Y = 0.13;
 /** Exaggerated like the trees and geese, so people read at the default zoom. */
-const FIGURE = 1.7;
+const FIGURE = 2.3;
 /** An unhurried stroll, relative to the park's exaggerated figures. */
 const WALK_SPEED = 0.22;
 const CAPACITY = 44;
 /** Stand this far from a tree's trunk when stopping to read it. */
 const READING_DISTANCE = 0.5;
 const noRaycast = () => {};
+/** Clear, warm colours that read against lawn and path without shouting. */
 const CLOTHES = [
-  '#b77a62',
-  '#6f8299',
-  '#8f9a6e',
-  '#c9a66b',
-  '#8a7396',
-  '#5f7f78',
-  '#a8a39a',
-  '#7b6a5a',
+  '#e0603f',
+  '#2f7fb8',
+  '#f2b33d',
+  '#c2457a',
+  '#3e9b8a',
+  '#7b5cc4',
+  '#f4f1e6',
+  '#e88a2e',
 ];
 const SKIN = ['#e6c3a1', '#c99a73', '#a8774f', '#7a5233', '#f0d2b8'];
 
@@ -92,6 +93,7 @@ export function ParkPeople({
     heads = useRef<THREE.InstancedMesh>(null);
   const walkers = useRef<Walker[]>([]);
   const roll = useMemo(() => random(Date.now()), []);
+  const shadows = useRef<THREE.InstancedMesh>(null);
   const object = useMemo(() => new THREE.Object3D(), []),
     color = useMemo(() => new THREE.Color(), []);
   const enabled = mode !== 'lite';
@@ -247,8 +249,16 @@ export function ParkPeople({
       object.updateMatrix();
       head.setMatrixAt(i, object.matrix);
       head.setColorAt(i, color.set(SKIN[walker.skin]));
+      // A soft contact shadow grounds each person and lifts them off the lawn.
+      object.position.set(walker.x, PATH_Y + 0.004, walker.z);
+      object.rotation.set(-Math.PI / 2, 0, 0);
+      object.updateMatrix();
+      shadows.current?.setMatrixAt(i, object.matrix);
     });
-    for (const mesh of [body, head]) {
+    const meshes = [body, head, shadows.current].filter(
+      (mesh): mesh is THREE.InstancedMesh => !!mesh,
+    );
+    for (const mesh of meshes) {
       mesh.count = shown.length;
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -361,7 +371,12 @@ export function ParkPeople({
         raycast={noRaycast}
       >
         <capsuleGeometry args={[0.028, 0.08, 3, 8]} />
-        <meshStandardMaterial roughness={0.9} />
+        {/* A faint glow after dark keeps the few night walkers visible. */}
+        <meshStandardMaterial
+          roughness={0.8}
+          emissive="#ffe2b8"
+          emissiveIntensity={afterDark * 0.14}
+        />
       </instancedMesh>
       <instancedMesh
         ref={heads}
@@ -370,7 +385,26 @@ export function ParkPeople({
         raycast={noRaycast}
       >
         <sphereGeometry args={[0.026, 10, 8]} />
-        <meshStandardMaterial roughness={0.8} />
+        <meshStandardMaterial
+          roughness={0.8}
+          emissive="#ffe2b8"
+          emissiveIntensity={afterDark * 0.1}
+        />
+      </instancedMesh>
+      <instancedMesh
+        ref={shadows}
+        args={[undefined, undefined, CAPACITY]}
+        frustumCulled={false}
+        raycast={noRaycast}
+        renderOrder={1}
+      >
+        <circleGeometry args={[0.075, 16]} />
+        <meshBasicMaterial
+          color="#1d2a1c"
+          transparent
+          opacity={0.28 * (1 - afterDark * 0.6)}
+          depthWrite={false}
+        />
       </instancedMesh>
     </group>
   );
