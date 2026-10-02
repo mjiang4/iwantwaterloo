@@ -7,7 +7,9 @@ export async function pendingSubmissionCount() {
   const row = await database()
     .prepare(`SELECT
     (SELECT count(*) FROM ideas WHERE moderation_state='pending') +
-    (SELECT count(*) FROM comments WHERE moderation_state='pending') AS total`)
+    (SELECT count(*) FROM comments WHERE moderation_state='pending') +
+    (SELECT count(*) FROM idea_updates WHERE moderation_state='pending') +
+    (SELECT count(*) FROM loves WHERE moderation_state='pending') AS total`)
     .first<{ total: number }>();
   return Number(row?.total || 0);
 }

@@ -1,6 +1,8 @@
 /** Public contract for a love: never includes visitor ids or retry keys. */
 export type Love = {
   id: string;
+  /** Only the author ever receives a love that is awaiting review. */
+  moderationState?: 'visible' | 'pending';
   body: string;
   x: number;
   z: number;

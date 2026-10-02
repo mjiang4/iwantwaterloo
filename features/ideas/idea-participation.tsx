@@ -23,7 +23,7 @@ function UpdateEditor({
   credits: GardenComment[];
   onCredits: (credits: GardenComment[]) => void;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (pending: boolean) => void;
 }) {
   const [description, setDescription] = useState(idea.description);
   const [question, setQuestion] = useState(questionFor(idea));
@@ -53,14 +53,18 @@ function UpdateEditor({
     submission.current = submissionFor(input, submission.current);
     setCanRetry(true);
     try {
-      const saved = await requestJSON<{ idea: Idea }>('/api/activity', {
+      const saved = await requestJSON<{
+        idea: Idea;
+        moderationState?: 'visible' | 'pending';
+      }>('/api/activity', {
         method: 'POST',
         body: JSON.stringify({
           ...input,
           submissionKey: submission.current.key,
         }),
       });
-      client.setQueryData(['idea', idea.id], { ideas: [saved.idea] });
+      if (saved.idea)
+        client.setQueryData(['idea', idea.id], { ideas: [saved.idea] });
       await Promise.all(
         [
           'ideas',
@@ -71,7 +75,7 @@ function UpdateEditor({
           'discovery',
         ].map((key) => client.invalidateQueries({ queryKey: [key] })),
       );
-      onSaved();
+      onSaved(saved.moderationState === 'pending');
     } catch (error) {
       setError(
         error instanceof Error ? error.message : 'Couldn’t save this update.',
@@ -230,10 +234,14 @@ export function IdeaParticipation({ idea }: { idea: Idea }) {
             credits={credits}
             onCredits={setCredits}
             onClose={() => setEditing(false)}
-            onSaved={() => {
+            onSaved={(pending) => {
               setEditing(false);
               setCredits([]);
-              setMessage('Updated. Your idea is taking shape.');
+              setMessage(
+                pending
+                  ? 'Thanks—your update is awaiting review.'
+                  : 'Updated. Your idea is taking shape.',
+              );
             }}
           />
         )}

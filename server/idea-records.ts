@@ -1,9 +1,12 @@
 import { database } from '@/db/raw';
 import type { Idea } from '@/lib/garden';
 
-/** Current proposal plus immutable original row, shared by all public reads. */
+/**
+ * Current proposal plus immutable original row, shared by all public reads. Only
+ * screened (visible) author updates ever replace the public text.
+ */
 export const IDEA_FROM = `FROM ideas i LEFT JOIN idea_updates u ON u.idea_id=i.id
-  AND u.version=(SELECT max(v.version) FROM idea_updates v WHERE v.idea_id=i.id)`;
+  AND u.version=(SELECT max(v.version) FROM idea_updates v WHERE v.idea_id=i.id AND v.moderation_state='visible')`;
 export const PROGRESS_SQL = `(coalesce(u.version,0)>0 OR EXISTS(SELECT 1 FROM organizer_reviews r WHERE r.idea_id=i.id))`;
 export const EXTERNAL_INPUT_SQL = `EXISTS(SELECT 1 FROM comments c WHERE c.idea_id=i.id AND c.visitor_id!=i.visitor_id AND c.moderation_state='visible')`;
 /**
@@ -19,7 +22,7 @@ export const IDEA_SELECT = `WITH viewer AS (SELECT ? AS id) SELECT
   (SELECT count(*) FROM supports s WHERE s.idea_id=i.id) AS waters,
   (SELECT count(*) FROM comments c WHERE c.idea_id=i.id AND c.moderation_state='visible') AS commentCount,
   (SELECT count(*) FROM comments c WHERE c.idea_id=i.id AND c.moderation_state='visible'
-    AND EXISTS(SELECT 1 FROM idea_updates v,json_each(v.credits) credit WHERE v.idea_id=i.id AND credit.value=c.id)) AS creditedCount,
+    AND EXISTS(SELECT 1 FROM idea_updates v,json_each(v.credits) credit WHERE v.idea_id=i.id AND v.moderation_state='visible' AND credit.value=c.id)) AS creditedCount,
   (SELECT count(*) FROM organizer_reviews r WHERE r.idea_id=i.id) AS reviewCount,
   (SELECT status FROM organizer_reviews r WHERE r.idea_id=i.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1) AS reviewStatus,
   EXISTS(SELECT 1 FROM supports s WHERE s.idea_id=i.id AND s.visitor_id=(SELECT id FROM viewer)) AS watered

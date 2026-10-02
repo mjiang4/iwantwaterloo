@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ModerationQueue } from './moderation-queue';
+import { ReportQueue } from './report-queue';
 import { ArrowLeft, Trash2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -273,6 +274,10 @@ export function GardenAdmin() {
           <ModerationQueue
             key={email}
             onReviewed={() => void loadIdeas().catch(fail)}
+          />
+          <ReportQueue
+            key={'reports:' + email}
+            onHandled={() => void loadIdeas().catch(fail)}
           />
           <nav aria-label="Admin sections">
             <Button
