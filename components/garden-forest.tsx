@@ -276,8 +276,16 @@ export function Forest(props: ForestProps) {
           continue;
         const end = key === 'planted' ? 1 : target[key];
         if (celebrating && props.moment!.kind === 'like' && key !== 'planted') {
+          // Milestone flowers are already earned; a like only grows from there.
+          const start =
+            key === 'flowers'
+              ? Math.max(
+                  growthForLikes(props.moment!.fromLikes).flowers,
+                  milestoneFlowers(idea),
+                )
+              : growthForLikes(props.moment!.fromLikes)[key];
           state[key] = growthAtProgress(
-            growthForLikes(props.moment!.fromLikes)[key],
+            start,
             end,
             momentState.current.progress,
           );

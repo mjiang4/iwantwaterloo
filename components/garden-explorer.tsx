@@ -514,7 +514,7 @@ export function GardenExplorer({
                 : '+1. A little bigger.'}
             </output>
           )}
-          {(lite || transforming) && (
+          {!failed && (lite || transforming) && (
             <button
               type="button"
               className="park-transform"

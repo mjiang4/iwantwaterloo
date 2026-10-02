@@ -111,6 +111,7 @@ function signature(root: HTMLElement) {
     '.garden-idea-dock',
     '.garden-love-dock',
     '.love-placement',
+    '.park-transform',
   ])
     key += root.ownerDocument.querySelector(panel) ? '1' : '0';
   return key;

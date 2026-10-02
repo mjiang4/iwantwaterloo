@@ -314,7 +314,10 @@ export function CityContext({
         if (json) setData(json);
         else ready.current?.();
       })
-      .catch(() => ready.current?.());
+      .catch(() => {
+        // An abort means this effect was torn down, not that the city failed.
+        if (!controller.signal.aborted) ready.current?.();
+      });
     return () => controller.abort();
   }, []);
   // Geometry is built in idle-time slices so the city never delays the park,
@@ -327,19 +330,24 @@ export function CityContext({
     if (!data) return;
     const controller = new AbortController();
     void (async () => {
-      const buildings = await runSliced(
-        buildBuildings(data, look),
-        controller.signal,
-      );
-      const roads =
-        buildings &&
-        (await runSliced(buildRoads(data, look), controller.signal));
-      if (buildings && roads) {
-        setGeometry({ buildings, roads });
-        ready.current?.();
-      } else {
-        buildings?.dispose();
-        roads?.dispose();
+      try {
+        const buildings = await runSliced(
+          buildBuildings(data, look),
+          controller.signal,
+        );
+        const roads =
+          buildings &&
+          (await runSliced(buildRoads(data, look), controller.signal));
+        if (buildings && roads) {
+          setGeometry({ buildings, roads });
+          ready.current?.();
+        } else {
+          buildings?.dispose();
+          roads?.dispose();
+        }
+      } catch {
+        // Malformed context data: the park stays usable, and "Transform me" finishes.
+        if (!controller.signal.aborted) ready.current?.();
       }
     })();
     return () => controller.abort();

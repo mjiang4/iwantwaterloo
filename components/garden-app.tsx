@@ -349,14 +349,7 @@ function Garden() {
             {filtered && (
               <div className="active-filter">
                 <span>
-                  {[
-                    place !== 'all' ? place : '',
-                    sort === 'watered'
-                      ? 'Most liked'
-                      : sort === 'random'
-                        ? 'Random'
-                        : '',
-                  ]
+                  {[place !== 'all' ? place : '', SORT_LABELS[sort] ?? '']
                     .filter(Boolean)
                     .join(' · ')}
                 </span>
@@ -602,6 +595,14 @@ function Garden() {
     </TooltipProvider>
   );
 }
+/** Labels for the active-filter chip; Discover is the default and shows none. */
+const SORT_LABELS: Record<string, string> = {
+  newest: 'New',
+  'needs-input': 'Needs input',
+  progress: 'Taking shape',
+  watered: 'Most liked',
+  random: 'Random',
+};
 export default function GardenApp() {
   const [client] = useState(
     () =>

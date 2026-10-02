@@ -571,9 +571,18 @@
   .icon-button:hover {
   background: #dce8de;
 }
+/* Clustered trees show how many ideas share the spot. Main's garden dropped
+   clustering, so the park keeps these rules (the base face hides its text). */
 .park-experiment .cluster-marker .marker-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   width: 40px;
   height: 40px;
+  border-radius: 9px;
+  font-size: var(--text-small);
+  font-weight: 600;
 }
 
 /* One optional theme control leaves the small-screen canvas open. */
