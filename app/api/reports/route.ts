@@ -35,7 +35,9 @@ export async function POST(request: Request) {
           .bind(commentId)
           .first()
       : await db
-          .prepare('SELECT id FROM ideas WHERE id=?')
+          .prepare(
+            "SELECT id FROM ideas WHERE id=? AND moderation_state='visible'",
+          )
           .bind(ideaId)
           .first();
     if (!target)

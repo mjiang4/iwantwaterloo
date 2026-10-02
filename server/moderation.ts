@@ -2,8 +2,7 @@
  * Deterministic content screening for public text (ideas, comments) and website feedback.
  *
  * This is a local civic campaign site, not a global platform: the goal is to stop obvious
- * slurs and explicit sexual content, not to build a perfect classifier. Two curated lists
- * drive the outcome:
+ * slurs and explicit sexual content WITHOUT refusing ordinary civic language. Outcomes:
  *
  *   - HARD  -> 'reject'  : slurs and hardcore sexual terms. The write is refused (422).
  *   - SOFT  -> 'pending' : general profanity / borderline terms. The write is stored but
@@ -11,18 +10,23 @@
  *   - no match -> 'allow'.
  *
  * Obfuscation handling, and avoiding the "Scunthorpe problem":
- *   - Text is normalized (lowercased, diacritics stripped, common leetspeak mapped) before
- *     matching, so "sh1t", "f4ggot", and accented spellings are caught.
- *   - Each term is matched with a leading word boundary, repeatable letters (so "fuuuck"
- *     and "niiiger" match), small inter-letter gaps (so "f u c k" and "f.u.c.k" match),
- *     a short curated inflection suffix (so "fucking"/"bitches" match), and a trailing
- *     word boundary. The leading boundary is why "Scunthorpe", "class", "assassin",
- *     "pass", and "cucumber" are NOT flagged: the term never starts at a word boundary in
- *     those words.
+ *   - Text is normalized (lowercased, diacritics stripped, common leetspeak mapped).
+ *   - Each term matches with a leading word boundary, repeatable letters (so "fuuuck"
+ *     matches), small inter-letter gaps (so "f u c k" / "f.u.c.k" match), and a trailing
+ *     word boundary. The leading boundary is why "Scunthorpe", "class", "assassin" are
+ *     never flagged.
+ *   - Suffixes are PER TERM. Long unambiguous terms (fuck, shit, bitch) accept inflections
+ *     (fucking, bitches). Short/ambiguous stems (spic, fag, cock, coon, gook, kike, chink,
+ *     dick, piss, cunt) accept NO suffix, so "spicy", "cocky", "cocker", "Fagin", "chinks"
+ *     are not refused.
+ *   - An allowlist of known-good words/phrases is removed before matching, covering stems
+ *     that are still substrings of place names or common words (e.g. "Coon Rapids",
+ *     "pussy willow").
+ *   - "rape"/"molest" are NOT bare hard terms (they appear in civic text such as "rape
+ *     crisis centre"); only clearly abusive multiword phrasings are rejected.
  *
- * Tradeoff: because both boundaries are required, a slur jammed into another word with no
- * separator (e.g. "fuckthis" as one solid token) is not caught. That is the deliberate
- * price of near-zero false positives on ordinary civic language.
+ * Best-effort only: trivial evasions (f*ck with the symbol unmapped, fvck, Cyrillic
+ * lookalikes, no-separator concatenations like "fuckthis") will pass. Do not oversell it.
  */
 
 export type ScreenResult = {
@@ -60,9 +64,22 @@ function normalize(text: string) {
     .join('');
 }
 
+// Short/ambiguous stems: exact word only (no inflection suffix), because their suffixed
+// forms are ordinary words (spicy, cocky, dickies, chinks, Fagin, ...).
+const AMBIGUOUS = new Set([
+  'spic',
+  'fag',
+  'cock',
+  'coon',
+  'gook',
+  'kike',
+  'chink',
+  'dick',
+  'piss',
+  'cunt',
+]);
+
 // Hard list: slurs and explicit sexual terms. A match rejects the submission outright.
-// Kept intentionally compact and readable; each entry is a base form (inflections and
-// light obfuscation are handled by the matcher, not by listing every variant).
 const HARD = [
   'nigger',
   'nigga',
@@ -82,15 +99,12 @@ const HARD = [
   'blowjob',
   'cumshot',
   'handjob',
-  'rape',
-  'molest',
   'pedophile',
   'paedophile',
   'childporn',
 ];
 
-// Soft list: general profanity / borderline terms. A match holds the submission for
-// moderator review instead of publishing it immediately.
+// Soft list: general profanity / borderline terms. A match holds for moderator review.
 const SOFT = [
   'fuck',
   'shit',
@@ -108,26 +122,63 @@ const SOFT = [
   'twat',
 ];
 
-// Curated English inflection suffixes allowed after a matched term. Deliberately small so
-// it does not re-open the Scunthorpe problem (e.g. no bare "a"/"as" that would let the
-// trailing boundary slip past "assassin").
+// Known-good words/phrases removed before matching so an ambiguous stem inside them cannot
+// trip. Phrases (with spaces) are matched as a unit. Longest first.
+const ALLOWLIST = [
+  'coon rapids',
+  'pussy willows',
+  'pussy willow',
+  'cockney',
+  'cocker',
+  'spices',
+  'spiced',
+  'spicy',
+  'spice',
+  'cocky',
+  'fagin',
+  'dickies',
+  'chinks',
+];
+const ALLOWLIST_RE = new RegExp(
+  `(?<![a-z0-9])(?:${ALLOWLIST.join('|')})(?![a-z0-9])`,
+  'g',
+);
+
+// Curated English inflection suffixes for unambiguous long terms. Deliberately small so it
+// does not re-open the Scunthorpe problem (no bare "a"/"as").
 const SUFFIX = '(?:s|es|ed|er|ers|ing|in|y|ies)?';
 // Non-alphanumeric gap allowed between letters (handles "f u c k", "f.u.c.k").
 const GAP = '[^a-z0-9]{0,2}';
 
 function compile(term: string) {
   const letters = Array.from(term).map((l) => `${l}+`);
-  return new RegExp(`(?<![a-z0-9])${letters.join(GAP)}${SUFFIX}(?![a-z0-9])`);
+  const suffix = AMBIGUOUS.has(term) ? '' : SUFFIX;
+  return new RegExp(`(?<![a-z0-9])${letters.join(GAP)}${suffix}(?![a-z0-9])`);
 }
 
 const HARD_PATTERNS = HARD.map((term) => [term, compile(term)] as const);
 const SOFT_PATTERNS = SOFT.map((term) => [term, compile(term)] as const);
 
+// "rape"/"molest" only as explicitly abusive multiword phrasings, so civic uses
+// ("rape crisis centre", "rape prevention", "child molestation support") pass.
+const HARD_PHRASES: ReadonlyArray<readonly [string, RegExp]> = [
+  [
+    'rape',
+    /(?<![a-z0-9])rap(?:e|ed|es|ing)[^a-z0-9]+(?:you|him|her|them|kids?|child(?:ren)?)(?![a-z0-9])/,
+  ],
+  [
+    'molest',
+    /(?<![a-z0-9])molest(?:s|ed|ing)?[^a-z0-9]+(?:you|him|her|them|kids?|child(?:ren)?|people|someone)(?![a-z0-9])/,
+  ],
+];
+
 /** Screen a block of user text. Empty/whitespace text always allows. */
 export function screen(text: string): ScreenResult {
-  const normalized = normalize(text);
+  const normalized = normalize(text).replace(ALLOWLIST_RE, ' ');
   if (!normalized.trim()) return { action: 'allow' };
   for (const [term, pattern] of HARD_PATTERNS)
+    if (pattern.test(normalized)) return { action: 'reject', matched: term };
+  for (const [term, pattern] of HARD_PHRASES)
     if (pattern.test(normalized)) return { action: 'reject', matched: term };
   for (const [term, pattern] of SOFT_PATTERNS)
     if (pattern.test(normalized)) return { action: 'pending', matched: term };

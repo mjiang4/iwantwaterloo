@@ -56,7 +56,7 @@ export async function limitWrites(
   now = Date.now(),
 ) {
   const key = await counterKey(
-    `${scope}:${Math.floor(now / 86400000)}:${network(request, visitorId)}`,
+    `rl:${scope}:${Math.floor(now / 86400000)}:${network(request, visitorId)}`,
   );
   const duration =
       scope === 'ideas' || scope === 'comments' || scope === 'feedback'
@@ -84,7 +84,18 @@ export async function limitDistinctSupport(
   now = Date.now(),
 ) {
   const key = await counterKey(
-    `support-distinct:${Math.floor(now / 600000)}:${network(request, visitorId)}`,
+    `rl:support-distinct:${Math.floor(now / 600000)}:${network(request, visitorId)}`,
   );
   await enforce(key, 600000, 60, now);
+}
+/**
+ * Per-IP cap on visitor establishment, enforced BEFORE any Turnstile call. Without it,
+ * signed-cookie minting is unbounded whenever Turnstile is unprovisioned (the default),
+ * so the signature alone would add nothing. Keyed on the network only, since the visitor
+ * is not yet established.
+ */
+export async function limitVisitor(request: Request, now = Date.now()) {
+  const net = request.headers.get('cf-connecting-ip') || 'local';
+  const key = await counterKey(`rl:visitor:${Math.floor(now / 600000)}:${net}`);
+  await enforce(key, 600000, 30, now);
 }

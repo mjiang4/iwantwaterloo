@@ -21,16 +21,19 @@ export async function PUT(request: Request) {
       typeof raw.watered !== 'boolean'
     )
       throw new InputError('Please choose an idea to support.');
-    await verifyTurnstile(request, raw.turnstileToken);
     const db = database();
     if (
       !(await db
-        .prepare('SELECT id FROM ideas WHERE id=?')
+        .prepare(
+          "SELECT id FROM ideas WHERE id=? AND moderation_state='visible'",
+        )
         .bind(raw.ideaId)
         .first())
     )
       throw new InputError('That idea is no longer in the garden.', 404);
+    // Rate-limit before the Turnstile call so siteverify cannot be hammered.
     await limitWrites(request, id, 'support');
+    await verifyTurnstile(request, raw.turnstileToken);
     // Backstop a rotated-cookie bot: a genuinely new support (not an idempotent re-like)
     // counts against a per-IP cap on distinct ideas supported per window.
     if (raw.watered) {

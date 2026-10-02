@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       throw new InputError('Idea not found.', 404);
     const db = database();
     const idea = await db
-      .prepare('SELECT id FROM ideas WHERE id=?')
+      .prepare("SELECT id FROM ideas WHERE id=? AND moderation_state='visible'")
       .bind(ideaId)
       .first();
     if (!idea) throw new InputError('Idea not found.', 404);
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     const previous = await findPrevious();
     if (previous) return response(request, id, { comment: previous });
     const idea = await db
-      .prepare('SELECT id FROM ideas WHERE id=?')
+      .prepare("SELECT id FROM ideas WHERE id=? AND moderation_state='visible'")
       .bind(ideaId)
       .first();
     if (!idea) throw new InputError('Idea not found.', 404);
@@ -153,6 +153,8 @@ export async function POST(request: Request) {
           displayName,
           createdAt: now,
         },
+        // Signals the client to show "awaiting review" instead of implying it is live.
+        pending: moderationState === 'pending',
       },
       201,
     );

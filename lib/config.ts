@@ -7,5 +7,10 @@ import { env } from 'cloudflare:workers';
  * and sends no token, and the server verification is a matching no-op.
  */
 export function turnstileSitekey() {
-  return env.TURNSTILE_SITEKEY || '';
+  // Serve the sitekey only when BOTH halves are present. Serving it with no secret would
+  // show the widget while nothing is verified; a secret with no sitekey would 403 every
+  // write. Either half-configured state is worse than staying inert.
+  return env.TURNSTILE_SITEKEY && env.TURNSTILE_SECRET
+    ? env.TURNSTILE_SITEKEY
+    : '';
 }

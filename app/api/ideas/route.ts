@@ -93,6 +93,8 @@ export async function POST(request: Request) {
           commentCount: 0,
           example: false,
         },
+        // Signals the client to show "awaiting review" instead of implying it is live.
+        pending: moderationState === 'pending',
       },
       201,
     );

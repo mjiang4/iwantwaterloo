@@ -43,9 +43,11 @@ async function hmacHex(message: string) {
     x.toString(16).padStart(2, '0'),
   ).join('');
 }
+// HMAC inputs are domain-separated with a "visitor:" prefix so a cookie signature can
+// never be interchanged with a rate-limit bucket key (which uses its own "rl:" prefix).
 /** Produce the signed cookie value for a visitor UUID. */
 export async function signVisitor(id: string) {
-  return `${id}.${await hmacHex(id)}`;
+  return `${id}.${await hmacHex('visitor:' + id)}`;
 }
 /** Return the UUID from a signed cookie value, or null if unsigned/forged. */
 async function verifyVisitor(raw: string) {
@@ -54,7 +56,7 @@ async function verifyVisitor(raw: string) {
   const id = raw.slice(0, dot),
     mac = raw.slice(dot + 1);
   if (!/^[a-f0-9-]{36}$/.test(id) || !/^[a-f0-9]{64}$/.test(mac)) return null;
-  const expected = await hmacHex(id);
+  const expected = await hmacHex('visitor:' + id);
   // Length-constant comparison; both values are fixed-length hex.
   if (mac.length !== expected.length) return null;
   let diff = 0;
@@ -70,7 +72,9 @@ export async function identity(request: Request) {
     .map((s) => s.trim())
     .find((s) => s.startsWith(name + '='))
     ?.slice(name.length + 1);
-  const existing = raw ? await verifyVisitor(raw) : null;
+  // Fail safe on a read: a missing signing secret (misconfiguration) must not throw an
+  // unhandled error on a GET; treat the visitor as unestablished instead.
+  const existing = raw ? await verifyVisitor(raw).catch(() => null) : null;
   return {
     id: existing || crypto.randomUUID(),
     existing: Boolean(existing),
@@ -89,12 +93,20 @@ export async function response(
   data: unknown,
   status = 200,
   retryAfter?: number,
+  // When undefined, a cookie is (re)issued only to a visitor who ALREADY holds a valid
+  // signed cookie. Pass true to issue one on the single legitimate establishment response
+  // (successful POST /api/visitor). This stops a 4xx — e.g. a Turnstile failure — from
+  // handing an unestablished caller a usable signed cookie.
+  setCookie?: boolean,
 ) {
   const headers: Record<string, string> = {
     'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
   };
-  if (!['GET', 'HEAD'].includes(request.method))
+  const issue =
+    !['GET', 'HEAD'].includes(request.method) &&
+    (setCookie ?? (await identity(request)).existing);
+  if (issue)
     headers['Set-Cookie'] =
       `${visitorCookieName()}=${await signVisitor(id)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
   if (retryAfter) headers['Retry-After'] = String(retryAfter);
