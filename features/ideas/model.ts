@@ -20,4 +20,6 @@ export type SupportState = Pick<Idea, 'waters' | 'watered'>;
 export type GardenPage = IdeasPage & {
   grovePages: number[];
   examplesTotal: number;
+  /** Browsers with a visible idea in the last few days: the park's people. */
+  people?: number;
 };
