@@ -9,6 +9,17 @@ void test('clean civic text is allowed, including Scunthorpe-problem words', () 
     'Please assess the assassin storyline in the local play, it was great.',
     'We need better bus passes and grass maintenance in the park.',
     'Add a cucumber stand and more analysis of traffic flow.',
+    // Short-stem false positives that must NOT be refused:
+    'spicy food truck',
+    'herbs and spices market',
+    'rape crisis centre funding',
+    'sexual assault and rape prevention programs',
+    'cocker spaniel park',
+    'Coon Rapids',
+    'chinks in the armour',
+    'a cocky council',
+    'Fagin',
+    'plant a pussy willow by the trail',
     '', // empty
     '   ', // whitespace only
   ])
@@ -18,8 +29,8 @@ void test('clean civic text is allowed, including Scunthorpe-problem words', () 
 void test('hard slurs and explicit sexual terms are rejected', () => {
   for (const text of [
     'you are a faggot',
-    'build more rape alarms downtown', // explicit term in context
     'what a cunt that councillor is',
+    'i will rape you', // abusive multiword phrasing only
   ]) {
     const result = screen(text);
     assert.equal(result.action, 'reject', text);

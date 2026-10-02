@@ -1,7 +1,38 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { randomUUID, createHmac } from 'node:crypto';
+import { randomUUID, createHmac, randomBytes, scryptSync } from 'node:crypto';
 import { createApiHarness, ideaPayload } from './helpers/api-harness.mjs';
+
+const OWNER = 'jerry@unrepped.co';
+const PASSWORD = 'Test8!ab';
+function encodedPassword() {
+  const salt = randomBytes(16).toString('hex');
+  return (
+    'scrypt-v1:' +
+    salt +
+    ':' +
+    scryptSync(PASSWORD, salt, 32, {
+      N: 16384,
+      r: 8,
+      p: 5,
+      maxmem: 33554432,
+    }).toString('hex')
+  );
+}
+async function moderatorCookie(app) {
+  await app.db
+    .prepare(
+      'INSERT OR IGNORE INTO admin_passwords(email,password_hash,updated_at) VALUES (?,?,?)',
+    )
+    .bind(OWNER, encodedPassword(), Date.now())
+    .run();
+  const login = await app.request('/api/manage/login', {
+    method: 'POST',
+    body: { email: OWNER, password: PASSWORD },
+  });
+  assert.equal(login.response.status, 200, login.text);
+  return login.response.headers.get('set-cookie').split(';')[0];
+}
 
 void test('forged and unsigned visitor cookies are rejected; a signed cookie passes', async (t) => {
   const app = await createApiHarness();
@@ -125,21 +156,23 @@ void test('Turnstile is inert when the secret is unset', async (t) => {
 void test('Turnstile gates visitor establishment and likes when provisioned', async (t) => {
   const app = await createApiHarness({ turnstileSecret: 'test-secret' });
   t.after(() => app.dispose());
-  // Visitor POST requires a valid token.
+  // Visitor POST requires a valid token, and a rejection must NOT mint a usable cookie.
+  const missing = await app.request('/api/visitor', {
+    method: 'POST',
+    body: {},
+  });
+  assert.equal(missing.response.status, 403);
   assert.equal(
-    (await app.request('/api/visitor', { method: 'POST', body: {} })).response
-      .status,
-    403,
+    missing.response.headers.get('set-cookie'),
+    null,
+    'a Turnstile failure must not set a visitor cookie',
   );
-  assert.equal(
-    (
-      await app.request('/api/visitor', {
-        method: 'POST',
-        body: { turnstileToken: 'wrong' },
-      })
-    ).response.status,
-    403,
-  );
+  const wrong = await app.request('/api/visitor', {
+    method: 'POST',
+    body: { turnstileToken: 'wrong' },
+  });
+  assert.equal(wrong.response.status, 403);
+  assert.equal(wrong.response.headers.get('set-cookie'), null);
   const good = await app.request('/api/visitor', {
     method: 'POST',
     body: { turnstileToken: 'valid-token' },
@@ -195,7 +228,7 @@ void test('per-IP distinct-support backstop caps new supports but allows idempot
   assert.equal(liked.response.status, 200, liked.text);
   // Drive that counter to its cap.
   const key = createHmac('sha256', app.secret)
-    .update(`support-distinct:${Math.floor(Date.now() / 600000)}:${ip}`)
+    .update(`rl:support-distinct:${Math.floor(Date.now() / 600000)}:${ip}`)
     .digest('hex');
   await app.db
     .prepare('UPDATE rate_limits SET count=60 WHERE key=?')
@@ -215,4 +248,92 @@ void test('per-IP distinct-support backstop caps new supports but allows idempot
     headers,
   });
   assert.equal(blocked.response.status, 429, blocked.text);
+});
+
+void test('a moderator can approve a pending idea and it becomes publicly visible', async (t) => {
+  const app = await createApiHarness();
+  t.after(() => app.dispose());
+  const browser = await app.browser();
+  const pending = await browser.request('/api/ideas', {
+    method: 'POST',
+    body: ideaPayload({
+      description: 'the fucking potholes downtown need fixing now',
+    }),
+  });
+  assert.ok([200, 201].includes(pending.response.status), pending.text);
+  assert.equal(pending.data.pending, true, 'author gets a pending signal');
+  const id = pending.data.idea.id;
+  assert.equal((await browser.request('/api/ideas')).data.total, 0);
+  const cookie = await moderatorCookie(app);
+  // Moderator finds it via the state filter and sees its moderation state.
+  const list = await app.request('/api/manage/ideas?state=pending', { cookie });
+  assert.equal(list.response.status, 200, list.text);
+  assert.equal(list.data.ideas[0].id, id);
+  assert.equal(list.data.ideas[0].moderationState, 'pending');
+  // Approve it.
+  const patched = await app.request('/api/manage/ideas', {
+    method: 'PATCH',
+    cookie,
+    body: { id, state: 'visible' },
+  });
+  assert.equal(patched.response.status, 200, patched.text);
+  // Now public.
+  const nowPublic = await browser.request('/api/ideas');
+  assert.equal(nowPublic.data.total, 1);
+  assert.equal(nowPublic.data.ideas[0].id, id);
+});
+
+void test('a pending idea cannot be liked, replied to, or reported by id', async (t) => {
+  const app = await createApiHarness();
+  t.after(() => app.dispose());
+  const browser = await app.browser();
+  const pending = await browser.request('/api/ideas', {
+    method: 'POST',
+    body: ideaPayload({
+      description: 'the fucking potholes downtown need fixing now',
+    }),
+  });
+  const id = pending.data.idea.id;
+  const like = await browser.request('/api/support', {
+    method: 'PUT',
+    body: { ideaId: id, watered: true },
+  });
+  assert.equal(like.response.status, 404, like.text);
+  const reply = await browser.request('/api/comments', {
+    method: 'POST',
+    body: {
+      ideaId: id,
+      parentId: '',
+      body: 'a clean reply about this',
+      displayName: '',
+      submissionKey: randomUUID(),
+    },
+  });
+  assert.equal(reply.response.status, 404, reply.text);
+  const report = await browser.request('/api/reports', {
+    method: 'POST',
+    body: { ideaId: id, reason: 'test reason' },
+  });
+  assert.equal(report.response.status, 404, report.text);
+});
+
+void test('visitor establishment is rate-limited per IP', async (t) => {
+  const app = await createApiHarness();
+  t.after(() => app.dispose());
+  const ip = '198.51.100.42';
+  const now = Date.now();
+  const key = createHmac('sha256', app.secret)
+    .update(`rl:visitor:${Math.floor(now / 600000)}:${ip}`)
+    .digest('hex');
+  await app.db
+    .prepare('INSERT INTO rate_limits (key,count,expires_at) VALUES (?,?,?)')
+    .bind(key, 30, now + 600000)
+    .run();
+  const blocked = await app.request('/api/visitor', {
+    method: 'POST',
+    body: {},
+    headers: { 'CF-Connecting-IP': ip },
+  });
+  assert.equal(blocked.response.status, 429, blocked.text);
+  assert.equal(blocked.response.headers.get('set-cookie'), null);
 });

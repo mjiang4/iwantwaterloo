@@ -84,7 +84,7 @@ void test('validation, origin checks, like idempotency and rate limits use real 
   }
   const ip = '198.51.100.99';
   const key = createHmac('sha256', app.secret)
-    .update(`ideas:${Math.floor(Date.now() / 86400000)}:${ip}`)
+    .update(`rl:ideas:${Math.floor(Date.now() / 86400000)}:${ip}`)
     .digest('hex');
   await app.db
     .prepare('INSERT INTO rate_limits (key,count,expires_at) VALUES (?,?,?)')
