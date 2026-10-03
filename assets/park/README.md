@@ -35,6 +35,7 @@ Run the detail generator after the base generator:
 blender --background --python scripts/park/build_detail.py
 node scripts/park/compress_models.mjs
 node scripts/park/build_paths.mjs
+node scripts/park/build_features.mjs
 npx oxfmt assets/park/map.json assets/park/landmarks.json
 ```
 

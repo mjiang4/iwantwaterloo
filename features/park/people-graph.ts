@@ -41,6 +41,19 @@ export type PathGraph = {
   gates: number[];
 };
 
+let paths: Promise<PathGraph | null> | null = null;
+/** The footpath network, fetched once per page for the people and the lamps. */
+export function loadPaths() {
+  paths ??= fetch('/park/paths.json')
+    .then((r) => (r.ok ? (r.json() as Promise<PathData>) : null))
+    .then((data) => (data ? parseGraph(data) : null))
+    .catch(() => {
+      paths = null; // allow a later retry
+      return null;
+    });
+  return paths;
+}
+
 export function parseGraph(data: PathData): PathGraph {
   const count = data.nodes.length / 2;
   const x = new Float32Array(count),

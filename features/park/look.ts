@@ -278,10 +278,13 @@ const goldenLanterns: ParkLook = {
   ambient: { base: 0.4, day: 0.38 },
   sun: { color: '#ffe6bd', sunset: '#ff9d5c', intensity: 2.7 },
   moon: { color: '#9bb6ff', intensity: 0.85 },
+  // Clear blue water: a gentle lighter edge and soft blue ripples by day, so the
+  // lake reads as water rather than a pale, speckled sheet.
   water: {
-    deep: { day: '#2a6f7a', dusk: '#34507a', night: '#060e22' },
-    rim: { day: '#b9e0dc', dusk: '#f0a88a', night: '#28447a' },
-    gleam: { day: '#fff4e0', dusk: '#ffe0b0', night: '#f3c890' },
+    deep: { day: '#2b78c2', dusk: '#2c5a99', night: '#0a1c3d' },
+    rim: { day: '#2d5f8f', dusk: '#3d5a8c', night: '#1d3b6e' },
+    // Ripples are only a faint shimmer: the lake should read as calm, plain blue.
+    gleam: { day: '#123a5e', dusk: '#1c3558', night: '#0f2346' },
     style: 'soft',
   },
   canopyGlow: { color: '#000000', night: 0 },
@@ -319,6 +322,8 @@ export type LookSelection = {
    * so visitors are never shown sample text dressed as residents' loves.
    */
   demoLoves: boolean;
+  /** `?cam=x,y,z,tx,ty,tz` frames a fixed shot for look development, on localhost only. */
+  camera: [number, number, number, number, number, number] | null;
 };
 
 export function readLook(search: string): LookSelection {
@@ -334,11 +339,23 @@ export function readLook(search: string): LookSelection {
       params.has('sun') && Number.isFinite(sun)
         ? Math.max(-40, Math.min(60, sun))
         : null,
-    demoLoves:
-      params.get('loves') === 'demo' &&
-      typeof location !== 'undefined' &&
-      ['localhost', '127.0.0.1'].includes(location.hostname),
+    demoLoves: params.get('loves') === 'demo' && localhostOnly(),
+    camera: lookCamera(params.get('cam')),
   };
+}
+function localhostOnly() {
+  return (
+    typeof location !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(location.hostname)
+  );
+}
+function lookCamera(value: string | null) {
+  const numbers = value?.split(',').map(Number);
+  return numbers?.length === 6 &&
+    numbers.every(Number.isFinite) &&
+    localhostOnly()
+    ? (numbers as [number, number, number, number, number, number])
+    : null;
 }
 
 const noSubscription = () => () => {};
