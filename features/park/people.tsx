@@ -6,13 +6,12 @@ import * as THREE from 'three';
 import type { Idea } from '@/lib/garden';
 import { parkPlotPosition } from './plots';
 import {
+  loadPaths,
   nearestNode,
-  parseGraph,
   peopleTarget,
   pickWeighted,
   random,
   route,
-  type PathData,
   type PathGraph,
   type PeopleMode,
 } from './people-graph';
@@ -21,6 +20,12 @@ import {
 const PATH_Y = 0.13;
 /** Exaggerated like the trees and geese, so people read at the default zoom. */
 const FIGURE = 2.3;
+/**
+ * Up close they shrink toward true proportion, so nobody towers over a house:
+ * figure scale follows camera distance, between these bounds.
+ */
+const NEAR_FIGURE = 0.8;
+const FIGURE_PER_UNIT = FIGURE / 20;
 /** An unhurried stroll, relative to the park's exaggerated figures. */
 const WALK_SPEED = 0.22;
 const CAPACITY = 44;
@@ -87,7 +92,7 @@ export function ParkPeople({
   afterDark: number;
   motion: boolean;
 }) {
-  const { invalidate, gl } = useThree();
+  const { invalidate, gl, camera } = useThree();
   const [graph, setGraph] = useState<PathGraph | null>(null);
   const bodies = useRef<THREE.InstancedMesh>(null),
     heads = useRef<THREE.InstancedMesh>(null);
@@ -101,14 +106,13 @@ export function ParkPeople({
   useEffect(() => {
     if (!enabled) return;
     // Optional atmosphere: load after the park, and fail quietly.
-    const controller = new AbortController();
-    fetch('/park/paths.json', { signal: controller.signal })
-      .then((r) => (r.ok ? (r.json() as Promise<PathData>) : null))
-      .then((data) => {
-        if (data) setGraph(parseGraph(data));
-      })
-      .catch(() => {});
-    return () => controller.abort();
+    let current = true;
+    void loadPaths().then((loaded) => {
+      if (current && loaded) setGraph(loaded);
+    });
+    return () => {
+      current = false;
+    };
   }, [enabled]);
 
   const trees = useMemo<Tree[]>(
@@ -276,14 +280,23 @@ export function ParkPeople({
     walkers.current = list.filter((w) => !w.gone);
     const shown = walkers.current;
     shown.slice(0, CAPACITY).forEach((walker, i) => {
-      const bob = motion ? Math.abs(Math.sin(walker.stride)) * 0.012 : 0;
-      object.position.set(walker.x, PATH_Y + 0.068 * FIGURE + bob, walker.z);
+      const size = Math.min(
+        FIGURE,
+        Math.max(
+          NEAR_FIGURE,
+          camera.position.distanceTo(
+            object.position.set(walker.x, PATH_Y, walker.z),
+          ) * FIGURE_PER_UNIT,
+        ),
+      );
+      const bob = motion ? Math.abs(Math.sin(walker.stride)) * 0.005 * size : 0;
+      object.position.set(walker.x, PATH_Y + 0.068 * size + bob, walker.z);
       object.rotation.set(0, walker.heading, 0);
-      object.scale.setScalar(FIGURE);
+      object.scale.setScalar(size);
       object.updateMatrix();
       body.setMatrixAt(i, object.matrix);
       body.setColorAt(i, color.set(CLOTHES[walker.clothes]));
-      object.position.y = PATH_Y + 0.158 * FIGURE + bob;
+      object.position.y = PATH_Y + 0.158 * size + bob;
       object.updateMatrix();
       head.setMatrixAt(i, object.matrix);
       head.setColorAt(i, color.set(SKIN[walker.skin]));

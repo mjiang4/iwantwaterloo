@@ -319,6 +319,8 @@ export type LookSelection = {
    * so visitors are never shown sample text dressed as residents' loves.
    */
   demoLoves: boolean;
+  /** `?cam=x,y,z,tx,ty,tz` frames a fixed shot for look development, on localhost only. */
+  camera: [number, number, number, number, number, number] | null;
 };
 
 export function readLook(search: string): LookSelection {
@@ -334,11 +336,23 @@ export function readLook(search: string): LookSelection {
       params.has('sun') && Number.isFinite(sun)
         ? Math.max(-40, Math.min(60, sun))
         : null,
-    demoLoves:
-      params.get('loves') === 'demo' &&
-      typeof location !== 'undefined' &&
-      ['localhost', '127.0.0.1'].includes(location.hostname),
+    demoLoves: params.get('loves') === 'demo' && localhostOnly(),
+    camera: lookCamera(params.get('cam')),
   };
+}
+function localhostOnly() {
+  return (
+    typeof location !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(location.hostname)
+  );
+}
+function lookCamera(value: string | null) {
+  const numbers = value?.split(',').map(Number);
+  return numbers?.length === 6 &&
+    numbers.every(Number.isFinite) &&
+    localhostOnly()
+    ? (numbers as [number, number, number, number, number, number])
+    : null;
 }
 
 const noSubscription = () => () => {};
