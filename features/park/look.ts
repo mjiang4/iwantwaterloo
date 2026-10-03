@@ -281,9 +281,10 @@ const goldenLanterns: ParkLook = {
   // Clear blue water: a gentle lighter edge and soft blue ripples by day, so the
   // lake reads as water rather than a pale, speckled sheet.
   water: {
-    deep: { day: '#2b78c2', dusk: '#2c5a99', night: '#06142e' },
-    rim: { day: '#2d5f8f', dusk: '#7a5a78', night: '#1d3b6e' },
-    gleam: { day: '#22609c', dusk: '#e9c39a', night: '#f3c890' },
+    deep: { day: '#2b78c2', dusk: '#2c5a99', night: '#0a1c3d' },
+    rim: { day: '#2d5f8f', dusk: '#3d5a8c', night: '#1d3b6e' },
+    // Ripples are only a faint shimmer: the lake should read as calm, plain blue.
+    gleam: { day: '#123a5e', dusk: '#1c3558', night: '#0f2346' },
     style: 'soft',
   },
   canopyGlow: { color: '#000000', night: 0 },
