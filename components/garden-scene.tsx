@@ -36,6 +36,8 @@ import {
 import type { Love } from '@/features/loves/model';
 import { CityContext, CITY_GROUND_Y } from '@/features/park/city';
 import { ParkPeople } from '@/features/park/people';
+import { ParkBuildings } from '@/features/park/park-buildings';
+import { ParkFurniture } from '@/features/park/park-furniture';
 import type { PeopleMode } from '@/features/park/people-graph';
 type Props = {
   ideas: Idea[];
@@ -150,8 +152,23 @@ function Sky({
 function hex(color: THREE.Color) {
   return '#' + color.getHexString();
 }
+/** A soft round glow, so points read as fireflies rather than square pixels. */
+function glowSprite() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 32;
+  const g = canvas.getContext('2d')!;
+  const gradient = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.4, 'rgba(255,255,255,.55)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gradient;
+  g.fillRect(0, 0, 32, 32);
+  return new THREE.CanvasTexture(canvas);
+}
 function Fireflies({ enabled, motion }: { enabled: boolean; motion: boolean }) {
   const ref = useRef<THREE.Points>(null);
+  const sprite = useMemo(glowSprite, []);
+  useEffect(() => () => sprite.dispose(), [sprite]);
   const t = useRef(0);
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry(),
@@ -179,9 +196,11 @@ function Fireflies({ enabled, motion }: { enabled: boolean; motion: boolean }) {
     <points ref={ref} geometry={geometry} visible={enabled}>
       <pointsMaterial
         color="#e9eda1"
-        size={0.065}
+        size={0.09}
+        map={sprite}
         transparent
-        opacity={0.8}
+        opacity={0.9}
+        blending={THREE.AdditiveBlending}
         depthWrite={false}
       />
     </points>
@@ -206,6 +225,7 @@ function CameraRig({
   const arrivalPlot = props.ideas[0]?.plot;
   const focusKey =
     props.moment?.id || props.focusId || props.ideas[0]?.id || 'arrival';
+  const lookCamera = useParkLook().camera;
   useEffect(() => {
     const focused = focusedPlot !== undefined;
     const arrival = parkPlotPosition(arrivalPlot ?? 0);
@@ -250,10 +270,16 @@ function CameraRig({
         placeCamera();
       }
     }
+    // Look development: a fixed, repeatable shot (`?cam=`, localhost only).
+    if (lookCamera) {
+      destination.current.set(lookCamera[0], lookCamera[1], lookCamera[2]);
+      target.current.set(lookCamera[3], lookCamera[4], lookCamera[5]);
+    }
     transition.current = 1;
     ready.current = false;
     invalidate();
   }, [
+    lookCamera,
     arrivalPlot,
     focusedPlot,
     props.night,
@@ -432,6 +458,12 @@ function World(props: Props & { active: boolean }) {
         name="park-landscape"
         look={look}
         day={light.daylight}
+        motion={props.motion}
+        visible={!detailed}
+      />
+      <ParkBuildings afterDark={afterDark} visible={!detailed} />
+      <ParkFurniture
+        afterDark={afterDark}
         motion={props.motion}
         visible={!detailed}
       />

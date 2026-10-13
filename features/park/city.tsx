@@ -52,6 +52,86 @@ async function runSliced<T>(
   }
 }
 
+/** Facade colours, blended toward each look's wall tone so every look stays coherent. */
+const HOUSE_FACADES = [
+  '#f1e6d2',
+  '#e8d2b0',
+  '#c56a4f',
+  '#b9c4b3',
+  '#e3cf9b',
+  '#aebccb',
+  '#efe8dc',
+  '#d9a882',
+];
+const BLOCK_FACADES = [
+  '#e9dcc5',
+  '#d4c6ad',
+  '#c4b49b',
+  '#b5634a',
+  '#aab3b6',
+  '#d8d2c6',
+  '#c99a6e',
+];
+const TOWER_FACADES = ['#a7b8c0', '#bcc5c7', '#d6d0c4', '#9fadb3'];
+const FACADE_BLEND = 0.3;
+
+/** Smallest edge-aligned rectangle around a footprint: centre, axes and size. */
+function orientedBox(ring: THREE.Vector2[]) {
+  let best = {
+    area: Infinity,
+    cx: 0,
+    cz: 0,
+    ux: 1,
+    uz: 0,
+    length: 0,
+    width: 0,
+  };
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i],
+      b = ring[(i + 1) % ring.length];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (!len) continue;
+    const ux = (b.x - a.x) / len,
+      uz = (b.y - a.y) / len;
+    let minU = Infinity,
+      maxU = -Infinity,
+      minV = Infinity,
+      maxV = -Infinity;
+    for (const p of ring) {
+      const u = p.x * ux + p.y * uz,
+        v = -p.x * uz + p.y * ux;
+      minU = Math.min(minU, u);
+      maxU = Math.max(maxU, u);
+      minV = Math.min(minV, v);
+      maxV = Math.max(maxV, v);
+    }
+    const area = (maxU - minU) * (maxV - minV);
+    if (area < best.area) {
+      const u = (minU + maxU) / 2,
+        v = (minV + maxV) / 2;
+      best = {
+        area,
+        cx: u * ux - v * uz,
+        cz: u * uz + v * ux,
+        ux,
+        uz,
+        length: maxU - minU,
+        width: maxV - minV,
+      };
+    }
+  }
+  // The ridge runs along the longer side.
+  if (best.width > best.length)
+    best = {
+      ...best,
+      ux: -best.uz,
+      uz: best.ux,
+      length: best.width,
+      width: best.length,
+    };
+  return best;
+}
+
 function* buildBuildings(data: Context, look: ParkLook) {
   const q = data.quantum;
   const positions: number[] = [],
@@ -71,7 +151,58 @@ function* buildBuildings(data: Context, look: ParkLook) {
   };
   const base = new THREE.Color(),
     top = new THREE.Color(),
-    roof = new THREE.Color();
+    roof = new THREE.Color(),
+    facade = new THREE.Color();
+  const palette = (list: string[]) =>
+    list.map((c) => new THREE.Color(c).lerp(wall, FACADE_BLEND));
+  const houses = palette(HOUSE_FACADES),
+    blocks = palette(BLOCK_FACADES),
+    towers = palette(TOWER_FACADES);
+  /** A gable roof over a house's footprint box: two slopes and two gable ends. */
+  const gableRoof = (
+    box: ReturnType<typeof orientedBox>,
+    y: number,
+    c: THREE.Color,
+  ) => {
+    const overhang = 0.012,
+      l = box.length / 2 + overhang,
+      w = box.width / 2 + overhang,
+      rise = Math.min(0.12, box.width * 0.5);
+    const at = (u: number, v: number, h: number): [number, number, number] => [
+      box.cx + box.ux * u - box.uz * v,
+      y + h,
+      box.cz + box.uz * u + box.ux * v,
+    ];
+    const face = (
+      p: [number, number, number][],
+      n: [number, number, number],
+    ) => {
+      for (const q of p) vertex(q, n, c);
+    };
+    const slope = Math.hypot(w, rise);
+    for (const side of [1, -1]) {
+      // Each slope's outward normal: across the ridge and up.
+      const n: [number, number, number] = [
+        (-box.uz * side * rise) / slope,
+        w / slope,
+        (box.ux * side * rise) / slope,
+      ];
+      const e1 = at(-l, side * w, 0),
+        e2 = at(l, side * w, 0),
+        r1 = at(-l, 0, rise),
+        r2 = at(l, 0, rise);
+      if (side === 1) face([e1, e2, r2, e1, r2, r1], n);
+      else face([e2, e1, r1, e2, r1, r2], n);
+    }
+    for (const end of [1, -1]) {
+      const n: [number, number, number] = [box.ux * end, 0, box.uz * end];
+      const a = at(end * l, w, 0),
+        b = at(end * l, -w, 0),
+        r = at(end * l, 0, rise);
+      if (end === 1) face([b, a, r], n);
+      else face([a, b, r], n);
+    }
+  };
   for (let index = 0; index < data.buildings.length; index++) {
     if (index && index % SLICE === 0) yield;
     const b = data.buildings[index];
@@ -80,10 +211,12 @@ function* buildBuildings(data: Context, look: ParkLook) {
       ring.push(new THREE.Vector2(b.p[i] / q, b.p[i + 1] / q));
     if (ring.length < 3) continue;
     const y1 = CITY_GROUND_Y + (b.h / q) * EXAGGERATION;
-    // Gentle per-building variation; walls darken toward the ground.
-    const tone = 0.9 + randomAt(index, 11) * 0.14;
-    top.copy(wall).multiplyScalar(tone);
-    base.copy(wall).multiplyScalar(tone * 0.74);
+    // Varied facades by kind and height; walls darken toward the ground.
+    const choices = b.k ? houses : y1 > 0.55 ? towers : blocks;
+    facade.copy(choices[Math.floor(randomAt(index, 14) * choices.length)]);
+    const tone = 0.92 + randomAt(index, 11) * 0.12;
+    top.copy(facade).multiplyScalar(tone);
+    base.copy(facade).multiplyScalar(tone * 0.76);
     if (b.k)
       roof
         .copy(roofs[Math.floor(randomAt(index, 12) * roofs.length)])
@@ -104,11 +237,15 @@ function* buildBuildings(data: Context, look: ParkLook) {
       vertex([c.x, y1, c.y], n, top);
       vertex([a.x, y1, a.y], n, top);
     }
-    for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(ring, [])) {
-      vertex([ring[i].x, y1, ring[i].y], [0, 1, 0], roof);
-      vertex([ring[k].x, y1, ring[k].y], [0, 1, 0], roof);
-      vertex([ring[j].x, y1, ring[j].y], [0, 1, 0], roof);
-    }
+    // Houses get pitched roofs; larger buildings keep flat roofs on their outline.
+    const box = b.k ? orientedBox(ring) : null;
+    if (box && box.width > 0.02 && box.length < 1.2) gableRoof(box, y1, roof);
+    else
+      for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(ring, [])) {
+        vertex([ring[i].x, y1, ring[i].y], [0, 1, 0], roof);
+        vertex([ring[k].x, y1, ring[k].y], [0, 1, 0], roof);
+        vertex([ring[j].x, y1, ring[j].y], [0, 1, 0], roof);
+      }
   }
   return geometryFrom(positions, normals, colors);
 }
@@ -121,10 +258,19 @@ function* buildRoads(data: Context, look: ParkLook) {
     colors: number[] = [];
   const road = new THREE.Color(look.city.road);
   const quad = (points: [number, number][], c: THREE.Color) => {
-    for (const [x, z] of points) {
-      positions.push(x, ROAD_Y, z);
-      normals.push(0, 1, 0);
-      colors.push(c.r, c.g, c.b);
+    // Every triangle faces up. A back-facing one would have its normal flipped by
+    // the double-sided material and be lit from below, showing as a pale patch.
+    for (let t = 0; t + 2 < points.length; t += 3) {
+      const a = points[t];
+      let b = points[t + 1],
+        d = points[t + 2];
+      if ((b[1] - a[1]) * (d[0] - a[0]) - (b[0] - a[0]) * (d[1] - a[1]) < 0)
+        [b, d] = [d, b];
+      for (const [x, z] of [a, b, d]) {
+        positions.push(x, ROAD_Y, z);
+        normals.push(0, 1, 0);
+        colors.push(c.r, c.g, c.b);
+      }
     }
   };
   const list = data.roads ?? [];
@@ -212,9 +358,21 @@ function useBuildingMaterial() {
         );
       shader.fragmentShader =
         'uniform float uNight;\nvarying vec3 vCityPos;\nvarying vec3 vCityNormal;\nfloat cityHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\n' +
-        shader.fragmentShader.replace(
-          '#include <emissivemap_fragment>',
-          `#include <emissivemap_fragment>
+        shader.fragmentShader
+          .replace(
+            '#include <color_fragment>',
+            `#include <color_fragment>
+if(abs(vCityNormal.y)<0.5){
+  // By day the same window grid reads as glass, so facades aren't blank.
+  vec2 facadeDay=vec2(abs(vCityNormal.x)>abs(vCityNormal.z)?vCityPos.z:vCityPos.x,vCityPos.y-${CITY_GROUND_Y.toFixed(2)});
+  vec2 gridDay=facadeDay/vec2(0.1,0.11);vec2 fd=fract(gridDay);
+  float paneDay=step(.28,fd.x)*step(fd.x,.72)*step(.32,fd.y)*step(fd.y,.76)*step(.5,floor(gridDay.y));
+  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.36,.43,.48),paneDay*.6*(1.-uNight));
+}`,
+          )
+          .replace(
+            '#include <emissivemap_fragment>',
+            `#include <emissivemap_fragment>
 if(uNight>0.01&&abs(vCityNormal.y)<0.5){
   vec2 facade=vec2(abs(vCityNormal.x)>abs(vCityNormal.z)?vCityPos.z:vCityPos.x,vCityPos.y-${CITY_GROUND_Y.toFixed(2)});
   vec2 grid=facade/vec2(0.1,0.11);vec2 f=fract(grid);vec2 cell=floor(grid);
@@ -222,7 +380,7 @@ if(uNight>0.01&&abs(vCityNormal.y)<0.5){
   float lit=step(.74,cityHash(cell+floor(vCityPos.xz*3.)*.37));
   totalEmissiveRadiance+=vec3(1.,.74,.44)*pane*lit*uNight*1.1;
 }`,
-        );
+          );
     };
     return { material, uniforms };
   }, []);

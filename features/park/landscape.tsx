@@ -62,6 +62,10 @@ export function ParkModel({
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = !['water', 'lawn', 'sand'].includes(object.name);
       object.receiveShadow = true;
+      // The park's buildings are drawn with real roofs and doors (park-buildings);
+      // the base model's flat prisms stay only as hidden lawn-probe obstacles.
+      if (name === 'park-landscape' && HIDDEN.includes(object.name))
+        object.visible = false;
       if (object.name === 'water') {
         if (detailed) {
           surface = object.geometry
@@ -80,6 +84,7 @@ export function ParkModel({
         if (override.roughness !== undefined)
           material.roughness = override.roughness;
       }
+      perimeterFinish(material);
       object.material = material;
       materials.push(material);
       if (detailed && object.name === 'lawn') {
@@ -100,7 +105,7 @@ export function ParkModel({
       }
     });
     return { scene: copy, materials, surface };
-  }, [scene, water, detailed, look]);
+  }, [scene, water, detailed, look, name]);
   useEffect(() => {
     water.uniforms.uSoft.value = look.water.style === 'soft' ? 1 : 0;
     water.uniforms.uDeep.value.copy(tint(look.water.deep, day));
@@ -110,6 +115,15 @@ export function ParkModel({
   useEffect(() => {
     readyCallback.current?.();
   }, []);
+  // Perimeter's windows glow warm only after dark.
+  useEffect(() => {
+    for (const material of model.materials)
+      if (material.name === 'pi-window-warm' && 'emissive' in material) {
+        const warm = material as THREE.MeshStandardMaterial;
+        warm.emissive.set('#ffc983');
+        warm.emissiveIntensity = Math.max(0, 1 - day * 1.4) * 1.6;
+      }
+  }, [model, day]);
   useEffect(
     () => () => {
       water.dispose();
@@ -139,4 +153,44 @@ export function ParkModel({
       )}
     </group>
   );
+}
+
+const HIDDEN = ['building', 'roof'];
+
+/**
+ * Perimeter Institute's facade: charcoal panels with a soft metallic sheen,
+ * blue-grey glass that catches the sun, a pale frame and a light roof, instead
+ * of the export's flat black. Roofs are recognised by upward-facing surfaces.
+ */
+const PERIMETER: Record<
+  string,
+  { color: string; roughness: number; metalness?: number }
+> = {
+  'pi-charcoal': { color: '#41474e', roughness: 0.5, metalness: 0.3 },
+  'pi-folds': { color: '#353b41', roughness: 0.45, metalness: 0.35 },
+  'pi-frame': { color: '#d3cfc6', roughness: 0.6 },
+  'pi-glass': { color: '#86a8b9', roughness: 0.14, metalness: 0.1 },
+  'concrete-detail': { color: '#c4bfb4', roughness: 0.9 },
+};
+function perimeterFinish(material: THREE.MeshStandardMaterial) {
+  const finish = PERIMETER[material.name];
+  if (!finish) return;
+  material.color.set(finish.color);
+  material.roughness = finish.roughness;
+  material.metalness = finish.metalness ?? 0;
+  if (material.name !== 'pi-charcoal' && material.name !== 'pi-folds') return;
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader =
+      'varying float vUp;\n' +
+      shader.vertexShader.replace(
+        '#include <beginnormal_vertex>',
+        '#include <beginnormal_vertex>\nvUp=normalize(mat3(modelMatrix)*objectNormal).y;',
+      );
+    shader.fragmentShader =
+      'varying float vUp;\n' +
+      shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        '#include <color_fragment>\ndiffuseColor.rgb=mix(diffuseColor.rgb,vec3(.56,.59,.6),smoothstep(.7,.9,vUp));',
+      );
+  };
 }
