@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ideaTitle, type Idea } from '@/lib/garden';
 import { submissionFor, type Submission } from '@/lib/submission';
 import { readSignature, saveSignature } from '@/lib/signature';
+import { DEFAULT_QUESTION } from '@/lib/participation';
 import { isIdeaPlace, type IdeaPlace } from '@/lib/idea-places';
 import { IdeaPlacePicker } from './idea-place-picker';
 import type { PlantInput } from '@/features/ideas/model';
@@ -20,6 +21,7 @@ export function IdeaComposer({
 }) {
   const [place, setPlace] = useState<IdeaPlace>('Waterloo');
   const [text, setText] = useState('');
+  const [question, setQuestion] = useState(DEFAULT_QUESTION);
   const [displayName, setDisplayName] = useState('');
   const [remember, setRemember] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -49,6 +51,8 @@ export function IdeaComposer({
       );
       if (draft && typeof draft.text === 'string') {
         setText(draft.text.slice(0, 1400));
+        if (typeof draft.question === 'string')
+          setQuestion(draft.question.slice(0, 180));
         if (isIdeaPlace(draft.place)) setPlace(draft.place);
         setDisplayName(
           typeof draft.displayName === 'string'
@@ -74,13 +78,14 @@ export function IdeaComposer({
           'waterloo-idea-draft',
           JSON.stringify({
             text,
+            question,
             place,
             displayName,
             submission: submission.current,
           }),
         );
     } catch {}
-  }, [draftReady, text, place, displayName, shared]);
+  }, [draftReady, text, question, place, displayName, shared]);
   useEffect(() => {
     if (draftReady) saveSignature(remember ? displayName : '');
   }, [draftReady, remember, displayName]);
@@ -109,6 +114,7 @@ export function IdeaComposer({
     try {
       const input = {
         title: ideaTitle(text),
+        question,
         description: text.trim(),
         place,
         displayName,
@@ -121,6 +127,7 @@ export function IdeaComposer({
           'waterloo-idea-draft',
           JSON.stringify({
             text,
+            question,
             place,
             displayName,
             submission: submission.current,
@@ -134,6 +141,7 @@ export function IdeaComposer({
       submission.current = null;
       setShared(idea);
       setText('');
+      setQuestion(DEFAULT_QUESTION);
       if (!remember) setDisplayName('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn’t share. Try again.');
@@ -223,6 +231,19 @@ export function IdeaComposer({
               }}
               aria-describedby={`idea-guidance${error ? ' compose-error' : ''}`}
             />
+            <details className="composer-question">
+              <summary>Ask people a question</summary>
+              <label htmlFor="idea-question" className="sr-only">
+                Your open question
+              </label>
+              <Input
+                id="idea-question"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                maxLength={180}
+                disabled={saving}
+              />
+            </details>
             <div className="signature-field">
               <label htmlFor="idea-signature">
                 Name <span className="sr-only">(optional)</span>

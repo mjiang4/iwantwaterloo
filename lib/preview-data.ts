@@ -8,6 +8,7 @@ const columns = {
     'id',
     'title',
     'description',
+    'question',
     'category',
     'tags',
     'connection',
@@ -22,21 +23,59 @@ const columns = {
     'idea_id',
     'parent_id',
     'body',
+    'kind',
+    'source',
     'display_name',
     'created_at',
     'visitor_id',
     'submission_key',
     'moderation_state',
   ],
+  idea_updates: [
+    'id',
+    'idea_id',
+    'version',
+    'title',
+    'description',
+    'question',
+    'note',
+    'credits',
+    'visitor_id',
+    'submission_key',
+    'created_at',
+  ],
+  organizer_reviews: [
+    'id',
+    'idea_id',
+    'body',
+    'status',
+    'submission_key',
+    'created_at',
+  ],
   supports: ['idea_id', 'visitor_id', 'created_at'],
   reports: [
     'id',
     'idea_id',
     'comment_id',
+    'love_id',
     'reason',
     'visitor_id',
     'created_at',
   ],
+  // Parents before children: undo inserts in this order.
+  loves: [
+    'id',
+    'body',
+    'x',
+    'z',
+    'landmark',
+    'display_name',
+    'created_at',
+    'visitor_id',
+    'submission_key',
+    'moderation_state',
+  ],
+  love_echoes: ['love_id', 'visitor_id', 'created_at'],
 } as const;
 export type Scenario = 'empty' | 'sample' | 'full' | 'busy';
 export const scenarioNames = {
@@ -131,6 +170,7 @@ function fixtures(scenario: Scenario) {
     title: titles[i % 8] + (i >= 8 ? ` · ${i + 1}` : ''),
     description:
       'A sample idea for this preview. Try opening it, liking it, or adding a reply.',
+    question: 'What would make this work well in Waterloo?',
     category: 'other',
     place: '',
     display_name: i % 3 === 0 ? 'River' : null,
@@ -158,6 +198,8 @@ function fixtures(scenario: Scenario) {
         id: parent,
         idea_id: ideas[0].id,
         parent_id: null,
+        kind: 'place',
+        source: 'garden',
         body: 'Could this start near the library?',
         display_name: 'Alex',
         created_at: now,
@@ -169,6 +211,8 @@ function fixtures(scenario: Scenario) {
         id: crypto.randomUUID(),
         idea_id: ideas[0].id,
         parent_id: parent,
+        kind: 'detail',
+        source: 'garden',
         body: 'An evening pilot would help us try it out.',
         display_name: null,
         created_at: now + 1,
@@ -247,7 +291,16 @@ export async function changePreview(raw: unknown) {
   const statements: D1PreparedStatement[] = [];
   if (action !== 'undo') statements.push(snapshotSQL(fresh));
   if (action === 'scenario' || action === 'undo')
-    for (const table of ['reports', 'comments', 'supports', 'ideas'])
+    for (const table of [
+      'reports',
+      'love_echoes',
+      'loves',
+      'idea_updates',
+      'organizer_reviews',
+      'comments',
+      'supports',
+      'ideas',
+    ])
       statements.push(db.prepare(`DELETE FROM ${table} WHERE ${fresh}`));
   if (action === 'scenario') {
     const data = fixtures(body.scenario as Scenario);
@@ -288,7 +341,7 @@ export async function changePreview(raw: unknown) {
     for (const [table, cols] of Object.entries(columns))
       statements.push(
         db.prepare(
-          `INSERT INTO ${table}(${cols.join(',')}) SELECT ${cols.map((c) => `json_extract(value,'$.${c}')`).join(',')} FROM json_each((SELECT payload FROM preview_snapshots WHERE id=1),'$.${table}') WHERE ${fresh}`,
+          `INSERT INTO ${table}(${cols.join(',')}) SELECT ${cols.map((c) => (c === 'question' ? `coalesce(json_extract(value,'$.${c}'),'What would make this work well in Waterloo?')` : c === 'kind' ? `coalesce(json_extract(value,'$.${c}'),'detail')` : c === 'source' ? `coalesce(json_extract(value,'$.${c}'),'garden')` : `json_extract(value,'$.${c}')`)).join(',')} FROM json_each((SELECT payload FROM preview_snapshots WHERE id=1),'$.${table}') WHERE ${fresh}`,
         ),
       );
     statements.push(

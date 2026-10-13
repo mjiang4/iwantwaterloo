@@ -1,3 +1,4 @@
+import { DEFAULT_QUESTION } from '@/lib/participation';
 import { InputError } from '@/lib/server';
 
 export function validateIdea(raw: unknown) {
@@ -17,7 +18,10 @@ export function validateIdea(raw: unknown) {
   const title = field('title', 90, 5),
     description = field('description', 1400, 5),
     place = field('place', 90),
-    displayName = field('displayName', 60);
+    displayName = field('displayName', 60),
+    question = field('question', 180) || DEFAULT_QUESTION;
+  if (question.length < 5)
+    throw new InputError('Ask a short question, at least 5 characters.');
   if (v.consent !== true)
     throw new InputError('Confirm sharing with visitors.');
   if (v.website)
@@ -33,6 +37,7 @@ export function validateIdea(raw: unknown) {
   return {
     title,
     description,
+    question,
     submissionKey: submissionKey || null,
     place,
     displayName: displayName || null,

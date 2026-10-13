@@ -32,39 +32,49 @@ export async function POST(request: Request) {
     const { submissionKey, ...fields } = data;
     async function previous() {
       if (!submissionKey) return null;
-      const row = await db
-        .prepare(IDEA_SELECT + ' WHERE submission_key=? AND i.visitor_id=?')
-        .bind(id, submissionKey, id)
+      // Compare with the original submission, not the latest author update.
+      const original = await db
+        .prepare(
+          'SELECT id,title,description,question,place,display_name AS displayName FROM ideas WHERE submission_key=? AND visitor_id=?',
+        )
+        .bind(submissionKey, id)
         .first<Record<string, unknown>>();
-      if (!row) return null;
+      if (!original) return null;
       if (
-        row.title !== fields.title ||
-        row.description !== fields.description ||
-        row.place !== fields.place ||
-        row.displayName !== fields.displayName
+        original.title !== fields.title ||
+        original.description !== fields.description ||
+        original.question !== fields.question ||
+        original.place !== fields.place ||
+        original.displayName !== fields.displayName
       )
         throw new InputError(
           'This submission changed. Edit the idea and try again.',
           409,
         );
-      return ideaFromRow(row);
+      // The author's receipt, including a submission still awaiting review.
+      const row = await db
+        .prepare(IDEA_SELECT + ' WHERE i.id=?')
+        .bind(id, original.id)
+        .first<Record<string, unknown>>();
+      return row ? ideaFromRow(row) : null;
     }
     const saved = await previous();
     if (saved) return response(request, id, { idea: saved });
     await limitWrites(request, id, 'ideas');
     const screening = await screenSubmission(
-      [fields.title, fields.description, fields.displayName]
+      [fields.title, fields.description, fields.question, fields.displayName]
         .filter(Boolean)
         .join('\n'),
     );
     const result = await db
       .prepare(
-        'INSERT INTO ideas (id,title,description,category,place,display_name,created_at,visitor_id,submission_key,moderation_state,moderation_reason) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO ideas (id,title,description,question,category,place,display_name,created_at,visitor_id,submission_key,moderation_state,moderation_reason) SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM ideas WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         ideaId,
         fields.title,
         fields.description,
+        fields.question,
         'other', // Required by the retained legacy database column.
         fields.place,
         fields.displayName,
@@ -101,6 +111,10 @@ export async function POST(request: Request) {
           waters: 0,
           watered: false,
           commentCount: 0,
+          owned: true,
+          version: 0,
+          creditedCount: 0,
+          reviewCount: 0,
           example: false,
         },
       },

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { CONTRIBUTION_KINDS, type ContributionKind } from '@/lib/participation';
 import { readSignature } from '@/lib/signature';
 import {
   readSubmission,
@@ -8,8 +9,13 @@ import {
 } from '@/lib/submission';
 
 type ReplyTarget = { id: string; displayName: string };
-type Draft = { body: string; name: string; parent: ReplyTarget | null };
-const emptyDraft: Draft = { body: '', name: '', parent: null };
+type Draft = {
+  body: string;
+  name: string;
+  parent: ReplyTarget | null;
+  kind: ContributionKind;
+};
+const emptyDraft: Draft = { body: '', name: '', parent: null, kind: 'detail' };
 
 export function useReplyDraft(ideaId: string) {
   const storageKey = 'waterloo-reply-draft:' + ideaId;
@@ -23,6 +29,9 @@ export function useReplyDraft(ideaId: string) {
       if (stored && typeof stored.body === 'string') {
         next = {
           body: stored.body.slice(0, 1000),
+          kind:
+            CONTRIBUTION_KINDS.find((item) => item.id === stored.kind)?.id ||
+            'detail',
           name: typeof stored.name === 'string' ? stored.name.slice(0, 60) : '',
           parent:
             typeof stored.parent?.id === 'string'

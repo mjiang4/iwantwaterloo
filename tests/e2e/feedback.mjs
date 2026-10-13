@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium, webkit } from 'playwright';
 import { startTestSite } from '../helpers/test-site.mjs';
+import { openMenu } from '../helpers/park-ui.mjs';
 const site = await startTestSite();
 try {
   for (const [engine, viewport] of [
@@ -48,7 +49,11 @@ try {
         true,
       );
       await page.getByRole('link', { name: 'Back to garden' }).click();
-      await page.getByRole('button', { name: 'About', exact: true }).click();
+      await (
+        await openMenu(page)
+      )
+        .getByRole('button', { name: 'About and privacy', exact: true })
+        .click();
       await page
         .getByRole('link', { name: 'giving us feedback', exact: true })
         .click();

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
-import { Tooltip } from '@base-ui/react/tooltip';
+import { Layers } from 'lucide-react';
 import { createFruitGeometry } from './garden-fruit';
 import * as THREE from 'three';
 import { GROVE_SIZE, type Idea } from '@/lib/garden';
@@ -14,10 +14,12 @@ import {
   type GardenMoment,
   seedForId,
   randomAt,
-  plotPosition,
   gardenPalette,
-  hitTreeTargets,
 } from '@/lib/garden-visuals';
+import { milestoneFlowers } from '@/lib/participation';
+import { ideaTheme } from '@/features/park/themes';
+import { clusterTargets } from '@/features/park/clusters';
+import { parkPlotPosition as plotPosition } from '@/features/park/plots';
 const noRaycast = () => {};
 const growthKeys = [
   'height',
@@ -28,7 +30,8 @@ const growthKeys = [
   'branches',
   'planted',
 ] as const;
-type ForestProps = {
+export type ForestProps = {
+  discoveryId?: string | null;
   ideas: Idea[];
   motion: boolean;
   moment: GardenMoment | null;
@@ -41,7 +44,73 @@ type ForestProps = {
   onPlanted: () => void;
   onSelect: (id: string) => void;
   onCluster: (ids: string[]) => void;
+  /** Optional warm self-illumination for canopies after dark (look development). */
+  canopyGlow?: { color: string; intensity: number } | null;
+  /** Optional warm light pooled under each idea tree (look development). */
+  lanternPools?: { color: string; intensity: number } | null;
 };
+let poolTexture: THREE.CanvasTexture | null = null;
+/** One shared soft radial falloff, drawn once per session. */
+function lanternTexture() {
+  if (poolTexture) return poolTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const g = canvas.getContext('2d')!;
+  const gradient = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.35, 'rgba(255,255,255,.45)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gradient;
+  g.fillRect(0, 0, 64, 64);
+  poolTexture = new THREE.CanvasTexture(canvas);
+  return poolTexture;
+}
+/** A single instanced, additive draw: one soft pool of light per idea tree. */
+function LanternPools({
+  positions,
+  glow,
+}: {
+  positions: [number, number][];
+  glow: { color: string; intensity: number };
+}) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const { invalidate } = useThree();
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const o = new THREE.Object3D();
+    positions.forEach(([x, z], i) => {
+      o.position.set(x, 0.18, z);
+      o.rotation.set(-Math.PI / 2, 0, 0);
+      o.scale.setScalar(1.05);
+      o.updateMatrix();
+      mesh.setMatrixAt(i, o.matrix);
+    });
+    mesh.count = positions.length;
+    mesh.instanceMatrix.needsUpdate = true;
+    invalidate();
+  }, [positions, invalidate]);
+  return (
+    <instancedMesh
+      ref={ref}
+      args={[undefined, undefined, GROVE_SIZE]}
+      frustumCulled={false}
+      raycast={noRaycast}
+      renderOrder={1}
+    >
+      <circleGeometry args={[1, 24]} />
+      <meshBasicMaterial
+        map={lanternTexture()}
+        color={glow.color}
+        transparent
+        opacity={glow.intensity}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+        fog={false}
+      />
+    </instancedMesh>
+  );
+}
 // Ten instanced draws for the entire grove, including canopy fruit and
 // interaction-only sparkles. Fixed capacities keep geometry bounded on mobile.
 export function Forest(props: ForestProps) {
@@ -90,10 +159,18 @@ export function Forest(props: ForestProps) {
         idea,
         seed: seedForId(idea.id),
         pos: plotPosition(idea.plot ?? index),
-        target: growthForLikes(idea.waters),
+        // Likes grow the tree, fruit and flowers; participation milestones add flowers too.
+        target: {
+          ...growthForLikes(idea.waters),
+          flowers: Math.max(
+            growthForLikes(idea.waters).flowers,
+            milestoneFlowers(idea),
+          ),
+        },
       })),
     [props.ideas],
   );
+  const poolPositions = useMemo(() => rows.map((r) => r.pos), [rows]);
   function pickTree(event: ThreeEvent<MouseEvent>, canopies = false) {
     if (event.delta > 5 || event.instanceId === undefined) return;
     const row = rows[Math.floor(event.instanceId / (canopies ? 3 : 1))];
@@ -137,6 +214,7 @@ export function Forest(props: ForestProps) {
       if (row) {
         states.current.set(row.idea.id, {
           ...growthForLikes(props.moment.fromLikes),
+          flowers: row.target.flowers,
           planted: props.moment.kind === 'plant' && motion ? 0.025 : 1,
         });
         momentState.current = {
@@ -198,8 +276,16 @@ export function Forest(props: ForestProps) {
           continue;
         const end = key === 'planted' ? 1 : target[key];
         if (celebrating && props.moment!.kind === 'like' && key !== 'planted') {
+          // Milestone flowers are already earned; a like only grows from there.
+          const start =
+            key === 'flowers'
+              ? Math.max(
+                  growthForLikes(props.moment!.fromLikes).flowers,
+                  milestoneFlowers(idea),
+                )
+              : growthForLikes(props.moment!.fromLikes)[key];
           state[key] = growthAtProgress(
-            growthForLikes(props.moment!.fromLikes)[key],
+            start,
             end,
             momentState.current.progress,
           );
@@ -457,8 +543,12 @@ export function Forest(props: ForestProps) {
         frustumCulled={false}
         onClick={(event) => pickTree(event, true)}
       >
-        <icosahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial roughness={1} flatShading />
+        <icosahedronGeometry args={[1, 2]} />
+        <meshStandardMaterial
+          roughness={0.88}
+          emissive={props.canopyGlow?.color ?? '#000000'}
+          emissiveIntensity={props.canopyGlow?.intensity ?? 0}
+        />
       </instancedMesh>
       <instancedMesh
         name="idea-branches"
@@ -548,15 +638,19 @@ export function Forest(props: ForestProps) {
           depthWrite={false}
         />
       </mesh>
+      {props.lanternPools && props.lanternPools.intensity > 0.01 && (
+        <LanternPools positions={poolPositions} glow={props.lanternPools} />
+      )}
       {!props.moment && <TreeMarkers {...props} />}
     </>
   );
 }
 function markerHeight(idea: Idea) {
   const base = 0.88 + randomAt(seedForId(idea.id), 0) * 0.18;
-  return 0.16 + base * growthForLikes(idea.waters).height * 0.82;
+  return 0.36 + base * growthForLikes(idea.waters).height * 1.18;
 }
-function TreeMarkers({
+export function TreeMarkers({
+  discoveryId,
   ideas,
   selected,
   onSelect,
@@ -570,22 +664,70 @@ function TreeMarkers({
     const timer = setTimeout(() => setRevealedId(null), 2400);
     return () => clearTimeout(timer);
   }, [revealedId]);
+  const { camera, size } = useThree();
+  const [groups, setGroups] = useState<ReturnType<typeof clusterTargets>>([]);
+  const previous = useRef(new THREE.Matrix4()),
+    projection = useRef(new THREE.Matrix4()),
+    version = useRef(''),
+    point = useMemo(() => new THREE.Vector3(), []);
+  const key =
+    ideas.map((i) => `${i.id}:${i.plot}:${i.waters}`).join(':') +
+    size.width +
+    ':' +
+    size.height;
+  useFrame(() => {
+    if (
+      version.current === key &&
+      previous.current.equals(camera.matrixWorld) &&
+      projection.current.equals(camera.projectionMatrix)
+    )
+      return;
+    previous.current.copy(camera.matrixWorld);
+    projection.current.copy(camera.projectionMatrix);
+    version.current = key;
+    setGroups(
+      clusterTargets(
+        ideas.slice(0, GROVE_SIZE).map((idea, index) => {
+          const [x, z] = plotPosition(idea.plot ?? index);
+          point.set(x, markerHeight(idea), z).project(camera);
+          return {
+            x: ((point.x + 1) * size.width) / 2,
+            y: ((1 - point.y) * size.height) / 2,
+            index,
+          };
+        }),
+      ),
+    );
+  });
   return (
     <>
-      {ideas.slice(0, GROVE_SIZE).map((idea, index) => {
-        const [x, z] = plotPosition(idea.plot ?? index);
+      {groups.map((group) => {
+        const members = group.indices.map((i) => ideas[i]).filter(Boolean);
+        if (!members.length) return null;
+        const position = new THREE.Vector3();
+        for (const idea of members) {
+          const index = ideas.indexOf(idea),
+            [x, z] = plotPosition(idea.plot ?? index);
+          position.add(new THREE.Vector3(x, markerHeight(idea), z));
+        }
+        position.divideScalar(members.length);
+        const active = members.some((i) => i.id === selected);
         return (
           <TreeMarker
-            key={idea.id}
-            idea={idea}
-            position={new THREE.Vector3(x, markerHeight(idea), z)}
-            active={idea.id === selected}
-            fresh={idea.id === highlightId}
+            key={members.map((i) => i.id).join(':')}
+            members={members}
+            discoveryTitle={members.find((i) => i.id === discoveryId)?.title}
+            position={position}
+            tooltipOffset={
+              Math.max(126, Math.min(size.width - 126, group.x)) - group.x
+            }
+            active={active}
+            fresh={members.some((i) => i.id === highlightId)}
             onSeen={() => {
               setRevealedId(highlightId);
               onHighlighted();
             }}
-            showCue={idea.id === revealedId}
+            showCue={members.some((i) => i.id === revealedId)}
             onSelect={onSelect}
             onCluster={onCluster}
           />
@@ -594,8 +736,11 @@ function TreeMarkers({
     </>
   );
 }
+
 function TreeMarker({
-  idea,
+  discoveryTitle,
+  tooltipOffset,
+  members,
   position,
   active,
   fresh,
@@ -604,7 +749,9 @@ function TreeMarker({
   onSelect,
   onCluster,
 }: {
-  idea: Idea;
+  discoveryTitle?: string;
+  tooltipOffset: number;
+  members: Idea[];
   position: THREE.Vector3;
   active: boolean;
   fresh: boolean;
@@ -617,78 +764,54 @@ function TreeMarker({
     fresh,
     onSeen,
   );
-  const press = useRef<{ x: number; y: number } | null>(null);
+  const single = members.length === 1,
+    idea = members[0];
   return (
-    <Html position={position} center zIndexRange={[20, 0]}>
-      <Tooltip.Root>
-        <Tooltip.Trigger
-          delay={150}
-          ref={cueRef}
-          data-tree-target={idea.id}
-          className={`plant-marker garden-target tree-hit-target ${active ? 'selected' : ''} ${highlighted || showCue ? 'is-fresh' : ''}`}
-          aria-label={`Read idea: ${idea.title}`}
-          aria-describedby={`tree-tooltip-${idea.id}`}
-          onPointerDown={(e) => {
-            press.current = { x: e.clientX, y: e.clientY };
-          }}
-          onPointerCancel={() => {
-            press.current = null;
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (e.detail === 0) {
-              onSelect(idea.id);
-              return;
-            }
-            if (
-              press.current &&
-              Math.hypot(
-                e.clientX - press.current.x,
-                e.clientY - press.current.y,
-              ) > 8
-            )
-              return;
-            const stage = e.currentTarget.closest('.garden-stage');
-            const targets = Array.from(
-              stage?.querySelectorAll<HTMLElement>('[data-tree-target]') ?? [],
-            ).map((el) => {
-              const { left, top, right, bottom } = el.getBoundingClientRect();
-              return { id: el.dataset.treeTarget!, left, top, right, bottom };
-            });
-            const ids = hitTreeTargets(targets, e.clientX, e.clientY);
-            if (ids.length > 1) onCluster(ids);
-            else onSelect(idea.id);
-          }}
-        >
-          <span className="marker-face" aria-hidden="true">
-            <span className="marker-dot" />
-          </span>
-          {(highlighted || showCue) && (
-            <span className="fresh-tree-label" aria-hidden="true">
-              Your tree
-            </span>
+    <Html
+      position={position}
+      center
+      zIndexRange={discoveryTitle ? [23, 21] : [20, 0]}
+    >
+      <button
+        ref={cueRef}
+        className={`plant-marker garden-target ${active ? 'selected' : ''} ${single ? '' : 'cluster-marker'} ${highlighted || showCue ? 'is-fresh' : ''} ${highlighted ? 'is-arriving' : ''} ${discoveryTitle ? 'is-discovery' : ''}`}
+        aria-label={
+          single
+            ? `Read idea: ${idea.title}`
+            : `Choose from ${members.length} nearby ideas`
+        }
+        onClick={(e) => {
+          e.stopPropagation();
+          if (single) onSelect(idea.id);
+          else onCluster(members.map((i) => i.id));
+        }}
+      >
+        <span className="marker-face">
+          {single ? (
+            <span
+              className="marker-dot"
+              style={{ background: ideaTheme(idea).color }}
+            />
+          ) : (
+            <>
+              <Layers size={12} />
+              <span>{members.length}</span>
+            </>
           )}
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Positioner
-            side="top"
-            sideOffset={8}
-            collisionPadding={12}
-            className="tree-tooltip-positioner"
-          >
-            <Tooltip.Popup
-              className="tree-tooltip"
-              role="tooltip"
-              id={`tree-tooltip-${idea.id}`}
-            >
-              <span>{idea.title}</span>
-              <span className="tree-tooltip-likes">
-                {idea.waters} {idea.waters === 1 ? 'like' : 'likes'}
-              </span>
-            </Tooltip.Popup>
-          </Tooltip.Positioner>
-        </Tooltip.Portal>
-      </Tooltip.Root>
+        </span>
+        {(highlighted || showCue) && (
+          <span className="fresh-tree-label" aria-hidden="true">
+            Your tree{single ? '' : ' is here'}
+          </span>
+        )}
+        <span
+          className="plant-tooltip"
+          style={discoveryTitle ? { marginLeft: tooltipOffset } : undefined}
+        >
+          {discoveryTitle ||
+            (single ? idea.title : `${members.length} nearby ideas`)}
+        </span>
+      </button>
     </Html>
   );
 }

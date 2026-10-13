@@ -22,7 +22,10 @@ const run = promisify(execFile);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Runs the compiled application against a new database, never .preview/state. */
-export async function startTestSite({ screening = 'allow' } = {}) {
+export async function startTestSite({
+  preview = false,
+  screening = 'allow',
+} = {}) {
   rejectExternalTarget();
   const directory = await mkdtemp(path.join(tmpdir(), 'waterloo-browser-'));
   const port = Number(process.env.WATERLOO_TEST_PORT || 3173);
@@ -30,6 +33,8 @@ export async function startTestSite({ screening = 'allow' } = {}) {
     throw new Error('Invalid test port.');
   const origin = 'http://127.0.0.1:' + port;
   const marker = randomUUID();
+  const adminSecret = randomBytes(32).toString('hex');
+  const previewId = 'preview-' + randomUUID();
   let child;
   let output = '';
   const env = {
@@ -101,7 +106,14 @@ export async function startTestSite({ screening = 'allow' } = {}) {
         },
       ],
       vars: {
-        GARDEN_ENV: 'test',
+        GARDEN_ENV: preview ? 'preview' : 'test',
+        ...(preview
+          ? {
+              PREVIEW_ADMIN_SECRET: adminSecret,
+              PREVIEW_ORIGIN: origin,
+              PREVIEW_ID: previewId,
+            }
+          : {}),
         OPENAI_API_KEY: 'test-only-not-a-real-key',
         RATE_LIMIT_SECRET: randomBytes(32).toString('hex'),
       },
@@ -121,6 +133,20 @@ export async function startTestSite({ screening = 'allow' } = {}) {
       [wrangler, 'd1', 'migrations', 'apply', 'DB', ...common],
       { cwd: directory, env },
     );
+    if (preview)
+      await run(
+        process.execPath,
+        [
+          wrangler,
+          'd1',
+          'execute',
+          'DB',
+          ...common,
+          '--command',
+          `INSERT INTO preview_identity(id,value) VALUES (1,'${previewId}')`,
+        ],
+        { cwd: directory, env },
+      );
     child = spawn(
       process.execPath,
       [wrangler, 'dev', ...common, '--ip', '127.0.0.1', '--port', String(port)],
@@ -141,7 +167,7 @@ export async function startTestSite({ screening = 'allow' } = {}) {
         });
         // A process already using this port must never receive test submissions.
         if (response.ok && (await response.text()) === marker)
-          return { origin, dispose };
+          return { origin, dispose, adminSecret };
       } catch {
         /* Wait only for this new worker. */
       }

@@ -1,4 +1,5 @@
-export const GROVE_SIZE = 48;
+/** One grove fills the park's 24 mapped clearings (assets/park/map.json plots). */
+export const GROVE_SIZE = 24;
 export type Idea = {
   moderationState?: 'visible' | 'pending';
   id: string;
@@ -12,11 +13,20 @@ export type Idea = {
   plot?: number;
   displayName?: string;
   commentCount?: number;
+  question?: string;
+  owned?: boolean;
+  version?: number;
+  creditedCount?: number;
+  reviewCount?: number;
+  reviewStatus?: string;
 };
 export type GardenComment = {
   id: string;
   ideaId: string;
   parentId: string | null;
+  kind?: import('./participation').ContributionKind;
+  incorporated?: boolean;
+  byAuthor?: boolean;
   body: string;
   displayName: string;
   createdAt: number;

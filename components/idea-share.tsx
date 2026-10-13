@@ -8,8 +8,13 @@ import {
   PopoverContent,
   PopoverTitle,
 } from '@/components/ui/popover';
+import { questionFor } from '@/lib/participation';
 import type { Idea } from '@/lib/garden';
-export function IdeaShare({ idea }: { idea: Pick<Idea, 'id' | 'title'> }) {
+export function IdeaShare({
+  idea,
+}: {
+  idea: Pick<Idea, 'id' | 'title' | 'question'>;
+}) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState('');
@@ -25,7 +30,11 @@ export function IdeaShare({ idea }: { idea: Pick<Idea, 'id' | 'title'> }) {
         await navigator.clipboard.writeText(url);
         setMessage('Link copied');
       } else {
-        await navigator.share({ title: idea.title, text: idea.title, url });
+        await navigator.share({
+          title: idea.title,
+          text: `${idea.title}\n${questionFor(idea)}\nHelp shape this idea.`,
+          url,
+        });
       }
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError'))
@@ -41,8 +50,11 @@ export function IdeaShare({ idea }: { idea: Pick<Idea, 'id' | 'title'> }) {
         onOpenChange={(open) => {
           if (open) {
             setUrl(
-              new URL(`/ideas/${encodeURIComponent(idea.id)}`, location.origin)
-                .href,
+              // ?via=share lets the idea count contributions that arrive by link.
+              new URL(
+                `/ideas/${encodeURIComponent(idea.id)}?via=share`,
+                location.origin,
+              ).href,
             );
             setNativeShare(typeof navigator.share === 'function');
             setMessage('');
@@ -104,19 +116,26 @@ export function IdeaShare({ idea }: { idea: Pick<Idea, 'id' | 'title'> }) {
 export function PlantReceipt({
   idea,
   onDone,
+  onDevelop,
 }: {
   idea: Idea;
   onDone: () => void;
+  onDevelop?: () => void;
 }) {
   return (
     <section className="plant-receipt" aria-label="Your posted idea">
       <output className="receipt-status">Your idea is in the garden.</output>
-      <p className="receipt-text">{idea.description}</p>
+      <p className="receipt-text">{questionFor(idea)}</p>
       {idea.displayName && (
         <p className="receipt-signature">{idea.displayName}</p>
       )}
       <div className="receipt-actions">
         <IdeaShare idea={idea} />
+        {onDevelop && (
+          <Button variant="ghost" onClick={onDevelop}>
+            Shape your idea
+          </Button>
+        )}
         <Button variant="ghost" onClick={onDone}>
           Done
         </Button>
