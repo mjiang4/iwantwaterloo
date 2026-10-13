@@ -148,9 +148,14 @@ export const ideaUpdates = sqliteTable(
     visitorId: text('visitor_id').notNull(),
     submissionKey: text('submission_key').notNull(),
     createdAt: integer('created_at').notNull(),
+    // Updates replace the public text, so new ones are screened like new ideas.
+    // Writes always set the state; the default only covers rows from before screening.
+    moderationState: text('moderation_state').notNull().default('visible'),
+    moderationReason: text('moderation_reason'),
   },
   (t) => [
     uniqueIndex('idx_idea_updates_version').on(t.ideaId, t.version),
+    index('idx_idea_updates_moderation').on(t.moderationState),
     uniqueIndex('idx_idea_updates_submission').on(t.submissionKey),
   ],
 );
@@ -187,9 +192,11 @@ export const loves = sqliteTable(
     visitorId: text('visitor_id').notNull(),
     submissionKey: text('submission_key'),
     moderationState: text('moderation_state').notNull().default('visible'),
+    moderationReason: text('moderation_reason'),
   },
   (t) => [
     uniqueIndex('idx_loves_submission_key').on(t.submissionKey),
+    index('idx_loves_moderation').on(t.moderationState),
     index('idx_loves_created').on(t.createdAt),
     index('idx_loves_visitor_created').on(t.visitorId, t.createdAt),
   ],

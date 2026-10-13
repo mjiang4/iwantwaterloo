@@ -1,5 +1,7 @@
 import { database } from '@/db/raw';
 import { InputError } from '@/lib/server';
+import { screenSubmission } from '@/server/moderation';
+import { notifyModerators } from '@/server/moderation-notifications';
 import { ideaTitle } from '@/lib/garden';
 import {
   REVIEW_STATUSES,
@@ -55,30 +57,53 @@ export function updateInput(raw: unknown) {
   };
 }
 
-export async function appendUpdate(raw: unknown, visitorId: string) {
+/** Updates per idea; the history is public and each one is screened and reviewable. */
+const MAX_UPDATES = 50;
+
+/**
+ * Append an author update. Updates replace the idea's public text, so they are
+ * screened like new ideas: a held update stays private until a moderator
+ * approves it, and the public keeps seeing the last visible version.
+ * `beforeWrite` runs once a genuinely new update is about to be stored (rate limits).
+ */
+export async function appendUpdate(
+  raw: unknown,
+  visitorId: string,
+  beforeWrite: () => Promise<void>,
+): Promise<{ ideaId: string; moderationState: 'visible' | 'pending' }> {
   const input = updateInput(raw);
   const db = database();
   const previous = async () => {
     const row = await db
-      .prepare('SELECT * FROM idea_updates WHERE submission_key=?')
+      .prepare(
+        'SELECT visitor_id,idea_id,description,question,note,credits,moderation_state FROM idea_updates WHERE submission_key=?',
+      )
       .bind(input.submissionKey)
       .first();
     if (!row) return null;
     if (
       row.visitor_id !== visitorId ||
       row.idea_id !== input.ideaId ||
-      row.version !== input.version + 1 ||
       row.description !== input.description ||
       row.question !== input.question ||
       row.note !== input.note ||
       row.credits !== input.credits
     )
       throw new InputError('This update changed. Edit it and try again.', 409);
-    return row;
+    return {
+      ideaId: input.ideaId,
+      moderationState:
+        row.moderation_state === 'visible'
+          ? ('visible' as const)
+          : ('pending' as const),
+    };
   };
-  if (await previous()) return input.ideaId;
+  const saved = await previous();
+  if (saved) return saved;
   const owner = await db
-    .prepare('SELECT visitor_id FROM ideas WHERE id=?')
+    .prepare(
+      "SELECT visitor_id,(SELECT count(*) FROM idea_updates WHERE idea_id=ideas.id) AS updates FROM ideas WHERE id=? AND moderation_state='visible'",
+    )
     .bind(input.ideaId)
     .first();
   if (!owner) throw new InputError('Idea not found.', 404);
@@ -87,19 +112,26 @@ export async function appendUpdate(raw: unknown, visitorId: string) {
       'Only the browser that posted this idea can update it.',
       403,
     );
+  if (Number(owner.updates) >= MAX_UPDATES)
+    throw new InputError('This idea has reached its update limit.', 409);
+  await beforeWrite();
+  const screening = await screenSubmission(
+    [input.description, input.question, input.note].join('\n'),
+  );
   // One conditional insert is the transaction: a stale tab cannot overwrite a newer
-  // revision. Credit is checked in the same statement, including moderation state.
+  // visible revision. Credit is checked in the same statement, including moderation
+  // state. Versions number past held updates so retries and history stay unique.
   const inserted = await db
     .prepare(`INSERT INTO idea_updates
-    (id,idea_id,version,title,description,question,note,credits,visitor_id,submission_key,created_at)
-    SELECT ?,id,?,?,?,?,?,?,?,?,? FROM ideas WHERE id=? AND visitor_id=?
-    AND coalesce((SELECT max(version) FROM idea_updates WHERE idea_id=ideas.id),0)=?
+    (id,idea_id,version,title,description,question,note,credits,visitor_id,submission_key,created_at,moderation_state,moderation_reason)
+    SELECT ?,id,coalesce((SELECT max(version) FROM idea_updates WHERE idea_id=ideas.id),0)+1,?,?,?,?,?,?,?,?,?,?
+    FROM ideas WHERE id=? AND visitor_id=? AND moderation_state='visible'
+    AND coalesce((SELECT max(version) FROM idea_updates WHERE idea_id=ideas.id AND moderation_state='visible'),0)=?
     AND (SELECT count(*) FROM comments c WHERE c.idea_id=ideas.id AND c.moderation_state='visible'
       AND c.visitor_id!=? AND c.id IN (SELECT value FROM json_each(?)))=json_array_length(?)
     ON CONFLICT DO NOTHING`)
     .bind(
       crypto.randomUUID(),
-      input.version + 1,
       input.title,
       input.description,
       input.question,
@@ -108,6 +140,8 @@ export async function appendUpdate(raw: unknown, visitorId: string) {
       visitorId,
       input.submissionKey,
       Date.now(),
+      screening.state,
+      screening.reason,
       input.ideaId,
       visitorId,
       input.version,
@@ -116,12 +150,16 @@ export async function appendUpdate(raw: unknown, visitorId: string) {
       input.credits,
     )
     .run();
-  if (!inserted.meta.changes && !(await previous()))
+  if (!inserted.meta.changes) {
+    const retried = await previous();
+    if (retried) return retried;
     throw new InputError(
       'This idea or a credited contribution changed. Refresh the idea, then review your update.',
       409,
     );
-  return input.ideaId;
+  }
+  if (screening.state === 'pending') await notifyModerators();
+  return { ideaId: input.ideaId, moderationState: screening.state };
 }
 
 export async function activityFor(
@@ -132,11 +170,11 @@ export async function activityFor(
   const [originals, events] = await db.batch<Record<string, unknown>>([
     db
       .prepare(
-        'SELECT title,description,question,created_at AS createdAt FROM ideas WHERE id=?',
+        "SELECT title,description,question,created_at AS createdAt FROM ideas WHERE id=? AND moderation_state='visible'",
       )
       .bind(ideaId),
     db
-      .prepare(`SELECT id,'author' AS kind,created_at AS createdAt,note,'' AS status,version,title,description,question FROM idea_updates WHERE idea_id=?
+      .prepare(`SELECT id,'author' AS kind,created_at AS createdAt,note,'' AS status,version,title,description,question FROM idea_updates WHERE idea_id=? AND moderation_state='visible'
       UNION ALL SELECT id,'organizer',created_at,body,status,0,'','','' FROM organizer_reviews WHERE idea_id=?
       ORDER BY createdAt DESC,id DESC LIMIT 21 OFFSET ?`)
       .bind(ideaId, ideaId, page * 20),
@@ -211,7 +249,7 @@ export async function appendReview(raw: unknown) {
   if (await previous()) return;
   const inserted = await db
     .prepare(
-      'INSERT INTO organizer_reviews(id,idea_id,body,status,submission_key,created_at) SELECT ?,id,?,?,?,? FROM ideas WHERE id=? ON CONFLICT(submission_key) DO NOTHING',
+      "INSERT INTO organizer_reviews(id,idea_id,body,status,submission_key,created_at) SELECT ?,id,?,?,?,? FROM ideas WHERE id=? AND moderation_state='visible' ON CONFLICT(submission_key) DO NOTHING",
     )
     .bind(crypto.randomUUID(), body, status, key, Date.now(), ideaId)
     .run();

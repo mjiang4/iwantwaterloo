@@ -63,6 +63,8 @@ export function LoveComposer({
   const [place, setPlace] = useState<LoveLandmark | ''>('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  // Screening held the love: thank the author; it blooms once a moderator approves.
+  const [held, setHeld] = useState(false);
   const [submission, setSubmission] = useState<Submission | null>(
     initial.submission,
   );
@@ -100,14 +102,18 @@ export function LoveComposer({
     setError('');
     try {
       const { love } = await postLove({ ...payload, submissionKey: next.key });
-      client.setQueryData<LovesPage>(LOVES_KEY, (data) => ({
-        loves: [love, ...(data?.loves ?? []).filter((l) => l.id !== love.id)],
-      }));
       setBody('');
       setName('');
       setPlace('');
       setSubmission(null);
       saveDraft(null);
+      if (love.moderationState === 'pending') {
+        setHeld(true);
+        return;
+      }
+      client.setQueryData<LovesPage>(LOVES_KEY, (data) => ({
+        loves: [love, ...(data?.loves ?? []).filter((l) => l.id !== love.id)],
+      }));
       onPosted(love);
     } catch (e) {
       // Keep the draft and its key so retrying cannot duplicate the love.
@@ -127,82 +133,98 @@ export function LoveComposer({
       }}
     >
       <DialogContent className="love-composer">
-        <DialogTitle>What do you love here?</DialogTitle>
-        <DialogDescription>
-          {choosing
-            ? 'A small thing counts. It will bloom near the place you choose.'
-            : 'A small thing counts. It will bloom where you tapped.'}
-        </DialogDescription>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void post();
-          }}
-        >
-          {choosing && (
-            <>
-              <label htmlFor="love-place">Where is it?</label>
-              <select
-                id="love-place"
-                value={place}
-                required
-                onChange={(event) =>
-                  setPlace(event.target.value as LoveLandmark | '')
-                }
-              >
-                <option value="">Choose a place in the park</option>
-                {LOVE_PLACES.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-          <label className="sr-only" htmlFor="love-body">
-            What you love
-          </label>
-          <textarea
-            id="love-body"
-            value={body}
-            maxLength={MAX}
-            rows={3}
-            placeholder="The boardwalk at sunset, when half of Uptown is out walking."
-            aria-describedby="love-count"
-            onChange={(event) => setBody(event.target.value)}
-          />
-          <div className="love-composer-row">
-            <label htmlFor="love-name">Your name · optional</label>
-            <span id="love-count" className="love-composer-count">
-              {body.length}/{MAX}
-            </span>
-          </div>
-          <input
-            id="love-name"
-            value={name}
-            maxLength={60}
-            autoComplete="name"
-            onChange={(event) => setName(event.target.value)}
-          />
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="love-composer-actions">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onClose}
-              disabled={pending}
+        {held ? (
+          <>
+            <DialogTitle>Thanks—your love is awaiting review.</DialogTitle>
+            <DialogDescription>
+              It will bloom in the park once a moderator has read it.
+            </DialogDescription>
+            <div className="love-composer-actions">
+              <Button type="button" onClick={onClose}>
+                Done
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <DialogTitle>What do you love here?</DialogTitle>
+            <DialogDescription>
+              {choosing
+                ? 'A small thing counts. It will bloom near the place you choose.'
+                : 'A small thing counts. It will bloom where you tapped.'}
+            </DialogDescription>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void post();
+              }}
             >
-              Cancel
-            </Button>
-            <Button type="submit" className="love-post" disabled={pending}>
-              {pending ? 'Planting…' : 'Plant this love'}
-            </Button>
-          </div>
-        </form>
+              {choosing && (
+                <>
+                  <label htmlFor="love-place">Where is it?</label>
+                  <select
+                    id="love-place"
+                    value={place}
+                    required
+                    onChange={(event) =>
+                      setPlace(event.target.value as LoveLandmark | '')
+                    }
+                  >
+                    <option value="">Choose a place in the park</option>
+                    {LOVE_PLACES.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+              <label className="sr-only" htmlFor="love-body">
+                What you love
+              </label>
+              <textarea
+                id="love-body"
+                value={body}
+                maxLength={MAX}
+                rows={3}
+                placeholder="The boardwalk at sunset, when half of Uptown is out walking."
+                aria-describedby="love-count"
+                onChange={(event) => setBody(event.target.value)}
+              />
+              <div className="love-composer-row">
+                <label htmlFor="love-name">Your name · optional</label>
+                <span id="love-count" className="love-composer-count">
+                  {body.length}/{MAX}
+                </span>
+              </div>
+              <input
+                id="love-name"
+                value={name}
+                maxLength={60}
+                autoComplete="name"
+                onChange={(event) => setName(event.target.value)}
+              />
+              {error && (
+                <p className="form-error" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="love-composer-actions">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={onClose}
+                  disabled={pending}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="love-post" disabled={pending}>
+                  {pending ? 'Planting…' : 'Plant this love'}
+                </Button>
+              </div>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

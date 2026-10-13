@@ -30,9 +30,13 @@ export async function POST(request: Request) {
   try {
     await requireVisitor(request);
     const raw = await readBody(request);
-    await limitWrites(request, id, 'comments');
-    const ideaId = await appendUpdate(raw, id);
-    return response(request, id, { idea: await findIdea(ideaId, id) });
+    const { ideaId, moderationState } = await appendUpdate(raw, id, () =>
+      limitWrites(request, id, 'comments'),
+    );
+    return response(request, id, {
+      idea: await findIdea(ideaId, id),
+      moderationState,
+    });
   } catch (error) {
     return failure(request, id, error);
   }

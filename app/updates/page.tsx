@@ -16,7 +16,7 @@ async function loadUpdates() {
   try {
     const result = await database()
       .prepare(
-        `SELECT r.id,r.idea_id AS ideaId,coalesce((SELECT title FROM idea_updates u WHERE u.idea_id=i.id ORDER BY version DESC LIMIT 1),i.title) AS title,r.body,r.status,r.created_at AS createdAt FROM organizer_reviews r JOIN ideas i ON i.id=r.idea_id ORDER BY r.created_at DESC,r.id DESC LIMIT 30`,
+        `SELECT r.id,r.idea_id AS ideaId,coalesce((SELECT title FROM idea_updates u WHERE u.idea_id=i.id AND u.moderation_state='visible' ORDER BY version DESC LIMIT 1),i.title) AS title,r.body,r.status,r.created_at AS createdAt FROM organizer_reviews r JOIN ideas i ON i.id=r.idea_id WHERE i.moderation_state='visible' ORDER BY r.created_at DESC,r.id DESC LIMIT 30`,
       )
       .all<(typeof rows)[number]>();
     rows = result.results;

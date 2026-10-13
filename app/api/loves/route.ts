@@ -8,6 +8,8 @@ import {
   InputError,
 } from '@/lib/server';
 import { limitWrites } from '@/lib/rate-limit';
+import { screenSubmission } from '@/server/moderation';
+import { notifyModerators } from '@/server/moderation-notifications';
 import { LOVE_LANDMARKS } from '@/features/loves/model';
 import { findLove, listLoves } from '@/server/love-records';
 import PARK_BOUNDS from '@/features/park/bounds.json';
@@ -89,7 +91,9 @@ export async function POST(request: Request) {
       now = Date.now();
     async function previous() {
       const original = await db
-        .prepare('SELECT * FROM loves WHERE submission_key=?')
+        .prepare(
+          'SELECT id,visitor_id,body,x,z,landmark,display_name FROM loves WHERE submission_key=?',
+        )
         .bind(submissionKey)
         .first();
       if (!original) return null;
@@ -111,9 +115,13 @@ export async function POST(request: Request) {
     const saved = await previous();
     if (saved) return response(request, id, { love: saved });
     await limitWrites(request, id, 'loves');
+    // Loves are public text, screened like ideas and replies before they bloom.
+    const screening = await screenSubmission(
+      [fields.body, fields.displayName].filter(Boolean).join('\n'),
+    );
     const result = await db
       .prepare(
-        'INSERT INTO loves (id,body,x,z,landmark,display_name,created_at,visitor_id,submission_key) SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM loves WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
+        'INSERT INTO loves (id,body,x,z,landmark,display_name,created_at,visitor_id,submission_key,moderation_state,moderation_reason) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM loves WHERE visitor_id=? AND created_at>?) < 5 ON CONFLICT(submission_key) DO NOTHING',
       )
       .bind(
         loveId,
@@ -125,6 +133,8 @@ export async function POST(request: Request) {
         now,
         id,
         submissionKey,
+        screening.state,
+        screening.reason,
         id,
         now - 600000,
       )
@@ -138,12 +148,14 @@ export async function POST(request: Request) {
         600,
       );
     }
+    if (screening.state === 'pending') await notifyModerators();
     return response(
       request,
       id,
       {
         love: {
           id: loveId,
+          moderationState: screening.state,
           body: fields.body,
           x: fields.x,
           z: fields.z,

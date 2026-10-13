@@ -104,19 +104,24 @@ void test('password login rejects unlisted, wrong, cross-origin and retired magi
       (await site.request('/api/manage/session', { cookie })).response.status,
       401,
     );
-    await site.request('/api/manage/login', {
-      method: 'POST',
-      body: { email: owners[0], password: 'wrong' },
-    });
-    assert.equal(
-      (
-        await site.request('/api/manage/login', {
-          method: 'POST',
-          body: { email: owners[0], password: 'wrong' },
-        })
-      ).response.status,
-      429,
-    );
+    const guess = (ip) =>
+      site.request('/api/manage/login', {
+        method: 'POST',
+        headers: { 'cf-connecting-ip': ip },
+        body: { email: owners[0], password: 'wrong' },
+      });
+    // Repeated guesses from one network are throttled…
+    let status = 0;
+    for (let i = 0; i < 6 && status !== 429; i++)
+      status = (await guess('203.0.113.7')).response.status;
+    assert.equal(status, 429);
+    // …including when the network rotates IPv6 addresses inside its /64…
+    let rotated = 0;
+    for (let i = 1; i <= 6 && rotated !== 429; i++)
+      rotated = (await guess(`2001:db8:1:2::${i}`)).response.status;
+    assert.equal(rotated, 429);
+    // …without letting a stranger lock the owner out from another network.
+    assert.equal((await guess('198.51.100.9')).response.status, 401);
   } finally {
     await site.dispose();
   }
@@ -448,8 +453,61 @@ void test('confirmed idea deletion removes dependent rows and preserves unrelate
           )
           .first()
       ).n,
-      2,
+      1,
+      'only a deletion that removed the idea is audited',
     );
+  } finally {
+    await site.dispose();
+  }
+});
+void test('only owners can issue setup links for owners or for admins someone else invited', async () => {
+  const site = await createApiHarness();
+  try {
+    const owner = await auth(site);
+    const invite = (cookie, email) =>
+      site.request('/api/manage/members', {
+        method: 'POST',
+        cookie,
+        body: { email },
+      });
+    // An owner adds a regular admin, who signs in.
+    assert.ok((await invite(owner, 'helper@example.com')).data.setupUrl);
+    await site.db
+      .prepare(
+        'INSERT INTO admin_passwords(email,password_hash,updated_at) VALUES (?,?,?)',
+      )
+      .bind('helper@example.com', encoded(), Date.now())
+      .run();
+    const helper = await auth(site, 'helper@example.com');
+    // The admin cannot claim the second owner account, which has no password yet…
+    assert.equal((await invite(helper, owners[1])).response.status, 403);
+    // …or take over an invitation the owner sent someone else.
+    assert.ok((await invite(owner, 'pending@example.com')).data.setupUrl);
+    assert.equal(
+      (await invite(helper, 'pending@example.com')).response.status,
+      403,
+    );
+    // They can still invite, and re-send, their own invitee: only the newest link works.
+    const first = (await invite(helper, 'mine@example.com')).data.setupUrl;
+    const second = (await invite(helper, 'mine@example.com')).data.setupUrl;
+    const token = (url) =>
+      new URLSearchParams(new URL(url).hash.slice(1)).get('setup');
+    const setup = (url) =>
+      site.request('/api/manage/setup', {
+        method: 'POST',
+        body: { email: 'mine@example.com', password, token: token(url) },
+      });
+    assert.equal((await setup(first)).response.status, 401);
+    await site.db.prepare('DELETE FROM rate_limits').run();
+    assert.equal((await setup(second)).response.status, 200);
+    // Owners can still set up the second owner, as documented.
+    assert.ok((await invite(owner, owners[1])).data.setupUrl);
+    const issued = await site.db
+      .prepare(
+        "SELECT count(*) AS n FROM admin_audit WHERE action='issue-setup-link'",
+      )
+      .first();
+    assert.equal(issued.n, 5);
   } finally {
     await site.dispose();
   }

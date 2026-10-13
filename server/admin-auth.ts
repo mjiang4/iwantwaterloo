@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { database } from '@/db/raw';
+import { clientNetwork } from '@/lib/network';
 import { InputError } from '@/lib/server';
 
 export const OWNER_EMAILS = ['jerry@unrepped.co', 'jerry@akatos.com'];
@@ -108,36 +109,70 @@ export function audit(actor: string, action: string, target: string) {
     )
     .bind(crypto.randomUUID(), actor, action, target, Date.now());
 }
+/** Audit the preceding statement in the same batch only if it changed a row. */
+export function auditIfChanged(actor: string, action: string, target: string) {
+  return database()
+    .prepare(
+      'INSERT INTO admin_audit(id,actor,action,target,created_at) SELECT ?,?,?,?,? WHERE changes()>0',
+    )
+    .bind(crypto.randomUUID(), actor, action, target, Date.now());
+}
+async function bucketKey(scope: string) {
+  return 'admin-login:' + (await digest(env.RATE_LIMIT_SECRET + ':' + scope));
+}
+/**
+ * Bounds sign-in, setup and password-change attempts without letting strangers
+ * lock admins out: attempts are counted per network and per email+network, and
+ * only failed sign-ins count against an account across all networks.
+ */
 export async function loginLimit(request: Request, email: string) {
   if (!env.RATE_LIMIT_SECRET)
     throw new InputError('Admin sign-in is not configured yet.', 503);
   const now = Date.now(),
-    db = database();
+    db = database(),
+    net = clientNetwork(request) || 'unknown';
+  const failures = await db
+    .prepare('SELECT count FROM rate_limits WHERE key=? AND expires_at>?')
+    .bind(await bucketKey('failed:' + email), now)
+    .first<{ count: number }>();
+  if ((failures?.count ?? 0) >= MAX_ACCOUNT_FAILURES)
+    throw new InputError('Too many requests. Try again in an hour.', 429);
   const scopes: [string, number, number][] = [
-    [
-      'ip:' + (request.headers.get('cf-connecting-ip') || 'unknown'),
-      10,
-      900000,
-    ],
-    ['email:' + email, 3, 900000],
-    ['all', 60, 3600000],
+    ['ip:' + net, 10, 900000],
+    ['email:' + email + ':' + net, 5, 900000],
   ];
-  for (const [scope, max, window] of scopes) {
-    const key =
-      'admin-login:' + (await digest(env.RATE_LIMIT_SECRET + ':' + scope));
-    const results = await db.batch([
-      db
-        .prepare('DELETE FROM rate_limits WHERE key=? AND expires_at<=?')
-        .bind(key, now),
-      db
-        .prepare(
-          'INSERT INTO rate_limits(key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 WHERE count<?',
-        )
-        .bind(key, now + window, max),
-    ]);
-    if (!results[1].meta.changes)
+  for (const [scope, max, window] of scopes)
+    if (!(await increment(await bucketKey(scope), max, window, now)))
       throw new InputError('Too many requests. Try again in 15 minutes.', 429);
-  }
+}
+const MAX_ACCOUNT_FAILURES = 50;
+/** Count a failed sign-in against the account, across every network. */
+export async function loginFailed(email: string) {
+  await increment(
+    await bucketKey('failed:' + email),
+    MAX_ACCOUNT_FAILURES,
+    3600000,
+    Date.now(),
+  );
+}
+async function increment(
+  key: string,
+  max: number,
+  window: number,
+  now: number,
+) {
+  const db = database();
+  const results = await db.batch([
+    db
+      .prepare('DELETE FROM rate_limits WHERE key=? AND expires_at<=?')
+      .bind(key, now),
+    db
+      .prepare(
+        'INSERT INTO rate_limits(key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 WHERE count<?',
+      )
+      .bind(key, now + window, max),
+  ]);
+  return results[1].meta.changes > 0;
 }
 
 export async function issueAdminSession(request: Request, email: string) {

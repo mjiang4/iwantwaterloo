@@ -40,7 +40,14 @@ export async function listIdeas(url: URL, id: string) {
     where.push("COALESCE(NULLIF(i.place, ''), 'Waterloo') = ?");
     args.push(place);
   }
-  for (const term of query.toLowerCase().trim().split(/\s+/).filter(Boolean)) {
+  // Each term is a LIKE scan, so a search is a few meaningful words, not a hundred.
+  const terms = query
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter((term) => term.length > 1)
+    .slice(0, 8);
+  for (const term of terms) {
     where.push(
       `lower(coalesce(u.title,i.title) || ' ' || coalesce(u.description,i.description) || ' ' || i.place) LIKE ? ESCAPE '\\'`,
     );

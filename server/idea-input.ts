@@ -1,5 +1,6 @@
 import { DEFAULT_QUESTION } from '@/lib/participation';
 import { InputError } from '@/lib/server';
+import { isIdeaPlace } from '@/lib/idea-places';
 
 export function validateIdea(raw: unknown) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw))
@@ -22,6 +23,8 @@ export function validateIdea(raw: unknown) {
     question = field('question', 180) || DEFAULT_QUESTION;
   if (question.length < 5)
     throw new InputError('Ask a short question, at least 5 characters.');
+  // Place is public but unscreened, so it is a choice from a fixed list, not free text.
+  if (place && !isIdeaPlace(place)) throw new InputError('Choose a city.');
   if (v.consent !== true)
     throw new InputError('Confirm sharing with visitors.');
   if (v.website)

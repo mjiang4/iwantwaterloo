@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     if (!idea) throw new InputError('Idea not found.', 404);
     const rows = await db
       .prepare(
-        "SELECT c.id,c.idea_id AS ideaId,c.parent_id AS parentId,c.kind,c.body,coalesce(c.display_name,'') AS displayName,c.created_at AS createdAt,EXISTS(SELECT 1 FROM idea_updates u,json_each(u.credits) credit WHERE u.idea_id=c.idea_id AND credit.value=c.id) AS incorporated,c.visitor_id=(SELECT visitor_id FROM ideas WHERE id=c.idea_id) AS byAuthor FROM comments c WHERE c.idea_id=? AND moderation_state='visible' ORDER BY created_at,id LIMIT 21 OFFSET ?",
+        "SELECT c.id,c.idea_id AS ideaId,c.parent_id AS parentId,c.kind,c.body,coalesce(c.display_name,'') AS displayName,c.created_at AS createdAt,EXISTS(SELECT 1 FROM idea_updates u,json_each(u.credits) credit WHERE u.idea_id=c.idea_id AND u.moderation_state='visible' AND credit.value=c.id) AS incorporated,c.visitor_id=(SELECT visitor_id FROM ideas WHERE id=c.idea_id) AS byAuthor FROM comments c WHERE c.idea_id=? AND c.moderation_state='visible' AND (c.parent_id IS NULL OR EXISTS(SELECT 1 FROM comments p WHERE p.id=c.parent_id AND p.moderation_state='visible')) ORDER BY c.created_at,c.id LIMIT 21 OFFSET ?",
       )
       .bind(ideaId, page * 20)
       .all();
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     async function findPrevious() {
       const previous = await db
         .prepare(
-          "SELECT id,idea_id AS ideaId,parent_id AS parentId,kind,body,coalesce(display_name,'') AS displayName,created_at AS createdAt,moderation_state AS moderationState FROM comments WHERE submission_key=? AND visitor_id=?",
+          "SELECT id,idea_id AS ideaId,parent_id AS parentId,kind,source,body,coalesce(display_name,'') AS displayName,created_at AS createdAt,moderation_state AS moderationState FROM comments WHERE submission_key=? AND visitor_id=?",
         )
         .bind(submissionKey, id)
         .first();
@@ -92,6 +92,7 @@ export async function POST(request: Request) {
           previous.parentId !== (parentId || null) ||
           previous.body !== body ||
           previous.kind !== kind ||
+          previous.source !== source ||
           previous.displayName !== displayName
         )
           throw new InputError(
