@@ -49,7 +49,7 @@ import {
   type ParkQuality,
 } from '@/features/park/quality-picker';
 import { useParkTime } from '@/features/park/use-park-time';
-import { setParkFull, useParkFull } from '@/features/park/tier';
+import { setParkFull, useIsPhone, useParkFull } from '@/features/park/tier';
 import { useDeclutter } from '@/features/park/declutter';
 import { useParkLook } from '@/features/park/look';
 import { parkLight } from '@/features/park/time';
@@ -167,6 +167,7 @@ export function GardenExplorer({
   const [qualityNotice, setQualityNotice] = useState('');
   // Phones start stripped down; "Transform me" grows the full park in place.
   const full = useParkFull();
+  const phone = useIsPhone();
   const lite = !full && quality === 'light';
   const [transforming, setTransforming] = useState(false);
   const onCityReady = useCallback(() => setTransforming(false), []);
@@ -448,6 +449,8 @@ export function GardenExplorer({
                     key={sceneKey}
                     quality={quality}
                     lite={lite}
+                    people={data?.people}
+                    peopleMode={phone ? 'phone' : 'full'}
                     riseCity={transforming && motion}
                     onCityReady={onCityReady}
                     discoveryId={

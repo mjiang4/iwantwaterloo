@@ -35,11 +35,16 @@ import {
 } from '@/features/park/loves';
 import type { Love } from '@/features/loves/model';
 import { CityContext, CITY_GROUND_Y } from '@/features/park/city';
+import { ParkPeople } from '@/features/park/people';
+import type { PeopleMode } from '@/features/park/people-graph';
 type Props = {
   ideas: Idea[];
   quality: ParkQuality;
   /** Phones' stripped-down park: no city, shadows or fireflies, 1x resolution. */
   lite: boolean;
+  /** Recent contributing browsers: one walker each, within the device's cap. */
+  people?: number;
+  peopleMode: PeopleMode;
   /** The city grows out of the ground when it next appears ("Transform me"). */
   riseCity: boolean;
   onCityReady: () => void;
@@ -520,6 +525,15 @@ function World(props: Props & { active: boolean }) {
         />
       )}
       <LakeGeese motion={props.motion} />
+      {props.quality === 'light' && (
+        <ParkPeople
+          ideas={props.ideas}
+          people={props.people}
+          mode={props.lite ? 'lite' : props.peopleMode}
+          afterDark={afterDark}
+          motion={props.motion}
+        />
+      )}
       {map.landmarks.map((landmark) => (
         <Html
           key={landmark.name}
